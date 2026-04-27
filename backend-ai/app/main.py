@@ -10,6 +10,7 @@ Includes:
 """
 
 from contextlib import asynccontextmanager
+import httpx
 
 import structlog
 from fastapi import FastAPI, Request
@@ -120,6 +121,217 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ============================================================================
 app.include_router(webhook_router, prefix="/webhook", tags=["Webhook"])
 
+# LLM routes for CRM-grounded responses
+from app.routers.llm import router as llm_router
+app.include_router(llm_router)
+
+# Leadrat Connector Layer routes
+from app.routers.leadrat import router as leadrat_router
+app.include_router(leadrat_router)
+
+# Intent Router - routes to appropriate service based on intent
+from app.routers.intent_router import router as intent_router
+app.include_router(intent_router)
+
+
+# ============================================================================
+# Leadrat Integration Routes (for CRM Dashboard)
+# ============================================================================
+from app.services.leadrat_leads import list_leads, list_properties, list_projects
+
+
+@app.get("/api/v1/leads", tags=["Leadrat"])
+async def get_leads(
+    tenant_id: str = "dubait11",
+    search: str = None,
+    page: int = 1,
+    size: int = 10,
+):
+    """
+    Get leads from Leadrat API.
+
+    Args:
+        tenant_id: Tenant ID (default: dubait11)
+        search: Optional search term
+        page: Page number (1-indexed)
+        size: Items per page
+
+    Returns:
+        Paginated leads list from Leadrat
+    """
+    try:
+        data = await list_leads(
+            tenant_id=tenant_id,
+            search=search,
+            page_number=page,
+            page_size=size,
+        )
+        items = data.get("data") or []
+        return {
+            "success": True,
+            "data": items,
+            "totalCount": data.get("total", len(items)),
+            "page": page,
+            "size": size,
+        }
+    except Exception as e:
+        logger.error("leadrat_leads_error", error=str(e), exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "data": [],
+        }
+
+
+@app.get("/api/v1/properties", tags=["Leadrat"])
+async def get_properties(
+    tenant_id: str = "dubait11",
+    search: str = None,
+    page: int = 1,
+    size: int = 10,
+):
+    """
+    Get properties from Leadrat API.
+
+    Args:
+        tenant_id: Tenant ID (default: dubait11)
+        search: Optional search term
+        page: Page number (1-indexed)
+        size: Items per page
+
+    Returns:
+        Paginated properties list from Leadrat
+    """
+    try:
+        data = await list_properties(
+            tenant_id=tenant_id,
+            search=search,
+            page_number=page,
+            page_size=size,
+        )
+        items = data.get("data") or []
+        return {
+            "success": True,
+            "data": items,
+            "totalCount": data.get("total", len(items)),
+            "page": page,
+            "size": size,
+        }
+    except Exception as e:
+        logger.error("leadrat_properties_error", error=str(e), exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "data": [],
+        }
+
+
+@app.get("/api/v1/projects", tags=["Leadrat"])
+async def get_projects(
+    tenant_id: str = "dubait11",
+    search: str = None,
+    page: int = 1,
+    size: int = 10,
+):
+    """
+    Get projects from Leadrat API.
+
+    Args:
+        tenant_id: Tenant ID (default: dubait11)
+        search: Optional search term
+        page: Page number (1-indexed)
+        size: Items per page
+
+    Returns:
+        Paginated projects list from Leadrat
+    """
+    try:
+        data = await list_projects(
+            tenant_id=tenant_id,
+            search=search,
+            page_number=page,
+            page_size=size,
+        )
+        items = data.get("data") or []
+        return {
+            "success": True,
+            "data": items,
+            "totalCount": data.get("total", len(items)),
+            "page": page,
+            "size": size,
+        }
+    except Exception as e:
+        logger.error("leadrat_projects_error", error=str(e), exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "data": [],
+        }
+
+
+# ============================================================================
+# Helper Functions for Spring Boot API Integration
+# ============================================================================
+async def get_leads_summary():
+  """Fetch leads from Spring Boot API and return summary."""
+  try:
+    async with httpx.AsyncClient() as client:
+      response = await client.get(
+        f"{settings.spring_boot_url}/api/v1/leads",
+        params={"page": 1, "size": 10},
+        timeout=5.0
+      )
+      if response.status_code == 200:
+        data = response.json()
+        total = data.get("totalElements", 0)
+        leads = data.get("content", [])
+        if leads:
+          return f"You have {total} active leads. Recent leads include: {', '.join([l.get('name', 'Unknown') for l in leads[:3]])}."
+        return f"You have {total} active leads in the system."
+      return "Unable to fetch leads at the moment."
+  except Exception as e:
+    logger.warning("leads_fetch_failed", error=str(e))
+    return "Could not retrieve leads data."
+
+async def get_visits_summary():
+  """Fetch visits from Spring Boot API and return summary."""
+  try:
+    async with httpx.AsyncClient() as client:
+      response = await client.get(
+        f"{settings.spring_boot_url}/api/v1/visits",
+        params={"page": 1, "size": 10},
+        timeout=5.0
+      )
+      if response.status_code == 200:
+        data = response.json()
+        total = data.get("totalElements", 0)
+        return f"You have {total} visits scheduled. Would you like to schedule a new visit?"
+      return "Unable to fetch visits at the moment."
+  except Exception as e:
+    logger.warning("visits_fetch_failed", error=str(e))
+    return "Could not retrieve visits data."
+
+async def get_properties_summary():
+  """Fetch properties from Spring Boot API and return summary."""
+  try:
+    async with httpx.AsyncClient() as client:
+      response = await client.get(
+        f"{settings.spring_boot_url}/api/v1/properties",
+        params={"page": 1, "size": 10},
+        timeout=5.0
+      )
+      if response.status_code == 200:
+        data = response.json()
+        total = data.get("totalElements", 0)
+        properties = data.get("content", [])
+        if properties:
+          return f"You have {total} properties in inventory. Top properties: {', '.join([p.get('name', 'Property') for p in properties[:3]])}."
+        return f"You have {total} properties in the system."
+      return "Unable to fetch properties at the moment."
+  except Exception as e:
+    logger.warning("properties_fetch_failed", error=str(e))
+    return "Could not retrieve properties data."
+
 
 # ============================================================================
 # Chat API for CRM Dashboard (Direct Chat Interface)
@@ -145,6 +357,7 @@ async def chat_endpoint(request: ChatRequest):
     Direct chat endpoint for CRM dashboard AI Assistant.
 
     This is separate from WhatsApp webhook - for direct dashboard chat.
+    Intelligently routes to appropriate APIs based on intent detection.
 
     Args:
         request: ChatRequest with message, tenant_id, and optional whatsapp_number
@@ -160,35 +373,43 @@ async def chat_endpoint(request: ChatRequest):
             whatsapp_number=request.whatsapp_number,
         )
 
-        # Simple intent classification and response generation
+        # Intent classification and intelligent response generation
         message_lower = request.message.lower()
         intent = "general"
         response = ""
 
-        # Basic intent detection
-        if any(word in message_lower for word in ["project", "property", "available", "inventory"]):
-            intent = "project_discovery"
-            response = "I can help you find the perfect property! We have several projects available with different configurations and price ranges. Would you like to know about a specific location or budget?"
+        # Route to appropriate API based on detected intent
+        if any(word in message_lower for word in ["lead", "leads", "hot", "active", "follow"]):
+            intent = "leads_inquiry"
+            response = await get_leads_summary()
 
-        elif any(word in message_lower for word in ["price", "cost", "rate", "payment"]):
+        elif any(word in message_lower for word in ["project", "property", "properties", "available", "inventory"]):
+            intent = "property_inquiry"
+            response = await get_properties_summary()
+
+        elif any(word in message_lower for word in ["visit", "schedule", "book", "appointment", "site", "meeting"]):
+            intent = "visit_booking"
+            response = await get_visits_summary()
+            response += " Which property would you like to schedule a visit for?"
+
+        elif any(word in message_lower for word in ["price", "cost", "rate", "payment", "budget"]):
             intent = "pricing_inquiry"
-            response = "Our properties range from affordable to premium segments. I can provide detailed pricing information based on your budget and preferences. What's your budget range?"
+            leads_info = await get_leads_summary()
+            response = f"Based on your leads and available properties, I can help with pricing. {leads_info} Would you like details on any specific property?"
 
-        elif any(word in message_lower for word in ["visit", "schedule", "book", "appointment", "site"]):
-            intent = "site_visit_booking"
-            response = "I'd be happy to schedule a site visit for you! Please let me know which property you're interested in and your preferred dates."
-
-        elif any(word in message_lower for word in ["lead", "today", "hot", "recent"]):
+        elif any(word in message_lower for word in ["analytics", "report", "analysis", "data", "stats", "summary"]):
             intent = "analytics"
-            response = "Here's a summary of your recent leads and activities. You have 5 hot leads waiting for follow-up. Would you like me to provide more details?"
+            leads_summary = await get_leads_summary()
+            visits_summary = await get_visits_summary()
+            response = f"Here's your current status:\n• {leads_summary}\n• {visits_summary}\n\nWould you like a detailed report?"
 
-        elif any(word in message_lower for word in ["help", "hello", "hi", "hey", "start"]):
+        elif any(word in message_lower for word in ["help", "hello", "hi", "hey", "start", "what can"]):
             intent = "greeting"
-            response = "Hello! I'm your AI Real Estate Assistant. I can help you:\n• Find and manage leads\n• Schedule property visits\n• Analyze market data\n• Generate reports\n\nWhat would you like to do?"
+            response = "Hello! I'm your AI Real Estate Assistant. I can help you:\n• Manage and follow up on leads\n• Explore available properties\n• Schedule property visits\n• Review analytics and reports\n• Answer pricing questions\n\nWhat would you like to know?"
 
         else:
             intent = "general"
-            response = "I'm here to help! You can ask me about projects, properties, pricing, scheduling visits, or analyzing leads. What interests you?"
+            response = "I'm here to help! You can ask me about leads, properties, scheduling visits, pricing, or analytics. What interests you?"
 
         logger.info(
             "chat_response",

@@ -5,6 +5,7 @@ This ensures production secrets are never hardcoded.
 """
 
 from typing import Literal
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
@@ -72,9 +73,9 @@ class Settings(BaseSettings):
     # ========================================================================
     # Leadrat CRM Integration
     # ========================================================================
-    leadrat_base_url: str = "https://connect.leadrat.info/api/v1"
+    leadrat_base_url: str = "https://connect.leadrat.com/api/v1"
     leadrat_auth_url: str = "https://connect.leadrat.com/api/v1/authentication/token"
-    leadrat_tenant: str = "black"
+    leadrat_tenant: str = ""
     leadrat_api_key: str = ""
     leadrat_secret_key: str = ""
     leadrat_token_cache_ttl: int = 3600
@@ -92,7 +93,7 @@ class Settings(BaseSettings):
     # ========================================================================
     # Spring Boot Backend Integration
     # ========================================================================
-    spring_boot_url: str = "http://backend-java:8080"
+    spring_boot_url: str = "http://localhost:8080"
     spring_boot_timeout_seconds: int = 30
 
     # ========================================================================
@@ -148,7 +149,8 @@ class Settings(BaseSettings):
     class Config:
         """Pydantic settings configuration."""
 
-        env_file = ".env"
+        # Explicitly set .env file path relative to this file's directory
+        env_file = str(Path(__file__).parent.parent / ".env")
         env_file_encoding = "utf-8"
         case_sensitive = False
 
