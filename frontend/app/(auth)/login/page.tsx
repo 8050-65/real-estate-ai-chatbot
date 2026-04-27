@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
-import { Mail, Lock, Eye, EyeOff, Zap } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Zap, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,200 +13,390 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
-
-  const cleanErrorMessage = (error: string): string => {
-    // Don't expose raw backend errors - show a generic message instead
-    if (error.includes('JWT') || error.includes('key') || error.includes('HMAC')) {
-      return 'Authentication service error. Please try again later.';
-    }
-    if (error.includes('500') || error.includes('Internal server')) {
-      return 'Server error. Please try again later.';
-    }
-    if (error.includes('401') || error.includes('Unauthorized')) {
-      return 'Invalid email or password.';
-    }
-    if (error.includes('404')) {
-      return 'User not found.';
-    }
-    return 'Login failed. Please check your credentials and try again.';
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    // Validation
-    if (!email.trim()) {
-      setErrorMessage('Email is required');
-      return;
-    }
-    if (!email.includes('@')) {
-      setErrorMessage('Please enter a valid email address');
-      return;
-    }
-    if (!password) {
-      setErrorMessage('Password is required');
-      return;
-    }
-    if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters');
+    if (!email.trim() || !password) {
+      setErrorMessage('Please enter both email and password');
       return;
     }
 
-    setIsValidating(true);
     try {
       await login(email, password);
-      toast.success('Login successful!', {
-        icon: '✨',
-        duration: 2000,
-      });
-      // Navigation is handled by useAuth hook
+      toast.success('Welcome back! 🎉');
     } catch (err: unknown) {
       const errorText = (err as any)?.message || 'Login failed';
-      const cleanedError = cleanErrorMessage(errorText);
-      setErrorMessage(cleanedError);
-      toast.error(cleanedError);
-    } finally {
-      setIsValidating(false);
+      setErrorMessage(errorText);
+      toast.error(errorText);
     }
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4 relative">
-      {/* Animated Background Blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-cyan-600 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-pulse" style={{ animationDelay: '4s' }}></div>
-      </div>
+    <div style={{
+      minHeight: '100vh',
+      width: '100%',
+      overflow: 'hidden',
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #2d1b4e 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      position: 'relative',
+    }}>
+      {/* Animated Gradients Background */}
+      <div style={{
+        position: 'absolute',
+        top: '-50%',
+        right: '-10%',
+        width: '600px',
+        height: '600px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(6, 182, 212, 0.15), transparent)',
+        filter: 'blur(80px)',
+        animation: 'pulse 8s ease-in-out infinite',
+      }} />
+      <div style={{
+        position: 'absolute',
+        bottom: '-30%',
+        left: '-15%',
+        width: '500px',
+        height: '500px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(168, 85, 247, 0.15), transparent)',
+        filter: 'blur(80px)',
+        animation: 'pulse 10s ease-in-out infinite',
+      }} />
 
-      {/* Main Login Card */}
-      <div className="relative z-10 w-full max-w-md">
-        {/* Glass Card */}
-        <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-          {/* Header Section */}
-          <div className="px-8 pt-8 pb-6 bg-gradient-to-b from-white/5 to-transparent border-b border-white/5">
-            <div className="flex items-center justify-center mb-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-lg">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
+      {/* Main Card */}
+      <div style={{
+        position: 'relative',
+        zIndex: 10,
+        width: '100%',
+        maxWidth: '420px',
+      }}>
+        {/* Glow Effect */}
+        <div style={{
+          position: 'absolute',
+          inset: '-1px',
+          background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(168, 85, 247, 0.3))',
+          borderRadius: '24px',
+          opacity: 0.5,
+          filter: 'blur(20px)',
+          zIndex: -1,
+        }} />
+
+        {/* Card */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 27, 75, 0.8))',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(6, 182, 212, 0.2)',
+          borderRadius: '24px',
+          padding: '48px 32px',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+        }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px',
+              boxShadow: '0 10px 30px rgba(6, 182, 212, 0.3)',
+            }}>
+              <Zap size={32} color="white" />
             </div>
-            <h1 className="text-3xl font-bold text-center text-white">RE AI CRM</h1>
-            <p className="text-center text-gray-300 text-sm mt-2">
+            <h1 style={{
+              fontSize: '28px',
+              fontWeight: '700',
+              color: '#ffffff',
+              margin: '0 0 8px 0',
+              letterSpacing: '-0.5px',
+            }}>
+              RE AI CRM
+            </h1>
+            <p style={{
+              fontSize: '14px',
+              color: 'rgba(6, 182, 212, 0.8)',
+              margin: 0,
+              fontWeight: '500',
+            }}>
               AI-Powered Real Estate Intelligence
             </p>
           </div>
 
-          {/* Form Section */}
-          <div className="px-8 py-8">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Email Input */}
-              <div>
-                <label htmlFor="email" className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
-                  Email Address
-                </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-400 transition-colors">
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setErrorMessage(null);
-                    }}
-                    placeholder="admin@crm-cbt.com"
-                    disabled={isLoggingIn || isValidating}
-                    className="w-full bg-white/5 border border-white/10 hover:border-white/20 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 rounded-lg py-3 pl-10 pr-4 text-white placeholder:text-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                </div>
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Email Field */}
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'rgba(226, 232, 240, 0.7)',
+                marginBottom: '8px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}>
+                Email Address
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={18} style={{
+                  position: 'absolute',
+                  left: '14px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'rgba(6, 182, 212, 0.5)',
+                }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setErrorMessage(null);
+                  }}
+                  placeholder="admin@crm-cbt.com"
+                  disabled={isLoggingIn}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    border: '1px solid rgba(6, 182, 212, 0.2)',
+                    borderRadius: '12px',
+                    paddingLeft: '44px',
+                    paddingRight: '14px',
+                    paddingTop: '12px',
+                    paddingBottom: '12px',
+                    color: '#ffffff',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'all 0.3s',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                    e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                />
               </div>
+            </div>
 
-              {/* Password Input */}
-              <div>
-                <label htmlFor="password" className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
-                  Password
-                </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-400 transition-colors">
-                    <Lock className="w-5 h-5" />
-                  </div>
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setErrorMessage(null);
-                    }}
-                    placeholder="••••••••"
-                    disabled={isLoggingIn || isValidating}
-                    className="w-full bg-white/5 border border-white/10 hover:border-white/20 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 rounded-lg py-3 pl-10 pr-12 text-white placeholder:text-gray-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoggingIn || isValidating}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300 transition-colors disabled:opacity-50"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
+            {/* Password Field */}
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'rgba(226, 232, 240, 0.7)',
+                marginBottom: '8px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}>
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={18} style={{
+                  position: 'absolute',
+                  left: '14px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'rgba(6, 182, 212, 0.5)',
+                }} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setErrorMessage(null);
+                  }}
+                  placeholder="••••••••"
+                  disabled={isLoggingIn}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    border: '1px solid rgba(6, 182, 212, 0.2)',
+                    borderRadius: '12px',
+                    paddingLeft: '44px',
+                    paddingRight: '44px',
+                    paddingTop: '12px',
+                    paddingBottom: '12px',
+                    color: '#ffffff',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'all 0.3s',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                    e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoggingIn}
+                  style={{
+                    position: 'absolute',
+                    right: '14px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(6, 182, 212, 0.5)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
+            </div>
 
-              {/* Error Message */}
-              {errorMessage && (
-                <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 flex items-start gap-2">
-                  <span className="text-lg leading-none mt-0.5">⚠️</span>
-                  <span>{errorMessage}</span>
-                </div>
+            {/* Error Message */}
+            {errorMessage && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                fontSize: '13px',
+                color: '#fca5a5',
+              }}>
+                {errorMessage}
+              </div>
+            )}
+
+            {/* Sign In Button */}
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              style={{
+                marginTop: '8px',
+                background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '14px 20px',
+                fontSize: '15px',
+                fontWeight: '600',
+                cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.3s',
+                boxShadow: '0 10px 30px rgba(6, 182, 212, 0.3)',
+                opacity: isLoggingIn ? 0.7 : 1,
+              }}
+              onMouseEnter={(e) => !isLoggingIn && (e.currentTarget.style.boxShadow = '0 15px 40px rgba(6, 182, 212, 0.5)')}
+              onMouseLeave={(e) => (e.currentTarget.style.boxShadow = '0 10px 30px rgba(6, 182, 212, 0.3)')}
+            >
+              {isLoggingIn ? (
+                <>
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderTopColor: '#ffffff',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                  }} />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  Sign In
+                  <ArrowRight size={16} />
+                </>
               )}
+            </button>
+          </form>
 
-              {/* Sign In Button */}
-              <button
-                type="submit"
-                disabled={isLoggingIn || isValidating}
-                className="w-full mt-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:shadow-blue-500/25"
-              >
-                {isLoggingIn || isValidating ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Sign In</span>
-                    <Zap className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          {/* Demo Credentials Card */}
-          <div className="mx-8 mb-8 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg backdrop-blur-sm">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Demo Credentials</p>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-400">Email:</span>
-                <code className="text-cyan-400 font-mono text-xs bg-black/30 px-2 py-1 rounded">admin@crm-cbt.com</code>
+          {/* Demo Credentials */}
+          <div style={{
+            marginTop: '28px',
+            padding: '16px',
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(168, 85, 247, 0.1))',
+            border: '1px solid rgba(6, 182, 212, 0.15)',
+            borderRadius: '12px',
+          }}>
+            <p style={{
+              fontSize: '11px',
+              fontWeight: '600',
+              color: 'rgba(6, 182, 212, 0.7)',
+              margin: '0 0 10px 0',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}>
+              Demo Credentials
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'rgba(226, 232, 240, 0.6)' }}>Email:</span>
+                <code style={{
+                  fontSize: '12px',
+                  color: '#06b6d4',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                }}>
+                  admin@crm-cbt.com
+                </code>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-400">Password:</span>
-                <code className="text-cyan-400 font-mono text-xs bg-black/30 px-2 py-1 rounded">Admin@123!</code>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'rgba(226, 232, 240, 0.6)' }}>Password:</span>
+                <code style={{
+                  fontSize: '12px',
+                  color: '#06b6d4',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                }}>
+                  Admin@123!
+                </code>
               </div>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="mt-6 text-center text-xs text-gray-500">
-          <p>Powered by <span className="text-transparent bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text font-semibold">AI Intelligence</span></p>
+        <div style={{
+          marginTop: '24px',
+          textAlign: 'center',
+          fontSize: '12px',
+          color: 'rgba(226, 232, 240, 0.5)',
+        }}>
+          <p style={{ margin: 0 }}>Powered by <span style={{ color: '#06b6d4', fontWeight: '600' }}>AI Real Estate Intelligence</span></p>
         </div>
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.15; }
+          50% { opacity: 0.25; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

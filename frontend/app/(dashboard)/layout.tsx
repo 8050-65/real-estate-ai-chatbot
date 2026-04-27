@@ -27,11 +27,29 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="ml-60 flex flex-1 flex-col">
-        <TopNav />
-        <main className="flex-1 overflow-auto bg-background p-6">{children}</main>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#111827' }}>
+      {/* Sidebar */}
+      <div style={{ width: '240px', flexShrink: 0 }}>
+        <Sidebar />
+      </div>
+
+      {/* Main Content */}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        {/* Top Navigation */}
+        <div style={{ flexShrink: 0 }}>
+          <TopNav />
+        </div>
+
+        {/* Main Content Area */}
+        <main style={{
+          flex: 1,
+          overflow: 'auto',
+          backgroundColor: '#0f172a',
+          padding: '24px',
+          color: '#ffffff'
+        }}>
+          {children}
+        </main>
       </div>
     </div>
   );

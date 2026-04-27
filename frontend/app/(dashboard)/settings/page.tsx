@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save } from 'lucide-react';
+import { Save, Sliders, Users, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
@@ -20,32 +20,95 @@ export default function SettingsPage() {
     toast.success('Settings saved successfully!');
   };
 
+  const tabs = [
+    { id: 'bot', label: 'Bot Configuration', icon: Sliders },
+    { id: 'team', label: 'Team', icon: Users },
+    { id: 'account', label: 'Account', icon: User },
+  ];
+
+  const inputStyle = {
+    width: '100%',
+    background: 'rgba(30, 41, 59, 0.8)',
+    border: '1px solid rgba(6, 182, 212, 0.2)',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    color: '#ffffff',
+    fontSize: '13px',
+    outline: 'none',
+    transition: 'all 0.2s',
+    backdropFilter: 'blur(10px)',
+  };
+
   return (
-    <div className="max-w-4xl space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '900px' }}>
+      {/* Header */}
+      <div>
+        <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#ffffff', margin: '0 0 4px 0' }}>Settings</h2>
+        <p style={{ fontSize: '13px', color: 'rgba(6, 182, 212, 0.7)', margin: 0 }}>Configure bot behavior and account preferences</p>
+      </div>
+
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-border">
-        {['bot', 'team', 'account'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 font-medium capitalize ${
-              activeTab === tab
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div style={{
+        display: 'flex',
+        gap: '16px',
+        borderBottom: '1px solid rgba(6, 182, 212, 0.2)',
+        paddingBottom: '12px',
+      }}>
+        {tabs.map((tab) => {
+          const TabIcon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: '600',
+                background: activeTab === tab.id ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
+                color: activeTab === tab.id ? '#06b6d4' : 'rgba(226, 232, 240, 0.6)',
+                border: activeTab === tab.id ? '1px solid rgba(6, 182, 212, 0.3)' : 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== tab.id) {
+                  e.currentTarget.style.color = '#06b6d4';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== tab.id) {
+                  e.currentTarget.style.color = 'rgba(226, 232, 240, 0.6)';
+                }
+              }}
+            >
+              <TabIcon size={16} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Bot Config Tab */}
       {activeTab === 'bot' && (
-        <div className="rounded-lg border border-border bg-card p-6 space-y-6">
-          <h2 className="text-lg font-semibold text-foreground">Bot Configuration</h2>
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 27, 75, 0.8))',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(6, 182, 212, 0.2)',
+          borderRadius: '16px',
+          padding: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+        }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#ffffff', margin: 0 }}>Bot Configuration</h3>
 
+          {/* Persona Name */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'rgba(226, 232, 240, 0.7)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Persona Name
             </label>
             <input
@@ -54,12 +117,21 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setBotConfig({ ...botConfig, personaName: e.target.value })
               }
-              className="w-full rounded-lg border border-input bg-background px-4 py-2"
+              style={inputStyle}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.2)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             />
           </div>
 
+          {/* Greeting Message */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'rgba(226, 232, 240, 0.7)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Greeting Message
             </label>
             <textarea
@@ -67,20 +139,28 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setBotConfig({ ...botConfig, greetingMessage: e.target.value })
               }
-              rows={3}
-              className="w-full rounded-lg border border-input bg-background px-4 py-2"
+              style={{ ...inputStyle, minHeight: '100px', fontFamily: 'inherit' }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.2)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          {/* Tone and Language */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'rgba(226, 232, 240, 0.7)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Tone
               </label>
               <select
                 value={botConfig.tone}
                 onChange={(e) => setBotConfig({ ...botConfig, tone: e.target.value })}
-                className="w-full rounded-lg border border-input bg-background px-4 py-2"
+                style={inputStyle}
               >
                 <option value="formal">Formal</option>
                 <option value="friendly">Friendly</option>
@@ -88,7 +168,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'rgba(226, 232, 240, 0.7)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Language
               </label>
               <select
@@ -96,7 +176,7 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setBotConfig({ ...botConfig, language: e.target.value })
                 }
-                className="w-full rounded-lg border border-input bg-background px-4 py-2"
+                style={inputStyle}
               >
                 <option value="en">English</option>
                 <option value="hi">Hindi</option>
@@ -104,9 +184,10 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          {/* Active Hours */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'rgba(226, 232, 240, 0.7)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Active Hours Start
               </label>
               <input
@@ -115,12 +196,20 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setBotConfig({ ...botConfig, activeHoursStart: e.target.value })
                 }
-                className="w-full rounded-lg border border-input bg-background px-4 py-2"
+                style={inputStyle}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                  e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.2)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'rgba(226, 232, 240, 0.7)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Active Hours End
               </label>
               <input
@@ -129,13 +218,22 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setBotConfig({ ...botConfig, activeHoursEnd: e.target.value })
                 }
-                className="w-full rounded-lg border border-input bg-background px-4 py-2"
+                style={inputStyle}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                  e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.2)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               />
             </div>
           </div>
 
+          {/* After Hours Message */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'rgba(226, 232, 240, 0.7)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               After Hours Message
             </label>
             <textarea
@@ -143,16 +241,41 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setBotConfig({ ...botConfig, afterHoursMessage: e.target.value })
               }
-              rows={2}
-              className="w-full rounded-lg border border-input bg-background px-4 py-2"
+              style={{ ...inputStyle, minHeight: '80px', fontFamily: 'inherit' }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.2)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             />
           </div>
 
+          {/* Save Button */}
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-primary-foreground hover:opacity-90"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '12px 20px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              boxShadow: '0 10px 30px rgba(6, 182, 212, 0.3)',
+              alignSelf: 'flex-start',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 15px 40px rgba(6, 182, 212, 0.5)')}
+            onMouseLeave={(e) => (e.currentTarget.style.boxShadow = '0 10px 30px rgba(6, 182, 212, 0.3)')}
           >
-            <Save className="h-5 w-5" />
+            <Save size={18} />
             Save Changes
           </button>
         </div>
@@ -160,9 +283,15 @@ export default function SettingsPage() {
 
       {/* Team Tab */}
       {activeTab === 'team' && (
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="text-lg font-semibold text-foreground">Team Management</h2>
-          <p className="mt-4 text-muted-foreground">
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 27, 75, 0.8))',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(6, 182, 212, 0.2)',
+          borderRadius: '16px',
+          padding: '24px',
+        }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#ffffff', margin: '0 0 16px 0' }}>Team Management</h3>
+          <p style={{ fontSize: '13px', color: 'rgba(226, 232, 240, 0.6)', margin: 0 }}>
             Team management features coming soon
           </p>
         </div>
@@ -170,9 +299,15 @@ export default function SettingsPage() {
 
       {/* Account Tab */}
       {activeTab === 'account' && (
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="text-lg font-semibold text-foreground">Account Settings</h2>
-          <p className="mt-4 text-muted-foreground">
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 27, 75, 0.8))',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(6, 182, 212, 0.2)',
+          borderRadius: '16px',
+          padding: '24px',
+        }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#ffffff', margin: '0 0 16px 0' }}>Account Settings</h3>
+          <p style={{ fontSize: '13px', color: 'rgba(226, 232, 240, 0.6)', margin: 0 }}>
             Account settings features coming soon
           </p>
         </div>

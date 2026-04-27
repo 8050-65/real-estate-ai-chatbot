@@ -2,7 +2,6 @@
 
 import { usePathname } from 'next/navigation';
 import { Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 const pageNames: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -20,17 +19,59 @@ export function TopNav() {
   )?.[1] || 'Dashboard';
 
   return (
-    <header className="border-b border-border bg-card">
-      <div className="flex h-16 items-center justify-between px-6">
-        <h1 className="text-2xl font-bold text-foreground">{pageName}</h1>
+    <header style={{
+      borderBottom: '1px solid #475569',
+      backgroundColor: 'rgba(15, 23, 42, 0.5)',
+      backdropFilter: 'blur(4px)',
+    }}>
+      <div style={{
+        display: 'flex',
+        height: '64px',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+      }}>
+        <div>
+          <h1 style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#ffffff',
+            margin: 0,
+          }}>
+            {pageName}
+          </h1>
+          <p style={{ fontSize: '12px', color: '#06b6d4', margin: '2px 0 0 0' }}>AI-Powered CRM Assistant</p>
+        </div>
 
-        <div className="flex items-center gap-4">
-          <div className="relative hidden md:block">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
             <input
               type="search"
-              placeholder="Search..."
-              className="rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground"
+              placeholder="Search leads, properties..."
+              style={{
+                borderRadius: '8px',
+                border: '1px solid #475569',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                paddingTop: '8px',
+                paddingBottom: '8px',
+                paddingLeft: '40px',
+                paddingRight: '16px',
+                fontSize: '14px',
+                color: '#ffffff',
+                outline: 'none',
+                transition: 'all 0.2s',
+                width: '280px',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#06b6d4';
+                e.currentTarget.style.boxShadow = '0 0 0 1px rgba(6, 182, 212, 0.3)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#475569';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             />
           </div>
         </div>
