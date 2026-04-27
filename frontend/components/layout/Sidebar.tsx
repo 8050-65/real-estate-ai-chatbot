@@ -11,10 +11,12 @@ import {
   Settings,
   LogOut,
   Sparkles,
+  MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
+  { icon: MessageCircle, label: 'AI Assistant', href: '/ai-assistant' },
   { icon: Home, label: 'Dashboard', href: '/dashboard' },
   { icon: Users, label: 'Leads', href: '/leads' },
   { icon: Building2, label: 'Properties', href: '/properties' },

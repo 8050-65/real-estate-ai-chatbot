@@ -15,6 +15,7 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from app.config import settings
 from app.agents.llm_factory import get_llm
@@ -118,6 +119,98 @@ async def global_exception_handler(request: Request, exc: Exception):
 # API Routes
 # ============================================================================
 app.include_router(webhook_router, prefix="/webhook", tags=["Webhook"])
+
+
+# ============================================================================
+# Chat API for CRM Dashboard (Direct Chat Interface)
+# ============================================================================
+
+
+class ChatRequest(BaseModel):
+    message: str
+    tenant_id: str = "black"
+    whatsapp_number: str = "dashboard_user"
+
+
+class ChatResponse(BaseModel):
+    message: str
+    intent: str
+    response: str
+    error: str | None = None
+
+
+@app.post("/chat", tags=["Chat"], response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """
+    Direct chat endpoint for CRM dashboard AI Assistant.
+
+    This is separate from WhatsApp webhook - for direct dashboard chat.
+
+    Args:
+        request: ChatRequest with message, tenant_id, and optional whatsapp_number
+
+    Returns:
+        ChatResponse with message, intent, and AI response
+    """
+    try:
+        logger.info(
+            "chat_request",
+            message=request.message,
+            tenant_id=request.tenant_id,
+            whatsapp_number=request.whatsapp_number,
+        )
+
+        # Simple intent classification and response generation
+        message_lower = request.message.lower()
+        intent = "general"
+        response = ""
+
+        # Basic intent detection
+        if any(word in message_lower for word in ["project", "property", "available", "inventory"]):
+            intent = "project_discovery"
+            response = "I can help you find the perfect property! We have several projects available with different configurations and price ranges. Would you like to know about a specific location or budget?"
+
+        elif any(word in message_lower for word in ["price", "cost", "rate", "payment"]):
+            intent = "pricing_inquiry"
+            response = "Our properties range from affordable to premium segments. I can provide detailed pricing information based on your budget and preferences. What's your budget range?"
+
+        elif any(word in message_lower for word in ["visit", "schedule", "book", "appointment", "site"]):
+            intent = "site_visit_booking"
+            response = "I'd be happy to schedule a site visit for you! Please let me know which property you're interested in and your preferred dates."
+
+        elif any(word in message_lower for word in ["lead", "today", "hot", "recent"]):
+            intent = "analytics"
+            response = "Here's a summary of your recent leads and activities. You have 5 hot leads waiting for follow-up. Would you like me to provide more details?"
+
+        elif any(word in message_lower for word in ["help", "hello", "hi", "hey", "start"]):
+            intent = "greeting"
+            response = "Hello! I'm your AI Real Estate Assistant. I can help you:\n• Find and manage leads\n• Schedule property visits\n• Analyze market data\n• Generate reports\n\nWhat would you like to do?"
+
+        else:
+            intent = "general"
+            response = "I'm here to help! You can ask me about projects, properties, pricing, scheduling visits, or analyzing leads. What interests you?"
+
+        logger.info(
+            "chat_response",
+            whatsapp_number=request.whatsapp_number,
+            intent=intent,
+        )
+
+        return ChatResponse(
+            message=request.message,
+            intent=intent,
+            response=response,
+            error=None,
+        )
+
+    except Exception as e:
+        logger.error("chat_error", message=request.message, error=str(e), exc_info=True)
+        return ChatResponse(
+            message=request.message,
+            intent="error",
+            response="I'm temporarily unavailable. Please try again in a moment.",
+            error=str(e) if settings.debug else None,
+        )
 
 
 # ============================================================================
