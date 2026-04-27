@@ -1,0 +1,76 @@
+version: '3.9'
+
+# Production overrides for docker-compose.yml
+# Run with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    ports: []  # Remove port exposure in production
+    environment:
+      POSTGRES_INITDB_ARGS: "-c max_connections=500 -c shared_buffers=256MB"
+
+  redis:
+    ports: []
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+
+  ollama:
+    ports: []
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  backend-ai:
+    ports: []
+    environment:
+      LOG_LEVEL: WARNING
+      ENVIRONMENT: production
+    restart: always
+
+  backend-java:
+    ports: []
+    environment:
+      ENVIRONMENT: production
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_SHOW_SQL: "false"
+    restart: always
+
+  frontend:
+    ports: []
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.yourdomain.com
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    container_name: realestate_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docs/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docs/ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    networks:
+      - realestate-network
+    depends_on:
+      - frontend
+      - backend-java
+      - backend-ai
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+
+volumes:
+  nginx_cache:
+    driver: local
+
+networks:
+  realestate-network:
+    driver: bridge

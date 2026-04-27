@@ -1,0 +1,124 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: crm-backend
+
+  # ============================================================================
+  # Database Configuration
+  # ============================================================================
+  datasource:
+    url: jdbc:postgresql://${SPRING_DATASOURCE_HOST:postgres}:${SPRING_DATASOURCE_PORT:5432}/${SPRING_DATASOURCE_DB:crm_cbt_db_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:rootuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:123Pa$$word!}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # ============================================================================
+  # JPA Configuration
+  # ============================================================================
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+  # ============================================================================
+  # Flyway Configuration (Database Migrations)
+  # ============================================================================
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    baseline-description: Initial baseline
+    out-of-order: false
+    validate-on-migrate: true
+    fail-on-missing-locations: false
+
+  # ============================================================================
+  # Redis Configuration
+  # ============================================================================
+  redis:
+    host: ${SPRING_REDIS_HOST:redis}
+    port: ${SPRING_REDIS_PORT:6379}
+    database: 0
+    timeout: 2000
+    jedis:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+  # ============================================================================
+  # Security Configuration
+  # ============================================================================
+  security:
+    user:
+      name: admin
+      password: admin123
+
+# ============================================================================
+# Management (Actuator) Configuration
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+leadrat:
+  base-url: https://connect.leadrat.info/api/v1
+  auth-url: https://connect.leadrat.com/api/v1/authentication/token
+  tenant: black
+  api-key: ${LEADRAT_API_KEY:placeholder}
+  secret-key: ${LEADRAT_SECRET_KEY:placeholder}
+  request-timeout: 30
+
+fastapi:
+  url: http://backend-ai:8000
+
+jwt:
+  secret: 'realestate-super-secret-jwt-key-minimum-32-characters-secure-12345'
+  expiration: 86400000 
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    root: INFO
+    com.leadrat.crm: DEBUG
+    org.springframework.web: INFO
+    org.hibernate: WARN
+    org.flywaydb: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
