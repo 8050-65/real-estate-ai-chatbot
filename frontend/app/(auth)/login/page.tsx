@@ -14,16 +14,21 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const savedTheme = localStorage.getItem('theme') || 'dark';
     setIsDark(savedTheme === 'dark');
   }, []);
 
   const toggleTheme = () => {
-    const newTheme = !isDark ? 'dark' : 'light';
-    setIsDark(!isDark);
+    console.log('Theme toggle clicked, current isDark:', isDark);
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    const newTheme = newIsDark ? 'dark' : 'light';
     localStorage.setItem('theme', newTheme);
+    console.log('Theme changed to:', newTheme);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,38 +76,51 @@ export default function LoginPage() {
       {/* Theme Toggle Button */}
       <button
         onClick={toggleTheme}
+        type="button"
+        aria-label="Toggle theme"
         style={{
           position: 'fixed',
           top: '20px',
           right: '20px',
-          width: '48px',
-          height: '48px',
+          width: '60px',
+          height: '60px',
           borderRadius: '50%',
-          background: isDark ? 'rgba(195, 100, 255, 0.25)' : 'rgba(6, 182, 212, 0.25)',
-          border: `2px solid ${isDark ? 'hsl(270 60% 55% / 0.6)' : 'hsl(195 85% 55% / 0.6)'}`,
+          background: isDark
+            ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(139, 92, 246, 0.3))'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(240, 245, 255, 0.8))',
+          border: `3px solid ${isDark ? 'hsl(195 85% 55%)' : 'hsl(195 85% 55%)'}`,
           color: isDark ? 'hsl(195 85% 55%)' : 'hsl(220 30% 6%)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           transition: 'all 0.3s ease',
-          zIndex: 50,
+          zIndex: 1000,
           backdropFilter: 'blur(10px)',
           boxShadow: isDark
-            ? '0 8px 24px rgba(6, 182, 212, 0.2)'
-            : '0 8px 24px rgba(6, 182, 212, 0.15)',
+            ? '0 0 50px rgba(6, 182, 212, 0.6)'
+            : '0 0 50px rgba(6, 182, 212, 0.4)',
+          padding: 0,
+          fontFamily: 'inherit',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = isDark ? 'rgba(195, 100, 255, 0.35)' : 'rgba(6, 182, 212, 0.35)';
-          e.currentTarget.style.transform = 'scale(1.1)';
+          if (!isLoggingIn) {
+            e.currentTarget.style.transform = 'scale(1.15) rotate(20deg)';
+            e.currentTarget.style.boxShadow = isDark
+              ? '0 0 70px rgba(6, 182, 212, 0.8)'
+              : '0 0 70px rgba(6, 182, 212, 0.6)';
+          }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = isDark ? 'rgba(195, 100, 255, 0.25)' : 'rgba(6, 182, 212, 0.25)';
-          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+          e.currentTarget.style.boxShadow = isDark
+            ? '0 0 50px rgba(6, 182, 212, 0.6)'
+            : '0 0 50px rgba(6, 182, 212, 0.4)';
         }}
       >
-        {isDark ? <Sun size={24} /> : <Moon size={24} />}
+        {isDark ? <Sun size={32} strokeWidth={2} /> : <Moon size={32} strokeWidth={2} />}
       </button>
+
 
       {/* Animated Gradients Background */}
       <div style={{

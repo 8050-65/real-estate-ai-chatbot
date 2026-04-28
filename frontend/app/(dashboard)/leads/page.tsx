@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, Search, Phone, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { useLeads } from '@/hooks/useLeads';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatDate } from '@/lib/utils';
 import { DUMMY_LEADS } from '@/lib/dummy-data';
@@ -11,6 +12,7 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const { data, isLoading } = useLeads(page, 10, search);
+  const { logLeadSearch } = useActivityLogger();
 
   if (isLoading) {
     return <LoadingSpinner message="Loading leads..." />;
@@ -70,23 +72,29 @@ export default function LeadsPage() {
             placeholder="Search leads by name, phone, or email..."
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value);
+              const searchTerm = e.target.value;
+              setSearch(searchTerm);
               setPage(1);
+              if (searchTerm.trim()) {
+                const resultsCount = data?.totalElements || 0;
+                logLeadSearch(searchTerm, resultsCount);
+              }
             }}
             style={{
               width: '100%',
+              height: '44px',
               background: 'rgba(30, 41, 59, 0.8)',
               border: '1px solid rgba(6, 182, 212, 0.2)',
               borderRadius: '12px',
               paddingLeft: '44px',
               paddingRight: '14px',
-              paddingTop: '12px',
-              paddingBottom: '12px',
               color: '#ffffff',
               fontSize: '14px',
               outline: 'none',
               transition: 'all 0.3s',
               backdropFilter: 'blur(10px)',
+              boxSizing: 'border-box',
+              fontFamily: 'inherit',
             }}
             onFocus={(e) => {
               e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
@@ -307,6 +315,21 @@ export default function LeadsPage() {
           </button>
         </div>
       )}
+
+      <style>{`
+        input[type="search"]::placeholder {
+          color: rgba(6, 182, 212, 0.5);
+          opacity: 1;
+        }
+        input[type="search"]::-webkit-input-placeholder {
+          color: rgba(6, 182, 212, 0.5);
+          opacity: 1;
+        }
+        input[type="search"]::-moz-placeholder {
+          color: rgba(6, 182, 212, 0.5);
+          opacity: 1;
+        }
+      `}</style>
     </div>
   );
 }

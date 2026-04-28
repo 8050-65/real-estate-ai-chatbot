@@ -144,6 +144,35 @@ export default function AnalyticsPage() {
         </form>
       </div>
 
+      {/* Placeholder Section - When no query run yet */}
+      {!result && !isPending && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 27, 75, 0.8))',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(6, 182, 212, 0.2)',
+          borderRadius: '16px',
+          padding: '40px',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(168, 85, 247, 0.2))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+          }}>
+            <TrendingUp size={40} style={{ color: '#06b6d4' }} />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#ffffff', margin: '0 0 8px 0' }}>No Analysis Yet</h3>
+          <p style={{ fontSize: '13px', color: 'rgba(226, 232, 240, 0.6)', margin: 0 }}>
+            Ask a question about your data to get started. Try one of the suggested queries above!
+          </p>
+        </div>
+      )}
+
       {/* Results Section */}
       {isPending && <LoadingSpinner message="Analyzing your query..." />}
 
