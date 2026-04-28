@@ -1884,35 +1884,78 @@ export default function ChatInterface() {
         display: 'flex',
         flexDirection: 'column',
         height: 'calc(100vh - 140px)',
-        backgroundColor: '#0f172a',
-        borderRadius: '16px',
-        border: '1px solid rgba(6, 182, 212, 0.2)',
+        background: 'hsl(220 25% 12%)',
+        borderRadius: '1.5rem',
+        border: '1px solid hsl(195 85% 55% / 0.2)',
         overflow: 'hidden',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.1)',
       }}
     >
-      {/* Header */}
+      {/* Premium Header */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
+          justifyContent: 'space-between',
           padding: '16px 24px',
-          borderBottom: '1px solid rgba(6, 182, 212, 0.2)',
-          backgroundColor: '#1e293b',
+          borderBottom: '1px solid hsl(195 85% 55% / 0.2)',
+          background: 'linear-gradient(90deg, rgba(195, 100, 255, 0.05) 0%, rgba(195, 100, 255, 0.02) 100%)',
+          backdropFilter: 'blur(10px)',
         }}
       >
-        <div
-          style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: '#10b981',
-            animation: 'pulse 2s infinite',
-          }}
-        />
-        <span style={{ fontWeight: '600', color: '#ffffff', fontSize: '14px' }}>AI Assistant</span>
-        <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'rgba(226, 232, 240, 0.5)' }}>Online</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, hsl(195 85% 55%) 0%, hsl(270 60% 55%) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 20px hsl(195 85% 55% / 0.4)',
+            }}
+          >
+            <Bot size={20} style={{ color: '#fff' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'hsl(40 30% 95%)', fontFamily: "'Playfair Display', serif" }}>
+              ESTATE AI
+            </h2>
+            <p style={{ margin: 0, fontSize: '11px', color: 'hsl(195 85% 55%)', fontWeight: '500' }}>
+              Real Estate CRM Assistant
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#22c55e',
+                boxShadow: '0 0 8px #22c55e',
+              }}
+            />
+            <span style={{ fontSize: '11px', color: 'hsl(195 85% 55%)', fontWeight: '500' }}>Online</span>
+          </div>
+          <div
+            style={{
+              padding: '4px 10px',
+              borderRadius: '999px',
+              background: 'hsl(195 85% 55% / 0.1)',
+              border: '1px solid hsl(195 85% 55% / 0.3)',
+              fontSize: '10px',
+              color: 'hsl(195 85% 55%)',
+              fontWeight: '600',
+            }}
+          >
+            Leadrat Connected
+          </div>
+        </div>
       </div>
+
 
       {/* Messages Area */}
       <div
@@ -1925,6 +1968,84 @@ export default function ChatInterface() {
           gap: '16px',
         }}
       >
+        {messages.length === 0 && (
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '24px',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg, hsl(195 85% 55%) 0%, hsl(270 60% 55%) 50%, hsl(35 90% 60%) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontSize: '32px',
+              fontWeight: '700',
+              fontFamily: "'Playfair Display', serif",
+              margin: '0',
+            }}>
+              Welcome to ESTATE AI
+            </div>
+            <p style={{
+              color: 'hsl(220 10% 65%)',
+              fontSize: '14px',
+              margin: '0',
+              maxWidth: '280px',
+            }}>
+              Your intelligent real estate CRM assistant. Search properties, manage leads, and schedule appointments.
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px',
+              width: '100%',
+              maxWidth: '320px',
+            }}>
+              {[
+                '🔍 Search Leads',
+                '🏢 Find Properties',
+                '📅 Schedule Visit',
+                '📞 Book Callback',
+              ].map((action, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleQuickReply(action)}
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '1rem',
+                    border: '1px solid hsl(195 85% 55% / 0.4)',
+                    background: 'rgba(195, 100, 255, 0.08)',
+                    color: 'hsl(195 85% 55%)',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(195, 100, 255, 0.15)';
+                    e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.6)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 16px hsl(195 85% 55% / 0.2)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(195, 100, 255, 0.08)';
+                    e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.4)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  {action}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {messages.map((msg) => (
           <div key={msg.id}>
             <div
@@ -1955,21 +2076,45 @@ export default function ChatInterface() {
               <div
                 style={{
                   maxWidth: '70%',
-                  backgroundColor: msg.role === 'user' ? 'rgba(6, 182, 212, 0.2)' : 'rgba(30, 41, 59, 0.8)',
-                  border: `1px solid ${msg.role === 'user' ? 'rgba(6, 182, 212, 0.3)' : 'rgba(6, 182, 212, 0.2)'}`,
-                  borderRadius: '12px',
+                  backgroundColor: msg.role === 'user'
+                    ? 'rgba(195, 100, 255, 0.15)'
+                    : 'rgba(220, 40, 12%, 0.5)',
+                  border: `1px solid ${msg.role === 'user'
+                    ? 'hsl(270 60% 55% / 0.4)'
+                    : 'hsl(195 85% 55% / 0.3)'}`,
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: '1rem',
                   padding: '12px 16px',
-                  color: '#ffffff',
+                  color: 'hsl(40 30% 95%)',
                   fontSize: '13px',
                   lineHeight: '1.5',
                   wordBreak: 'break-word',
                   whiteSpace: 'pre-wrap',
+                  boxShadow: msg.role === 'user'
+                    ? 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 15px hsl(270 60% 55% / 0.15)'
+                    : 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 20px hsl(195 85% 55% / 0.2)',
+                  transition: 'all 0.3s ease',
                 }}
               >
                 {msg.isLoading ? (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <Loader size={14} style={{ animation: 'spin 1s linear infinite', color: '#06b6d4' }} />
-                    <span style={{ color: 'rgba(226, 232, 240, 0.7)' }}>AI is thinking...</span>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: 'hsl(195 85% 55%)',
+                            boxShadow: '0 0 10px hsl(195 85% 55%)',
+                            animation: `typing-bounce 1.4s infinite`,
+                            animationDelay: `${i * 0.2}s`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span style={{ color: 'hsl(195 85% 55%)', fontSize: '12px' }}>thinking...</span>
                   </div>
                 ) : (
                   msg.content
@@ -2005,25 +2150,31 @@ export default function ChatInterface() {
                     onClick={() => handleQuickReply(reply)}
                     disabled={isLoading}
                     style={{
-                      fontSize: '11px',
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      border: '1px solid rgba(6, 182, 212, 0.5)',
-                      color: '#06b6d4',
-                      backgroundColor: 'transparent',
+                      fontSize: '12px',
+                      padding: '8px 14px',
+                      borderRadius: '999px',
+                      border: '1px solid hsl(195 85% 55% / 0.4)',
+                      color: 'hsl(195 85% 55%)',
+                      backgroundColor: 'rgba(195, 100, 255, 0.08)',
                       cursor: isLoading ? 'not-allowed' : 'pointer',
                       opacity: isLoading ? 0.5 : 1,
-                      transition: 'all 0.2s',
+                      transition: 'all 0.3s ease',
+                      fontWeight: '500',
+                      backdropFilter: 'blur(10px)',
                     }}
                     onMouseEnter={(e) => {
                       if (!isLoading) {
-                        e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
-                        e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.8)';
+                        e.currentTarget.style.backgroundColor = 'rgba(195, 100, 255, 0.15)';
+                        e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.6)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px hsl(195 85% 55% / 0.2)';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                      e.currentTarget.style.backgroundColor = 'rgba(195, 100, 255, 0.08)';
+                      e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.4)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
                     {reply}
@@ -2040,8 +2191,9 @@ export default function ChatInterface() {
       <div
         style={{
           padding: '16px 24px',
-          borderTop: '1px solid rgba(6, 182, 212, 0.2)',
-          backgroundColor: '#1e293b',
+          borderTop: '1px solid hsl(195 85% 55% / 0.2)',
+          background: 'linear-gradient(135deg, rgba(195, 100, 255, 0.05) 0%, rgba(195, 100, 255, 0.02) 100%)',
+          backdropFilter: 'blur(10px)',
           display: 'flex',
           gap: '12px',
         }}
@@ -2051,27 +2203,29 @@ export default function ChatInterface() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-          placeholder="Ask me anything about your real estate business..."
+          placeholder="Ask about properties, leads, or schedule meetings..."
           disabled={isLoading}
           style={{
             flex: 1,
-            backgroundColor: 'rgba(30, 41, 59, 0.8)',
-            border: '1px solid rgba(6, 182, 212, 0.2)',
-            borderRadius: '12px',
-            padding: '10px 14px',
-            color: '#ffffff',
+            backgroundColor: 'rgba(220, 40, 12%, 0.4)',
+            border: '1px solid hsl(195 85% 55% / 0.3)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '1rem',
+            padding: '12px 16px',
+            color: 'hsl(40 30% 95%)',
             fontSize: '13px',
             outline: 'none',
-            transition: 'all 0.2s',
+            transition: 'all 0.3s ease',
             opacity: isLoading ? 0.6 : 1,
+            boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.1)',
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
-            e.currentTarget.style.boxShadow = '0 0 15px rgba(6, 182, 212, 0.2)';
+            e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.6)';
+            e.currentTarget.style.boxShadow = 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 20px hsl(195 85% 55% / 0.3)';
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
-            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.3)';
+            e.currentTarget.style.boxShadow = 'inset 0 1px 2px rgba(255, 255, 255, 0.1)';
           }}
         />
         <button
@@ -2083,22 +2237,25 @@ export default function ChatInterface() {
             justifyContent: 'center',
             width: '44px',
             height: '44px',
-            background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+            background: 'linear-gradient(135deg, hsl(195 85% 55%) 0%, hsl(270 60% 55%) 100%)',
             border: 'none',
-            borderRadius: '12px',
-            color: '#ffffff',
+            borderRadius: '1rem',
+            color: 'hsl(40 30% 95%)',
             cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
             opacity: isLoading || !input.trim() ? 0.5 : 1,
-            transition: 'all 0.3s',
-            boxShadow: '0 10px 30px rgba(6, 182, 212, 0.3)',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 8px 24px hsl(195 85% 55% / 0.3)',
+            fontWeight: '600',
           }}
           onMouseEnter={(e) => {
             if (!isLoading && input.trim()) {
-              e.currentTarget.style.boxShadow = '0 15px 40px rgba(6, 182, 212, 0.5)';
+              e.currentTarget.style.boxShadow = '0 12px 32px hsl(195 85% 55% / 0.5)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
             }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = '0 10px 30px rgba(6, 182, 212, 0.3)';
+            e.currentTarget.style.boxShadow = '0 8px 24px hsl(195 85% 55% / 0.3)';
+            e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
           {isLoading ? <Loader size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={18} />}
@@ -2112,6 +2269,10 @@ export default function ChatInterface() {
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes typing-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
         }
       `}</style>
     </div>
