@@ -200,6 +200,18 @@ const PARENT_STATUS_IDS: Record<string, string> = {
   site_visit: 'ba8fbec4-9322-438f-a745-5dfae2ee078d',
 };
 
+// Valid status mappings for done/not done actions (ONLY these are safe)
+const STATUS_COMPLETION_MAPPING: Record<string, { done?: string; notDone?: string }> = {
+  'meeting': {
+    done: 'meeting_done',
+    notDone: 'meeting_not_done'
+  },
+  'site_visit': {
+    done: 'site_visit_done',
+    notDone: 'site_visit_not_done'
+  }
+};
+
 function getStatusCategory(code: string): 'fresh' | 'callback' | 'meeting' | 'site_visit' | 'closed' {
   const c = (code || '').toLowerCase();
   if (!c || ['new', 'pending', 'expression_of_interest', 'eoi', 'fresh'].some(k => c.includes(k))) return 'fresh';
@@ -225,19 +237,19 @@ function getStatusAwareOptions(category: string, statusName: string): { message:
     case 'meeting':
       // For leads with meeting already scheduled - only show done/not done
       return {
-        message: `Lead already has **${statusName}**. What happened?`,
-        buttons: ['✅ Done', '❌ Not Done', '❌ Cancel'],
+        message: `Lead has **${statusName}** scheduled. What happened?`,
+        buttons: ['✅ Done', '❌ Not Done', '🔄 Reschedule', '❌ Cancel'],
       };
     case 'site_visit':
       // For leads with site visit already scheduled - only show done/not done
       return {
-        message: `Lead already has **${statusName}**. What happened?`,
-        buttons: ['✅ Done', '❌ Not Done', '❌ Cancel'],
+        message: `Lead has **${statusName}** scheduled. What happened?`,
+        buttons: ['✅ Done', '❌ Not Done', '🔄 Reschedule', '❌ Cancel'],
       };
     case 'closed':
       return {
-        message: `Lead status is **${statusName}**. Would you like to follow up?`,
-        buttons: ['🔄 Follow Up', '❌ Cancel'],
+        message: `Lead status is **${statusName}**. This lead cannot be updated.`,
+        buttons: ['🏠 Back to Main', '❌ Cancel'],
       };
     default:
       return {
@@ -883,19 +895,43 @@ export default function ChatInterface() {
             );
 
             if (matched) {
+              console.log('[ChatInterface] Matched completion status:', matched);
               setConvState(prev => ({ ...prev, step: 'confirm_direct_status',
                 data: { ...prev.data, targetStatusId: matched.id, targetStatusName: matched.name }
               }));
               appendBotMessage(`Confirm: Set **${data.selectedLeadName}** to **${matched.name}**?`, ['✅ Confirm Update', '❌ Cancel']);
             } else {
-              // Fallback: show all statuses for manual selection
-              const buttons = statuses.slice(0, 8).map((s: any) => `Status: ${s.name}`);
-              setConvState(prev => ({ ...prev, step: 'select_manual_status', data: { ...prev.data, allStatuses: JSON.stringify(statuses) } }));
-              appendBotMessage(`I couldn't find an exact match. Please select the status:`, buttons);
+              // ERROR: No completion status found - show error and safe options
+              const actionText = isDone ? 'Done' : 'Not Done';
+              const statusType = data.statusCategory === 'meeting' ? 'Meeting' : 'Site Visit';
+              const rescheduleOption = data.statusCategory === 'meeting' ? '🔄 Reschedule Meeting' : '🔄 Reschedule Site Visit';
+
+              appendBotMessage(
+                `⚠️ **Status Not Configured**\n\n"${statusType} ${actionText}" status is not configured in Leadrat for this tenant.\n\nPlease choose another action:`,
+                [rescheduleOption, '🏠 Back to Main', '❌ Cancel']
+              );
+              // Stay in same step to allow user to choose alternative action
             }
           } catch {
             appendBotMessage('Could not fetch statuses. Please try again.', ['❌ Cancel']);
           }
+          return;
+        }
+
+        // Fallback options from error states
+        if (text.includes('Reschedule Meeting')) {
+          setConvState(prev => ({ ...prev, step: 'select_meeting_subtype', data: { ...prev.data, appointmentType: 'Meeting' } }));
+          appendBotMessage('What type of meeting?', ['💻 Online', '🏢 In Person', '📞 On Call', '🔄 Others']);
+          return;
+        }
+        if (text.includes('Reschedule Site Visit')) {
+          setConvState(prev => ({ ...prev, step: 'search_property', data: { ...prev.data, appointmentType: 'Visit' } }));
+          appendBotMessage('Which property would you like to reschedule for?', []);
+          return;
+        }
+        if (text.includes('Back to Main')) {
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage('Back to main menu. What would you like to do?', ['🏠 Schedule Site Visit', '📞 Schedule Callback', '🤝 Schedule Meeting', '📊 View Leads']);
           return;
         }
 
@@ -1093,7 +1129,7 @@ export default function ChatInterface() {
         }
         if (!text.includes('Confirm Update')) return;
 
-        const { selectedLeadId, selectedLeadName, targetStatusId, targetStatusName, assignTo, secondaryUserId } = data;
+        const { selectedLeadId, selectedLeadName, currentStatusName, targetStatusId, targetStatusName, assignTo, secondaryUserId } = data;
         appendBotMessage('Updating status in Leadrat CRM...', []);
         try {
           const payload = {
@@ -1122,6 +1158,17 @@ export default function ChatInterface() {
             scheduledDate: null,
             meetingOrSiteVisit: null,
           };
+
+          // Log status update for debugging
+          console.log('[STATUS_UPDATE_PAYLOAD]', {
+            leadId: selectedLeadId,
+            leadName: selectedLeadName,
+            currentStatus: currentStatusName,
+            selectedAction: targetStatusName,
+            selectedStatusId: targetStatusId,
+            payload: payload
+          });
+
           const res = await api.put(`/leads/${selectedLeadId}/status`, payload);
           if (res.data?.success === false) {
             throw new Error(res.data?.message || 'Update failed');
@@ -1132,7 +1179,12 @@ export default function ChatInterface() {
             ['Schedule Another', 'Show All Leads', 'Create Lead']
           );
         } catch (error: any) {
-          appendBotMessage(`Failed to update status: ${error.message || 'Please try again.'}`, ['✅ Confirm Update', '❌ Cancel']);
+          console.error('[ChatInterface] Status update failed:', error);
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage(
+            `❌ **Unable to update Leadrat status**\n\n${error.message || 'An error occurred while updating the lead status.'}\n\nPlease try another action:`,
+            ['🏠 Back to Main Menu', '❌ Cancel']
+          );
         }
         break;
       }
