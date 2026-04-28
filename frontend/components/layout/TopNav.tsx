@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { Search } from 'lucide-react';
 
 const pageNames: Record<string, string> = {
+  '/ai-assistant': 'AI Assistant',
   '/dashboard': 'Dashboard',
   '/leads': 'Leads',
   '/properties': 'Properties',

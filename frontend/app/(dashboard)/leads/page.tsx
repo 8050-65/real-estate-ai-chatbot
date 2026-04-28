@@ -102,7 +102,7 @@ export default function LeadsPage() {
             gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
             gap: '16px',
           }}>
-            {leads.map((lead) => (
+            {leads.map((lead: any) => (
               <div key={lead.id} style={{
                 background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 27, 75, 0.8))',
                 backdropFilter: 'blur(20px)',
@@ -128,18 +128,31 @@ export default function LeadsPage() {
                     <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#ffffff', margin: '0 0 4px 0' }}>{lead.name}</h3>
                     <p style={{ fontSize: '12px', color: 'rgba(6, 182, 212, 0.7)', margin: 0 }}>Lead</p>
                   </div>
-                  <span style={{
-                    display: 'inline-block',
-                    background: 'rgba(6, 182, 212, 0.2)',
-                    border: '1px solid rgba(6, 182, 212, 0.3)',
-                    color: '#06b6d4',
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                  }}>
-                    {lead.status || 'New'}
-                  </span>
+                  {(() => {
+                    const status = lead.status || 'New';
+                    const statusStyles: Record<string, { bg: string; border: string; text: string }> = {
+                      'Hot': { bg: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 0.3)', text: '#ef4444' },
+                      'New': { bg: 'rgba(34, 197, 94, 0.2)', border: 'rgba(34, 197, 94, 0.3)', text: '#22c55e' },
+                      'Dropped': { bg: 'rgba(107, 114, 128, 0.2)', border: 'rgba(107, 114, 128, 0.3)', text: '#6b7280' },
+                      'Pending': { bg: 'rgba(251, 146, 60, 0.2)', border: 'rgba(251, 146, 60, 0.3)', text: '#fb923c' },
+                      'Meeting Scheduled': { bg: 'rgba(59, 130, 246, 0.2)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6' },
+                    };
+                    const style = statusStyles[status] || { bg: 'rgba(6, 182, 212, 0.2)', border: 'rgba(6, 182, 212, 0.3)', text: '#06b6d4' };
+                    return (
+                      <span style={{
+                        display: 'inline-block',
+                        background: style.bg,
+                        border: `1px solid ${style.border}`,
+                        color: style.text,
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                      }}>
+                        {status}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>

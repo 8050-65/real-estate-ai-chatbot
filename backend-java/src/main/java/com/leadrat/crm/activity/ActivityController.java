@@ -35,10 +35,13 @@ public class ActivityController {
     @Operation(summary = "List activities", description = "List all activities for tenant")
     public ResponseEntity<ApiResponse<PageResponse<ActivityDto>>> getActivities(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status) {
         UUID tenantId = TenantContext.get();
         Pageable pageable = PageRequest.of(page, size);
-        var pageResponse = PageResponse.from(activityService.getActivitiesByTenant(tenantId, pageable));
+        var pageResponse = status != null && !status.isEmpty()
+            ? PageResponse.from(activityService.getActivitiesByTenantAndStatus(tenantId, status, pageable))
+            : PageResponse.from(activityService.getActivitiesByTenant(tenantId, pageable));
         return ResponseEntity.ok(ApiResponse.success(pageResponse));
     }
 

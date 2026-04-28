@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Loader, Bot, User } from 'lucide-react';
 import fastApiClient from '@/lib/fastapi-client';
+import api from '@/lib/api';
 
 interface Message {
   id: string;
@@ -14,12 +15,31 @@ interface Message {
   data?: unknown;
 }
 
+interface ConversationState {
+  flow: 'none' | 'create_lead' | 'update_status' | 'schedule_visit';
+  step: string;
+  data: {
+    leadId?: string;
+    leadName?: string;
+    leadPhone?: string;
+    selectedPropertyId?: string;
+    selectedPropertyName?: string;
+    selectedProjectId?: string;
+    selectedProjectName?: string;
+    statusId?: string;
+    statusName?: string;
+    allStatuses?: string;
+  };
+}
+
 const INTENT_PATTERNS = {
-  lead: ['lead', 'leads', 'enquiry', 'inquiry', 'customer', 'contact', 'hot lead', 'new lead', 'follow up'],
-  property: ['property', 'properties', 'flat', 'apartment', '2bhk', '3bhk', 'bhk', 'unit', 'available', 'inventory', 'sqft', 'carpet area'],
-  project: ['project', 'projects', 'tower', 'block', 'phase', 'rera', 'possession', 'launch', 'development'],
-  visit: ['visit', 'site visit', 'meeting', 'schedule', 'appointment', 'callback', 'book a visit', 'site see'],
-  analytics: ['how many', 'total', 'count', 'analytics', 'report', 'conversion', 'performance', 'stats'],
+  lead: ['lead', 'leads', 'enquiry', 'inquiry', 'customer', 'contact', 'hot lead', 'new lead', 'follow up', 'prospect', 'potential'],
+  property: ['property', 'properties', 'flat', 'apartment', '2bhk', '3bhk', 'bhk', 'unit', 'available', 'inventory', 'sqft', 'carpet area', 'residential', 'commercial', 'plot', 'land', 'villa', 'house', 'penthouse'],
+  project: ['project', 'projects', 'tower', 'block', 'phase', 'rera', 'possession', 'launch', 'development', 'builder', 'developer', 'complex', 'society', 'community'],
+  visit: ['visit', 'site visit', 'meeting', 'schedule', 'appointment', 'callback', 'book a visit', 'site see', 'tour', 'show', 'walkthrough'],
+  budget: ['price', 'cost', 'budget', 'rate', 'amount', 'range', 'affordable', 'expensive', 'discount', 'offer', 'deal'],
+  status: ['mark done', 'mark complete', 'completed', 'site visit done', 'visit done', 'visit completed', 'meeting done', 'callback done', 'not done', 'no show', 'missed visit', 'missed call', 'update status', 'change status', 'lead status', 'mark visited', 'visited', 'site done'],
+  analytics: ['how many', 'total', 'count', 'analytics', 'report', 'conversion', 'performance', 'stats', 'metric', 'trend'],
 };
 
 function detectIntent(message: string): string {
@@ -30,6 +50,29 @@ function detectIntent(message: string): string {
     }
   }
   return 'general';
+}
+
+function expandShortReply(message: string): string {
+  const lower = message.toLowerCase().trim();
+  const shortReplies: Record<string, string> = {
+    'yes': 'Yes, please proceed',
+    'yep': 'Yes, please proceed',
+    'yeah': 'Yes, please proceed',
+    'ok': 'Okay, continue',
+    'okay': 'Okay, continue',
+    'sure': 'Sure, let\'s continue',
+    'thanks': 'Thanks for the information',
+    'thank you': 'Thanks for the information',
+    'no': 'No, I don\'t need this',
+    'nope': 'No, I don\'t need this',
+    'maybe': 'Maybe later, I\'ll check',
+    'later': 'I\'ll check this later',
+    'help': 'I need help with this',
+    'what': 'What are the available options',
+    'how': 'How can I do this',
+    'why': 'Why should I do this',
+  };
+  return shortReplies[lower] || message;
 }
 
 function extractSearchTerm(message: string): string {
@@ -127,7 +170,22 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
       };
     }
 
-    const quickReplies = getQuickReplies(detectedIntent);
+    let quickReplies = getQuickReplies(detectedIntent);
+
+    // Add "Interested" buttons for property responses
+    if (detectedIntent === 'property' && routerResponse) {
+      // Extract property names from response or add generic interested buttons
+      const propertyNames = ['3BHK Apartment', '2BHK Villa', 'Luxury Penthouse'];
+      const interestedButtons = propertyNames.map(p => `Interested: ${p}`);
+      quickReplies = interestedButtons.concat(['Show more', 'Filter by BHK']);
+    }
+
+    // Add "Interested" buttons for project responses
+    if (detectedIntent === 'project' && routerResponse) {
+      const projectNames = ['Tower A', 'Phase 2 Development', 'Premium Complex'];
+      const interestedButtons = projectNames.map(p => `Interested: ${p}`);
+      quickReplies = interestedButtons.concat(['Show more', 'View amenities']);
+    }
 
     console.log('[ChatInterface] Routed to:', source, '| Intent:', detectedIntent);
 
@@ -178,14 +236,274 @@ export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [convState, setConvState] = useState<ConversationState>({
+    flow: 'none',
+    step: '',
+    data: {},
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  function appendBotMessage(content: string, quickReplies: string[] = []) {
+    setMessages(prev => [...prev, {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content,
+      timestamp: new Date(),
+      quickReplies
+    }]);
+  }
+
+  async function handleLeadCreationFlow(text: string) {
+    const { step, data } = convState;
+
+    if (text === '❌ Cancel') {
+      setConvState({ flow: 'none', step: '', data: {} });
+      appendBotMessage('Enquiry cancelled. How else can I help?',
+        ['Show leads', 'Show properties', 'Show projects']);
+      return;
+    }
+
+    switch(step) {
+      case 'get_name':
+        setConvState(prev => ({
+          ...prev, step: 'get_phone',
+          data: { ...prev.data, leadName: text }
+        }));
+        appendBotMessage(
+          `Thanks **${text}**! 📞 What is the phone number?`,
+          ['❌ Cancel']
+        );
+        break;
+
+      case 'get_phone': {
+        const phone = text.replace(/\D/g, '');
+        if (phone.length < 10) {
+          appendBotMessage('Please enter a valid 10-digit phone number.', ['❌ Cancel']);
+          return;
+        }
+        setConvState(prev => ({
+          ...prev, step: 'confirm',
+          data: { ...prev.data, leadPhone: phone }
+        }));
+        appendBotMessage(
+          `Please confirm the enquiry details:\n\n` +
+          `👤 **Name:** ${data.leadName}\n` +
+          `📞 **Phone:** ${phone}\n` +
+          `🏠 **Property/Project:** ${data.selectedPropertyName ?? data.selectedProjectName}\n\n` +
+          `Shall I create this lead in Leadrat CRM?`,
+          ['✅ Confirm & Create Lead', '❌ Cancel']
+        );
+        break;
+      }
+
+      case 'confirm':
+        if (text === '✅ Confirm & Create Lead') {
+          appendBotMessage('Creating lead in Leadrat CRM...', []);
+          try {
+            const response = await api.post('/api/v1/leads', {
+              name: data.leadName,
+              contactNo: data.leadPhone,
+              alternateContactNo: '',
+              projectInterest: data.selectedProjectName ?? data.selectedPropertyName,
+              source: 'AI Assistant'
+            });
+            const lead = response.data?.data;
+            setConvState({ flow: 'none', step: '', data: {} });
+            appendBotMessage(
+              `✅ **Lead Created Successfully!**\n\n` +
+              `👤 ${data.leadName} has been added to Leadrat CRM.\n` +
+              `📞 Phone: ${data.leadPhone}\n` +
+              `🏠 Interest: ${data.selectedPropertyName ?? data.selectedProjectName}`,
+              ['Schedule Site Visit', 'View All Leads', 'Create Another Lead']
+            );
+          } catch (error) {
+            appendBotMessage(
+              '❌ Failed to create lead. Please try again or add manually in Leadrat.',
+              ['Try Again', 'Show Leads']
+            );
+          }
+        }
+        break;
+    }
+  }
+
+  async function handleStatusUpdateFlow(text: string) {
+    const { step, data } = convState;
+
+    if (text === '❌ Cancel') {
+      setConvState({ flow: 'none', step: '', data: {} });
+      appendBotMessage('Status update cancelled.',
+        ['Show leads', 'Show activities']);
+      return;
+    }
+
+    switch(step) {
+      case 'get_lead': {
+        appendBotMessage('Searching for lead...', []);
+        try {
+          const res = await api.get('/api/v1/leads', {
+            params: { search: text, page: 0, size: 5 }
+          });
+          const leads = res.data?.content || [];
+          if (!leads.length) {
+            appendBotMessage(
+              `No leads found for "${text}". Try a different name or phone.`,
+              ['Try Again', '❌ Cancel']
+            );
+            return;
+          }
+          setConvState(prev => ({ ...prev, step: 'select_lead' }));
+          appendBotMessage(
+            `Found ${leads.length} lead(s). Select one to update:`,
+            leads.slice(0, 5).map((l: any) =>
+              `Select: ${l.name ?? 'Unknown'} - ${l.phone ?? l.contactNo ?? ''}`
+            ).concat(['❌ Cancel'])
+          );
+          sessionStorage.setItem('chatbot_leads', JSON.stringify(leads));
+        } catch {
+          appendBotMessage('Failed to search leads.', ['Try Again', '❌ Cancel']);
+        }
+        break;
+      }
+
+      case 'select_lead': {
+        if (!text.startsWith('Select:')) return;
+        const leadInfo = text.replace('Select:', '').trim();
+        const storedLeads = JSON.parse(
+          sessionStorage.getItem('chatbot_leads') ?? '[]'
+        );
+        const selectedLead = storedLeads.find((l: any) =>
+          `${l.name ?? ''} - ${l.phone ?? l.contactNo ?? ''}`.includes(leadInfo.split(' - ')[0].trim())
+        );
+
+        if (!selectedLead) {
+          appendBotMessage('Could not find selected lead.', ['❌ Cancel']);
+          return;
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'select_activity',
+          data: {
+            ...prev.data,
+            leadId: selectedLead.id,
+            leadName: selectedLead.name
+          }
+        }));
+
+        appendBotMessage(
+          `Lead: **${selectedLead.name}**\n\nWhat activity do you want to update?`,
+          [
+            '✅ Site Visit Done',
+            '❌ Site Visit Not Done',
+            '✅ Meeting Done',
+            '❌ Meeting Not Done',
+            '✅ Callback Done',
+            '❌ Callback Not Done',
+            '❌ Cancel'
+          ]
+        );
+        break;
+      }
+
+      case 'select_activity': {
+        try {
+          const statusRes = await api.get('/api/v1/leads/statuses');
+          const statuses = statusRes.data?.data ?? [];
+
+          const activityMap: Record<string, string[]> = {
+            '✅ Site Visit Done': ['site visit', 'visited', 'visit done', 'visit completed'],
+            '❌ Site Visit Not Done': ['site visit', 'not', 'missed', 'no show'],
+            '✅ Meeting Done': ['meeting', 'done', 'completed', 'met'],
+            '❌ Meeting Not Done': ['meeting', 'not', 'missed', 'rescheduled'],
+            '✅ Callback Done': ['callback', 'called', 'done', 'connected'],
+            '❌ Callback Not Done': ['callback', 'not', 'no answer', 'missed'],
+          };
+
+          const keywords = activityMap[text] ?? [];
+          const matchedStatus = statuses.find((s: any) =>
+            keywords.every(kw =>
+              s.name.toLowerCase().includes(kw.toLowerCase())
+            )
+          ) ?? statuses.find((s: any) =>
+            keywords[0] && s.name.toLowerCase().includes(keywords[0])
+          );
+
+          if (!matchedStatus) {
+            appendBotMessage(
+              `Could not auto-match status. Please select from Leadrat statuses:`,
+              statuses.slice(0, 8).map((s: any) =>
+                `Status: ${s.name}`
+              ).concat(['❌ Cancel'])
+            );
+            setConvState(prev => ({
+              ...prev,
+              step: 'manual_status',
+              data: { ...prev.data, allStatuses: JSON.stringify(statuses) }
+            }));
+            return;
+          }
+
+          setConvState(prev => ({
+            ...prev,
+            step: 'confirm_status',
+            data: {
+              ...prev.data,
+              statusId: matchedStatus.id,
+              statusName: matchedStatus.name
+            }
+          }));
+
+          appendBotMessage(
+            `Confirm status update:\n\n` +
+            `👤 **Lead:** ${data.leadName}\n` +
+            `📋 **New Status:** ${matchedStatus.name}\n\n` +
+            `This will update the lead in Leadrat CRM.`,
+            ['✅ Update Status', '❌ Cancel']
+          );
+        } catch {
+          appendBotMessage(
+            'Failed to fetch lead statuses from Leadrat.',
+            ['Try Again', '❌ Cancel']
+          );
+        }
+        break;
+      }
+
+      case 'confirm_status': {
+        if (text !== '✅ Update Status') return;
+        appendBotMessage('Updating lead status in Leadrat...', []);
+        try {
+          await api.put(`/api/v1/leads/${data.leadId}/status`, {
+            id: data.leadId,
+            leadStatusId: data.statusId,
+            assignTo: ''
+          });
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage(
+            `✅ **Status Updated Successfully!**\n\n` +
+            `👤 Lead: ${data.leadName}\n` +
+            `📋 New Status: ${data.statusName}\n` +
+            `✓ Updated in Leadrat CRM`,
+            ['Update Another Lead', 'Show All Leads', 'Schedule Visit']
+          );
+        } catch {
+          appendBotMessage(
+            '❌ Failed to update status. Please try again.',
+            ['Try Again', '❌ Cancel']
+          );
+        }
+        break;
+      }
+    }
+  }
+
   async function handleSend(messageText?: string) {
-    const text = messageText ?? input.trim();
+    let text = messageText ?? input.trim();
     if (!text || isLoading) return;
 
     setInput('');
@@ -198,6 +516,49 @@ export default function ChatInterface() {
     };
     setMessages((prev) => [...prev, userMsg]);
 
+    // Route based on active conversation flow
+    if (convState.flow === 'create_lead') {
+      await handleLeadCreationFlow(text);
+      return;
+    }
+
+    if (convState.flow === 'update_status') {
+      await handleStatusUpdateFlow(text);
+      return;
+    }
+
+    // Detect status update intent
+    const statusKeywords = [
+      'mark done', 'mark complete', 'site visit done',
+      'meeting done', 'callback done', 'not done',
+      'no show', 'missed', 'update status', 'visited'
+    ];
+    if (statusKeywords.some(kw => text.toLowerCase().includes(kw))) {
+      setConvState({ flow: 'update_status', step: 'get_lead', data: {} });
+      appendBotMessage(
+        'Which lead do you want to update?\nEnter the lead name or phone number:',
+        ['❌ Cancel']
+      );
+      return;
+    }
+
+    // Handle property/project selection for lead creation
+    if (text.startsWith('Interested:') || text.startsWith('Interested in')) {
+      const propertyName = text.replace(/^Interested:?\s*/i, '').trim();
+      setConvState({
+        flow: 'create_lead',
+        step: 'get_name',
+        data: { selectedPropertyName: propertyName }
+      });
+      appendBotMessage(
+        `Great choice! 🏠 **${propertyName}**\n\nLet me create an enquiry.\nWhat is the customer's name?`,
+        ['❌ Cancel']
+      );
+      return;
+    }
+
+    // Normal intent detection
+    let text_expanded = expandShortReply(text);
     const loadingId = (Date.now() + 1).toString();
     setMessages((prev) => [
       ...prev,
@@ -212,9 +573,9 @@ export default function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const intent = detectIntent(text);
-      const searchTerm = extractSearchTerm(text);
-      const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text, messages);
+      const intent = detectIntent(text_expanded);
+      const searchTerm = extractSearchTerm(text_expanded);
+      const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text_expanded, messages);
 
       setMessages((prev) =>
         prev.map((msg) =>

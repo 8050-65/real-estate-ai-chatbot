@@ -50,13 +50,42 @@ async def get_leadrat_token(tenant_id: str) -> str:
             )
 
         response.raise_for_status()
-        data = response.json()
 
-        # Extract token from response
-        token = data.get("token") or data.get("access_token")
+        # Log raw response for debugging
+        logger.debug("leadrat_auth_raw_response", status=response.status_code, body=response.text[:500])
+
+        try:
+            data = response.json()
+        except Exception as e:
+            logger.error("leadrat_auth_json_parse_error", error=str(e), body=response.text[:500])
+            raise LeadratException(f"Leadrat auth response is not valid JSON: {response.text[:200]}", endpoint="/authentication/token")
+
+        # Check if data is None or not a dictionary
+        if not data or not isinstance(data, dict):
+            logger.error(
+                "leadrat_token_invalid_response_type",
+                response_type=type(data),
+                response_value=str(data)[:500]
+            )
+            raise LeadratException(f"Leadrat auth returned invalid response type: {type(data)}", endpoint="/authentication/token")
+
+        # Extract token from response (handle multiple formats)
+        token = (
+            data.get("token")
+            or data.get("accessToken")
+            or data.get("access_token")
+            or data.get("data", {}).get("token")
+            or data.get("data", {}).get("accessToken")
+            or data.get("result", {}).get("token")
+        )
+
         if not token:
-            logger.error("leadrat_token_missing_in_response", response=data)
-            raise LeadratException("Token not found in Leadrat response", endpoint="/authentication/token")
+            logger.error(
+                "leadrat_token_missing_in_response",
+                response=data,
+                available_keys=list(data.keys()) if isinstance(data, dict) else str(type(data))
+            )
+            raise LeadratException(f"Token not found in Leadrat response. Available keys: {list(data.keys())}. Response: {data}", endpoint="/authentication/token")
 
         # Cache token with TTL = expiry - 60 seconds
         ttl = settings.leadrat_token_cache_ttl - 60

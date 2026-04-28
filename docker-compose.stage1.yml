@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  backend-java:
+    env_file:
+      - ./backend-java/.env.stage1
+    environment:
+      # Override the datasource URL to use staging database
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crm_cbt_db_dev_staging
+      SPRING_DATASOURCE_USERNAME: rootuser
+      SPRING_DATASOURCE_PASSWORD: "123Pa$$word!"
+      # Keep other settings as needed
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate

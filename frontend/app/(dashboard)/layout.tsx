@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopNav } from '@/components/layout/TopNav';
+import { FloatingChatbot } from '@/components/ai/FloatingChatbot';
 import { isAuthenticated } from '@/lib/auth';
 
 export default function DashboardLayout({
@@ -51,6 +52,9 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+
+      {/* Floating Chat */}
+      <FloatingChatbot />
     </div>
   );
 }

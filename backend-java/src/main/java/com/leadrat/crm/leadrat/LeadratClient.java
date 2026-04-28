@@ -33,6 +33,9 @@ public class LeadratClient {
     @Value("${leadrat.secret-key}")
     private String secretKey;
 
+    @Value("${leadrat.tenant}")
+    private String tenant;
+
     @Value("${leadrat.request-timeout:30}")
     private int requestTimeout;
 
@@ -50,10 +53,13 @@ public class LeadratClient {
 
     private String fetchAndCacheToken() {
         try {
+            String authPayload = "{\"apiKey\": \"" + apiKey + "\", \"secretKey\": \"" + secretKey + "\"}";
+
             String response = webClient.post()
                     .uri(authUrl)
-                    .header("X-API-Key", apiKey)
-                    .header("X-Secret-Key", secretKey)
+                    .header("tenant", tenant)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(authPayload)
                     .retrieve()
                     .bodyToMono(String.class)
                     .timeout(Duration.ofSeconds(requestTimeout))
@@ -61,9 +67,13 @@ public class LeadratClient {
 
             if (response != null) {
                 JsonNode jsonNode = objectMapper.readTree(response);
-                String token = jsonNode.path("access_token").asText();
+                String token = jsonNode.path("token").asText();
+                if (token.isEmpty()) {
+                    token = jsonNode.path("accessToken").asText();
+                }
                 if (!token.isEmpty()) {
-                    redisTemplate.opsForValue().set(TOKEN_CACHE_KEY, token, 5, TimeUnit.MINUTES);
+                    log.debug("Leadrat token fetched and cached");
+                    redisTemplate.opsForValue().set(TOKEN_CACHE_KEY, token, 55, TimeUnit.MINUTES);
                     return token;
                 }
             }

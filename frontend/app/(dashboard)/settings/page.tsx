@@ -16,8 +16,14 @@ export default function SettingsPage() {
     language: 'en',
   });
 
-  const handleSave = () => {
-    toast.success('Settings saved successfully!');
+  const handleSave = async () => {
+    try {
+      const { SettingsAPI } = await import('@/lib/api-client');
+      await SettingsAPI.updateBotConfig(botConfig);
+      // toast.success is called inside API client
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
   };
 
   const tabs = [

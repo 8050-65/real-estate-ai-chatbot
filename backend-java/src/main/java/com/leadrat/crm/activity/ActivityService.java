@@ -49,6 +49,15 @@ public class ActivityService {
         );
     }
 
+    public Page<ActivityDto> getActivitiesByTenantAndStatus(UUID tenantId, String status, Pageable pageable) {
+        Page<CrmActivity> activities = activityRepository.findByTenantIdAndStatus(tenantId, status, pageable);
+        return new PageImpl<>(
+                activities.getContent().stream().map(this::toDto).collect(Collectors.toList()),
+                pageable,
+                activities.getTotalElements()
+        );
+    }
+
     public Page<ActivityDto> getActivitiesByLeadId(UUID tenantId, String leadratLeadId, Pageable pageable) {
         Page<CrmActivity> activities = activityRepository.findByTenantIdAndLeadratLeadId(tenantId, leadratLeadId, pageable);
         return new PageImpl<>(

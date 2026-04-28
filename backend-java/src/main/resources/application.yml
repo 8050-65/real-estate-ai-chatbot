@@ -93,9 +93,9 @@ management:
 leadrat:
   base-url: https://connect.leadrat.info/api/v1
   auth-url: https://connect.leadrat.com/api/v1/authentication/token
-  tenant: black
-  api-key: ${LEADRAT_API_KEY:placeholder}
-  secret-key: ${LEADRAT_SECRET_KEY:placeholder}
+  tenant: ${LEADRAT_TENANT:dubait11}
+  api-key: ${LEADRAT_API_KEY:Zjg2N2JiNjItODBmOC00YzBjLTlkMmMtMjk5OGRiZjBmMDU3OmR1YmFpdDEx}
+  secret-key: ${LEADRAT_SECRET_KEY:a3Ay5UKLYjm6sZ_TXCXGzqmIdB3zgM8Y}
   request-timeout: 30
 
 fastapi:

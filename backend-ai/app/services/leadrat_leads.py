@@ -96,6 +96,141 @@ async def create_or_update_lead(
         raise LeadratException(str(e), endpoint="/lead")
 
 
+async def list_leads(
+    tenant_id: str,
+    search: str = None,
+    page_number: int = 1,
+    page_size: int = 10,
+) -> dict:
+    """
+    List leads from Leadrat with optional search.
+
+    Args:
+        tenant_id: Tenant ID
+        search: Search by name or phone number
+        page_number: Page number (1-indexed)
+        page_size: Items per page
+
+    Returns:
+        dict: Paginated leads list
+    """
+    logger.debug("leadrat_leads_list", tenant_id=tenant_id, page=page_number, size=page_size)
+
+    try:
+        token = await get_leadrat_token(tenant_id)
+
+        url = f"{settings.leadrat_base_url}/lead?PageNumber={page_number}&PageSize={page_size}"
+        if search:
+            url += f"&SearchByNameOrNumber={search}"
+
+        async with httpx.AsyncClient(timeout=settings.leadrat_request_timeout) as client:
+            response = await client.get(
+                url,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        response.raise_for_status()
+        data = response.json()
+
+        count = len(data.get("data") or [])
+        logger.info("leadrat_leads_retrieved", tenant_id=tenant_id, count=count)
+        return data
+
+    except Exception as e:
+        logger.error("leadrat_leads_list_error", tenant_id=tenant_id, error=str(e), exc_info=True)
+        raise LeadratException(f"Failed to list leads: {str(e)}", endpoint="/lead")
+
+
+async def list_properties(
+    tenant_id: str,
+    search: str = None,
+    page_number: int = 1,
+    page_size: int = 10,
+) -> dict:
+    """
+    List properties from Leadrat with optional search.
+
+    Args:
+        tenant_id: Tenant ID
+        search: Search term
+        page_number: Page number (1-indexed)
+        page_size: Items per page
+
+    Returns:
+        dict: Paginated properties list
+    """
+    logger.debug("leadrat_properties_list", tenant_id=tenant_id, page=page_number, size=page_size)
+
+    try:
+        token = await get_leadrat_token(tenant_id)
+
+        url = f"{settings.leadrat_base_url}/property?PageNumber={page_number}&PageSize={page_size}"
+        if search:
+            url += f"&Search={search}"
+
+        async with httpx.AsyncClient(timeout=settings.leadrat_request_timeout) as client:
+            response = await client.get(
+                url,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        response.raise_for_status()
+        data = response.json()
+
+        count = len(data.get("data") or [])
+        logger.info("leadrat_properties_retrieved", tenant_id=tenant_id, count=count)
+        return data
+
+    except Exception as e:
+        logger.error("leadrat_properties_list_error", tenant_id=tenant_id, error=str(e), exc_info=True)
+        raise LeadratException(f"Failed to list properties: {str(e)}", endpoint="/property")
+
+
+async def list_projects(
+    tenant_id: str,
+    search: str = None,
+    page_number: int = 1,
+    page_size: int = 10,
+) -> dict:
+    """
+    List projects from Leadrat with optional search.
+
+    Args:
+        tenant_id: Tenant ID
+        search: Search term
+        page_number: Page number (1-indexed)
+        page_size: Items per page
+
+    Returns:
+        dict: Paginated projects list
+    """
+    logger.debug("leadrat_projects_list", tenant_id=tenant_id, page=page_number, size=page_size)
+
+    try:
+        token = await get_leadrat_token(tenant_id)
+
+        url = f"{settings.leadrat_base_url}/project/all?PageNumber={page_number}&PageSize={page_size}"
+        if search:
+            url += f"&Search={search}"
+
+        async with httpx.AsyncClient(timeout=settings.leadrat_request_timeout) as client:
+            response = await client.get(
+                url,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        response.raise_for_status()
+        data = response.json()
+
+        count = len(data.get("data") or [])
+        logger.info("leadrat_projects_retrieved", tenant_id=tenant_id, count=count)
+        return data
+
+    except Exception as e:
+        logger.error("leadrat_projects_list_error", tenant_id=tenant_id, error=str(e), exc_info=True)
+        raise LeadratException(f"Failed to list projects: {str(e)}", endpoint="/project/all")
+
+
 async def get_lead(tenant_id: str, lead_id: str) -> dict:
     """
     Get lead details from Leadrat.

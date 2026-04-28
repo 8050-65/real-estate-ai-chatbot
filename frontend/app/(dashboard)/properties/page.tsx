@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { useProperties } from '@/hooks/useProperties';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatCurrency } from '@/lib/utils';
-import { Building2, Maximize2, Sparkles } from 'lucide-react';
+import { Building2, Maximize2, Sparkles, Filter } from 'lucide-react';
 
 export default function PropertiesPage() {
   const [page, setPage] = useState(1);
+  const [selectedBhk, setSelectedBhk] = useState<string>('');
   const { data, isLoading } = useProperties(page, 12);
 
   if (isLoading) {
@@ -15,16 +16,68 @@ export default function PropertiesPage() {
   }
 
   const properties = data?.content || [];
+  const filteredProperties = selectedBhk
+    ? properties.filter(prop => prop.bhk === selectedBhk)
+    : properties;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
+      {/* Header and Filters */}
       <div>
         <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#ffffff', margin: '0 0 4px 0' }}>Properties</h2>
         <p style={{ fontSize: '13px', color: 'rgba(6, 182, 212, 0.7)', margin: 0 }}>Discover and manage available properties</p>
       </div>
 
-      {properties.length > 0 ? (
+      {/* Filter Section */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setSelectedBhk('')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            borderRadius: '8px',
+            border: !selectedBhk ? '2px solid #06b6d4' : '1px solid rgba(6, 182, 212, 0.2)',
+            background: !selectedBhk ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+            color: '#06b6d4',
+            fontSize: '13px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          <Filter size={14} />
+          All
+        </button>
+        {['1', '2', '3', '4', '5'].map((bhk) => (
+          <button
+            key={bhk}
+            onClick={() => setSelectedBhk(bhk)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: selectedBhk === bhk ? '2px solid #06b6d4' : '1px solid rgba(6, 182, 212, 0.2)',
+              background: selectedBhk === bhk ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+              color: selectedBhk === bhk ? '#06b6d4' : '#e2e8f0',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = selectedBhk === bhk ? 'rgb(6, 182, 212)' : 'rgba(6, 182, 212, 0.2)';
+            }}
+          >
+            {bhk} BHK
+          </button>
+        ))}
+      </div>
+
+      {filteredProperties.length > 0 ? (
         <>
           {/* Properties Grid */}
           <div style={{
@@ -32,7 +85,7 @@ export default function PropertiesPage() {
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: '16px',
           }}>
-            {properties.map((prop) => (
+            {filteredProperties.map((prop) => (
               <div key={prop.id} style={{
                 background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 27, 75, 0.8))',
                 backdropFilter: 'blur(20px)',

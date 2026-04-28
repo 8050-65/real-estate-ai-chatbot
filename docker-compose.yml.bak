@@ -120,7 +120,7 @@ services:
       dockerfile: Dockerfile
     container_name: realestate_backend_java
     env_file:
-      - ./backend-java/.env.stage1
+      - ./backend-java/.env
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-crm_cbt_db_dev}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-rootuser}
