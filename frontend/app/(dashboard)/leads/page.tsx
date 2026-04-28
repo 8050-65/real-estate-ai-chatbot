@@ -5,6 +5,7 @@ import { Plus, Search, Phone, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { useLeads } from '@/hooks/useLeads';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatDate } from '@/lib/utils';
+import { DUMMY_LEADS } from '@/lib/dummy-data';
 
 export default function LeadsPage() {
   const [page, setPage] = useState(1);
@@ -15,8 +16,13 @@ export default function LeadsPage() {
     return <LoadingSpinner message="Loading leads..." />;
   }
 
-  const leads = data?.content || [];
-  const totalElements = data?.totalElements || 0;
+  // Use demo data if API returns empty results
+  const leads = data?.content && data.content.length > 0 ? data.content : DUMMY_LEADS;
+  const totalElements = data?.totalElements && data.totalElements > 0 ? data.totalElements : DUMMY_LEADS.length;
+
+  if (!data?.content?.length) {
+    console.log('[Leads] Using demo mode: showing', leads.length, 'demo leads');
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -129,7 +135,10 @@ export default function LeadsPage() {
                     <p style={{ fontSize: '12px', color: 'rgba(6, 182, 212, 0.7)', margin: 0 }}>Lead</p>
                   </div>
                   {(() => {
-                    const status = lead.status || 'New';
+                    // Extract status name from object or use as string
+                    const status = typeof lead.status === 'object' && lead.status?.displayName
+                      ? lead.status.displayName
+                      : (typeof lead.status === 'string' ? lead.status : 'New');
                     const statusStyles: Record<string, { bg: string; border: string; text: string }> = {
                       'Hot': { bg: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 0.3)', text: '#ef4444' },
                       'New': { bg: 'rgba(34, 197, 94, 0.2)', border: 'rgba(34, 197, 94, 0.3)', text: '#22c55e' },

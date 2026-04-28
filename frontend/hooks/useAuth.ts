@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import type { AuthUser, LoginRequest } from '@/types/auth';
+import type { AuthUser } from '@/types/auth';
 import { getStoredUser, storeUser, clearUser } from '@/lib/auth';
 import api from '@/lib/api';
 
@@ -23,29 +23,18 @@ export function useAuth() {
     setIsLoggingIn(true);
     setError(null);
     try {
-      const res = await api.post<{ data: AuthUser }>('/api/v1/auth/login', {
+      const res = await api.post<{ data: AuthUser }>('/auth/login', {
         email,
         password,
       });
       const userData = res.data.data;
-      storeUser(userData);
+      storeUser(userData, email, password);
       setUser(userData);
       router.push('/dashboard');
     } catch (err: unknown) {
-      // Fallback: Demo mode if Spring Boot is unavailable (for testing/development)
-      console.debug('[useAuth] Spring Boot unavailable, using demo mode');
-      const demoUser: AuthUser = {
-        userId: 'demo-user',
-        email: email,
-        role: 'ADMIN',
-        tenantId: 'dubait11',
-        accessToken: 'demo-token-' + Date.now(),
-        tokenType: 'Bearer',
-        expiresIn: 86400,
-      };
-      storeUser(demoUser);
-      setUser(demoUser);
-      router.push('/dashboard');
+      const errorMsg = (err as any)?.response?.data?.message || 'Login failed. Please check your credentials.';
+      console.error('[useAuth] Login error:', errorMsg);
+      setError(errorMsg);
     } finally {
       setIsLoggingIn(false);
     }

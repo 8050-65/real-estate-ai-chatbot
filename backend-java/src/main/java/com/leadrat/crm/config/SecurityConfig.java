@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .cors().and()
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/api/test/**",
                                 "/api/v1/auth/**",
                                 "/actuator/health",
                                 "/swagger-ui/**",

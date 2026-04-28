@@ -6,6 +6,7 @@ import { useLeads } from '@/hooks/useLeads';
 import { useActivities } from '@/hooks/useActivities';
 import { useProperties } from '@/hooks/useProperties';
 import { useRouter } from 'next/navigation';
+import { DUMMY_ANALYTICS } from '@/lib/dummy-data';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -20,10 +21,15 @@ export default function DashboardPage() {
     return <LoadingSpinner message="Loading dashboard..." />;
   }
 
-  const totalLeads = leadsData?.totalElements || 0;
-  const totalProperties = propertiesData?.totalElements || 0;
-  const totalVisits = activitiesData?.totalElements || 0;
-  const hotLeads = Math.ceil(totalLeads * 0.2);
+  // Use demo data if API returns empty results
+  const totalLeads = leadsData?.totalElements && leadsData.totalElements > 0 ? leadsData.totalElements : DUMMY_ANALYTICS.totalLeads;
+  const totalProperties = propertiesData?.totalElements && propertiesData.totalElements > 0 ? propertiesData.totalElements : DUMMY_ANALYTICS.totalProperties;
+  const totalVisits = activitiesData?.totalElements && activitiesData.totalElements > 0 ? activitiesData.totalElements : DUMMY_ANALYTICS.totalVisits;
+  const hotLeads = totalLeads > 0 ? Math.ceil(totalLeads * 0.2) : DUMMY_ANALYTICS.hotLeads;
+
+  if (totalLeads === DUMMY_ANALYTICS.totalLeads || !leadsData?.content?.length) {
+    console.log('[Dashboard] Using demo mode: showing dummy analytics');
+  }
 
   return (
     <div style={{

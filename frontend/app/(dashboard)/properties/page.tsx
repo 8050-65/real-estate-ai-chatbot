@@ -5,6 +5,7 @@ import { useProperties } from '@/hooks/useProperties';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatCurrency } from '@/lib/utils';
 import { Building2, Maximize2, Sparkles, Filter } from 'lucide-react';
+import { DUMMY_PROPERTIES } from '@/lib/dummy-data';
 
 export default function PropertiesPage() {
   const [page, setPage] = useState(1);
@@ -15,10 +16,15 @@ export default function PropertiesPage() {
     return <LoadingSpinner message="Loading properties..." />;
   }
 
-  const properties = data?.content || [];
+  // Use demo data if API returns empty results
+  const properties = data?.content && data.content.length > 0 ? data.content : DUMMY_PROPERTIES;
   const filteredProperties = selectedBhk
     ? properties.filter(prop => prop.bhk === selectedBhk)
     : properties;
+
+  if (!data?.content?.length) {
+    console.log('[Properties] Using demo mode: showing', properties.length, 'demo properties');
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

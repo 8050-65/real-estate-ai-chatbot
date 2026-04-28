@@ -16,7 +16,7 @@ interface Message {
 }
 
 interface ConversationState {
-  flow: 'none' | 'create_lead' | 'update_status' | 'schedule_visit';
+  flow: 'none' | 'create_lead' | 'update_status' | 'schedule_visit' | 'property_search' | 'project_search' | 'callback_booking' | 'meeting_booking' | 'human_handoff';
   step: string;
   data: {
     leadId?: string;
@@ -29,27 +29,61 @@ interface ConversationState {
     statusId?: string;
     statusName?: string;
     allStatuses?: string;
+    // Scheduling fields
+    selectedLeadId?: string;
+    selectedLeadName?: string;
+    selectedLeadPhone?: string;
+    appointmentType?: 'Visit' | 'Callback' | 'Meeting';
+    scheduledDate?: string;
+    scheduledTime?: string;
+    notes?: string;
+    selectedStatusId?: string;
+    assignTo?: string;
+    secondaryUserId?: string;
+    // Status-aware scheduling fields
+    currentStatusId?: string;
+    currentStatusCode?: string;
+    currentStatusName?: string;
+    statusCategory?: string;
+    targetStatusId?: string;
+    targetStatusName?: string;
+    meetingSubtype?: string;
+    propertyOptions?: string;
+    selectedPropertyCity?: string;
   };
 }
 
+// CRM Agent Intent Classification (8 intents + fallback)
 const INTENT_PATTERNS = {
-  lead: ['lead', 'leads', 'enquiry', 'inquiry', 'customer', 'contact', 'hot lead', 'new lead', 'follow up', 'prospect', 'potential'],
-  property: ['property', 'properties', 'flat', 'apartment', '2bhk', '3bhk', 'bhk', 'unit', 'available', 'inventory', 'sqft', 'carpet area', 'residential', 'commercial', 'plot', 'land', 'villa', 'house', 'penthouse'],
-  project: ['project', 'projects', 'tower', 'block', 'phase', 'rera', 'possession', 'launch', 'development', 'builder', 'developer', 'complex', 'society', 'community'],
-  visit: ['visit', 'site visit', 'meeting', 'schedule', 'appointment', 'callback', 'book a visit', 'site see', 'tour', 'show', 'walkthrough'],
-  budget: ['price', 'cost', 'budget', 'rate', 'amount', 'range', 'affordable', 'expensive', 'discount', 'offer', 'deal'],
-  status: ['mark done', 'mark complete', 'completed', 'site visit done', 'visit done', 'visit completed', 'meeting done', 'callback done', 'not done', 'no show', 'missed visit', 'missed call', 'update status', 'change status', 'lead status', 'mark visited', 'visited', 'site done'],
-  analytics: ['how many', 'total', 'count', 'analytics', 'report', 'conversion', 'performance', 'stats', 'metric', 'trend'],
+  project_discovery: ['project', 'projects', 'tower', 'phase', 'development', 'what projects', 'which projects', 'available projects', 'show projects'],
+  unit_availability: ['property', 'properties', 'flat', 'unit', 'apartment', 'available', 'inventory', '2bhk', '3bhk', 'bhk', 'villa', 'house', 'show properties', 'what properties', 'available units'],
+  pricing_inquiry: ['price', 'cost', 'budget', 'rate', 'per sqft', 'payment', 'price range', 'how much', 'what is the cost'],
+  lead_creation: ['create', 'add', 'new customer', 'new inquiry', 'new lead', 'add customer', 'i am interested', 'interested'],
+  status_followup: ['update', 'status', 'followed up', 'any update', 'what is status', 'check status', 'lead status', 'progress'],
+  site_visit_booking: ['schedule', 'book', 'site visit', 'site see', 'tour', 'walkthrough', 'show property', 'visit property', 'schedule visit', 'book visit'],
+  callback_booking: ['callback', 'call back', 'call me', 'call later', 'schedule callback', 'book callback'],
+  meeting_booking: ['meeting', 'meet', 'schedule meeting', 'book meeting', 'online call', 'video call'],
+  human_handoff_request: ['talk to', 'speak to', 'contact rm', 'rm', 'human', 'manager', 'agent', 'need help', 'support', 'speak with someone'],
 };
 
 function detectIntent(message: string): string {
   const lower = message.toLowerCase();
-  for (const [intent, keywords] of Object.entries(INTENT_PATTERNS)) {
-    if (keywords.some((kw) => lower.includes(kw))) {
+
+  // Priority matching: check most specific intents first
+  const intentPriority = [
+    'site_visit_booking', 'callback_booking', 'meeting_booking', // booking intents (most specific)
+    'lead_creation', 'status_followup', // lead management
+    'project_discovery', 'unit_availability', 'pricing_inquiry', // property inquiry
+    'human_handoff_request', // escalation
+  ];
+
+  for (const intent of intentPriority) {
+    if (INTENT_PATTERNS[intent as keyof typeof INTENT_PATTERNS].some((kw) => lower.includes(kw))) {
       return intent;
     }
   }
-  return 'general';
+
+  return 'general_inquiry';
 }
 
 function expandShortReply(message: string): string {
@@ -91,6 +125,7 @@ function getQuickReplies(intent: string): string[] {
     property: ['Filter by BHK', 'Show price range', 'View on map', 'Schedule visit'],
     project: ['Show units', 'View amenities', 'Check RERA', 'Contact developer'],
     visit: ['Schedule visit', 'View calendar', 'Send reminder', 'Cancel appointment'],
+    status: ['Site visit done', 'Meeting done', 'Callback done', 'Show all leads'],
     analytics: ['Daily report', 'Weekly summary', 'Monthly metrics', 'Export report'],
     general: ['Show leads', 'Find property', 'View projects', 'Schedule visit']
   };
@@ -123,14 +158,103 @@ const QUICK_REPLY_PARAMS: Record<string, Partial<SearchParams & { message: strin
   'View calendar': { message: 'View visit calendar' },
   'Send reminder': { message: 'Send appointment reminder' },
   'Cancel appointment': { message: 'Cancel an appointment' },
+  'Site visit done': { message: 'Mark site visit as done' },
+  'Meeting done': { message: 'Mark meeting as done' },
+  'Callback done': { message: 'Mark callback as done' },
   'Daily report': { message: 'Show daily analytics report' },
   'Weekly summary': { message: 'Show weekly summary' },
   'Monthly metrics': { message: 'Show monthly metrics' },
   'Export report': { message: 'Export analytics report' },
   'Show leads': { message: 'Show all leads' },
+  'Show all leads': { message: 'Show all leads' },
   'Find property': { message: 'Find properties' },
   'View projects': { message: 'View all projects' },
+  'Update Another Lead': { message: 'Update another lead status' },
+  'Show All Leads': { message: 'Show all leads' },
+  'Schedule Site Visit': { message: 'Schedule a site visit' },
+  'View All Leads': { message: 'Show all leads' },
+  'Create Another Lead': { message: 'Create a new lead' },
+  'Schedule Another': { message: 'Schedule another appointment' },
+  'Create Lead': { message: 'Create a new lead' },
 };
+
+// Status ID constants for child status mapping
+const CHILD_STATUS_IDS: Record<string, string> = {
+  callback_to_schedule_meeting: 'f6f2683f-526f-42cd-a1b6-dd132e9e0f16',
+  callback_to_schedule_site_visit: '171598ed-a0f8-41ec-aa35-d032a011118d',
+  callback_follow_up: '414ff141-9fe4-4c86-a0bb-6cc82f120d71',
+  callback_busy: 'dc2918b0-cfdd-4226-b5b3-fc5d3f464174',
+  callback_not_answered: '1d8b4e6e-bfe4-42bc-bdae-c3e9beccac77',
+  callback_not_reachable: '0a7f674c-0436-4a94-ac43-b833750555a9',
+  meeting_online: '68282b95-bf5e-4f87-b940-749f667abc25',
+  meeting_on_call: 'ac169743-07a8-485b-9b01-89818a2654d6',
+  meeting_others: 'fb3f3e48-c397-40d5-ab01-dbfcd110ade5',
+  meeting_in_person: 'd465463a-cfb8-413f-b1f3-46430c01f2bd',
+  site_visit_first_visit: '7f3fceff-5858-4ca0-aff1-7be24b7500be',
+  site_visit_revisit: '62609802-1df7-41b0-856f-4afb490c1590',
+};
+
+const PARENT_STATUS_IDS: Record<string, string> = {
+  callback: '54bd52ee-914f-4a78-b919-cd99be9dee88',
+  meeting: '1c204d66-0f0e-4718-af99-563dad02a39b',
+  site_visit: 'ba8fbec4-9322-438f-a745-5dfae2ee078d',
+};
+
+function getStatusCategory(code: string): 'fresh' | 'callback' | 'meeting' | 'site_visit' | 'closed' {
+  const c = (code || '').toLowerCase();
+  if (!c || ['new', 'pending', 'expression_of_interest', 'eoi', 'fresh'].some(k => c.includes(k))) return 'fresh';
+  if (['meeting_scheduled', 'online', 'on_call', 'in_person', 'others'].some(k => c.includes(k))) return 'meeting';
+  if (['site_visit_scheduled', 'first_visit', 'revisit'].some(k => c.includes(k))) return 'site_visit';
+  if (['callback', 'follow_up', 'to_schedule', 'not_answered', 'not_reachable', 'busy'].some(k => c.includes(k))) return 'callback';
+  if (['booked', 'not_interested', 'dropped', 'closed', 'lost'].some(k => c.includes(k))) return 'closed';
+  return 'fresh';
+}
+
+function getStatusAwareOptions(category: string, statusName: string): { message: string; buttons: string[] } {
+  switch (category) {
+    case 'fresh':
+      return {
+        message: `What would you like to schedule?`,
+        buttons: ['🏢 Schedule Site Visit', '📞 Schedule Callback', '🤝 Schedule Meeting', '❌ Cancel'],
+      };
+    case 'callback':
+      return {
+        message: `Lead is currently **${statusName}**. What would you like to do?`,
+        buttons: ['🏢 Schedule Site Visit', '🤝 Schedule Meeting', '🔄 Follow Up', '📵 Not Answered', '📴 Not Reachable', '❌ Cancel'],
+      };
+    case 'meeting':
+      // For leads with meeting already scheduled - only show done/not done
+      return {
+        message: `Lead already has **${statusName}**. What happened?`,
+        buttons: ['✅ Done', '❌ Not Done', '❌ Cancel'],
+      };
+    case 'site_visit':
+      // For leads with site visit already scheduled - only show done/not done
+      return {
+        message: `Lead already has **${statusName}**. What happened?`,
+        buttons: ['✅ Done', '❌ Not Done', '❌ Cancel'],
+      };
+    case 'closed':
+      return {
+        message: `Lead status is **${statusName}**. Would you like to follow up?`,
+        buttons: ['🔄 Follow Up', '❌ Cancel'],
+      };
+    default:
+      return {
+        message: `What would you like to do?`,
+        buttons: ['🏢 Schedule Site Visit', '📞 Schedule Callback', '🤝 Schedule Meeting', '❌ Cancel'],
+      };
+  }
+}
+
+async function searchPropertiesApi(query: string): Promise<any[]> {
+  try {
+    const res = await api.get(`/leads/properties?search=${encodeURIComponent(query)}`);
+    return res.data?.data || [];
+  } catch {
+    return [];
+  }
+}
 
 async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = []): Promise<{ content: string; quickReplies: string[] }> {
   const tenantId = typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || null) : null;
@@ -157,7 +281,7 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
       requestPayload.tenant_id = tenantId;
     }
 
-    const response = await fastApiClient.post('/api/v1/chat/message', requestPayload);
+    const response = await fastApiClient.post('api/v1/chat/message', requestPayload);
 
     const routerResponse = response.data?.response || response.data?.content || '';
     const detectedIntent = response.data?.intent || intent || 'general';
@@ -242,14 +366,16 @@ export default function ChatInterface() {
     data: {},
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageCounterRef = useRef<number>(0);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   function appendBotMessage(content: string, quickReplies: string[] = []) {
+    messageCounterRef.current += 1;
     setMessages(prev => [...prev, {
-      id: Date.now().toString(),
+      id: `msg-${Date.now()}-${messageCounterRef.current}`,
       role: 'assistant',
       content,
       timestamp: new Date(),
@@ -304,7 +430,7 @@ export default function ChatInterface() {
         if (text === '✅ Confirm & Create Lead') {
           appendBotMessage('Creating lead in Leadrat CRM...', []);
           try {
-            const response = await api.post('/api/v1/leads', {
+            const response = await api.post('/leads', {
               name: data.leadName,
               contactNo: data.leadPhone,
               alternateContactNo: '',
@@ -312,7 +438,16 @@ export default function ChatInterface() {
               source: 'AI Assistant'
             });
             const lead = response.data?.data;
-            setConvState({ flow: 'none', step: '', data: {} });
+            // Store the created lead details for quick appointment scheduling
+            setConvState({
+              flow: 'none',
+              step: '',
+              data: {
+                leadId: lead?.id,
+                leadName: data.leadName,
+                leadPhone: data.leadPhone
+              }
+            });
             appendBotMessage(
               `✅ **Lead Created Successfully!**\n\n` +
               `👤 ${data.leadName} has been added to Leadrat CRM.\n` +
@@ -320,11 +455,27 @@ export default function ChatInterface() {
               `🏠 Interest: ${data.selectedPropertyName ?? data.selectedProjectName}`,
               ['Schedule Site Visit', 'View All Leads', 'Create Another Lead']
             );
-          } catch (error) {
-            appendBotMessage(
-              '❌ Failed to create lead. Please try again or add manually in Leadrat.',
-              ['Try Again', 'Show Leads']
-            );
+          } catch (error: any) {
+            const status = error.response?.status;
+            const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+
+            console.error('[ChatInterface] Lead creation failed:', { status, errorMsg });
+
+            if (status === 403 || status === 401) {
+              appendBotMessage(
+                '⚠️ Authentication expired. Please log in again.\n\n' +
+                `Error: ${status === 403 ? 'Access Denied' : 'Unauthorized'}\n\n` +
+                'Go to Login page and try again.',
+                ['Try Again', 'Show Leads']
+              );
+            } else {
+              appendBotMessage(
+                `❌ Failed to create lead.\n\n` +
+                `Error: ${errorMsg}\n\n` +
+                'Please try again or add manually in Leadrat.',
+                ['Try Again', 'Show Leads']
+              );
+            }
           }
         }
         break;
@@ -345,10 +496,10 @@ export default function ChatInterface() {
       case 'get_lead': {
         appendBotMessage('Searching for lead...', []);
         try {
-          const res = await api.get('/api/v1/leads', {
+          const res = await api.get('/leads', {
             params: { search: text, page: 0, size: 5 }
           });
-          const leads = res.data?.content || [];
+          const leads = res.data?.data?.content || [];
           if (!leads.length) {
             appendBotMessage(
               `No leads found for "${text}". Try a different name or phone.`,
@@ -360,7 +511,7 @@ export default function ChatInterface() {
           appendBotMessage(
             `Found ${leads.length} lead(s). Select one to update:`,
             leads.slice(0, 5).map((l: any) =>
-              `Select: ${l.name ?? 'Unknown'} - ${l.phone ?? l.contactNo ?? ''}`
+              `Select: ${l.name ?? 'Unknown'} - ${l.phoneNumber ?? l.contactNo ?? ''}`
             ).concat(['❌ Cancel'])
           );
           sessionStorage.setItem('chatbot_leads', JSON.stringify(leads));
@@ -377,7 +528,7 @@ export default function ChatInterface() {
           sessionStorage.getItem('chatbot_leads') ?? '[]'
         );
         const selectedLead = storedLeads.find((l: any) =>
-          `${l.name ?? ''} - ${l.phone ?? l.contactNo ?? ''}`.includes(leadInfo.split(' - ')[0].trim())
+          `${l.name ?? ''} - ${l.phoneNumber ?? l.contactNo ?? ''}`.includes(leadInfo.split(' - ')[0].trim())
         );
 
         if (!selectedLead) {
@@ -412,37 +563,43 @@ export default function ChatInterface() {
 
       case 'select_activity': {
         try {
-          const statusRes = await api.get('/api/v1/leads/statuses');
+          const statusRes = await api.get('/leads/statuses');
           const statuses = statusRes.data?.data ?? [];
 
+          if (!statuses.length) {
+            appendBotMessage('No statuses available. Please try again.', ['Try Again', '❌ Cancel']);
+            return;
+          }
+
           const activityMap: Record<string, string[]> = {
-            '✅ Site Visit Done': ['site visit', 'visited', 'visit done', 'visit completed'],
-            '❌ Site Visit Not Done': ['site visit', 'not', 'missed', 'no show'],
-            '✅ Meeting Done': ['meeting', 'done', 'completed', 'met'],
-            '❌ Meeting Not Done': ['meeting', 'not', 'missed', 'rescheduled'],
-            '✅ Callback Done': ['callback', 'called', 'done', 'connected'],
-            '❌ Callback Not Done': ['callback', 'not', 'no answer', 'missed'],
+            '✅ Site Visit Done': ['visit', 'visited', 'done'],
+            '❌ Site Visit Not Done': ['visit', 'not', 'missed', 'no show'],
+            '✅ Meeting Done': ['meeting', 'done'],
+            '❌ Meeting Not Done': ['meeting', 'not', 'missed'],
+            '✅ Callback Done': ['callback', 'done'],
+            '❌ Callback Not Done': ['callback', 'not', 'missed'],
           };
 
           const keywords = activityMap[text] ?? [];
-          const matchedStatus = statuses.find((s: any) =>
-            keywords.every(kw =>
-              s.name.toLowerCase().includes(kw.toLowerCase())
-            )
-          ) ?? statuses.find((s: any) =>
-            keywords[0] && s.name.toLowerCase().includes(keywords[0])
-          );
+          let matchedStatus = null;
+
+          if (keywords.length > 0) {
+            matchedStatus = statuses.find((s: any) => {
+              const statusName = s.name?.toLowerCase() || '';
+              return keywords.some(kw => statusName.includes(kw.toLowerCase()));
+            });
+          }
 
           if (!matchedStatus) {
             appendBotMessage(
-              `Could not auto-match status. Please select from Leadrat statuses:`,
+              `Please select a status for this activity:`,
               statuses.slice(0, 8).map((s: any) =>
                 `Status: ${s.name}`
               ).concat(['❌ Cancel'])
             );
             setConvState(prev => ({
               ...prev,
-              step: 'manual_status',
+              step: 'select_status',
               data: { ...prev.data, allStatuses: JSON.stringify(statuses) }
             }));
             return;
@@ -474,14 +631,47 @@ export default function ChatInterface() {
         break;
       }
 
+      case 'select_status': {
+        if (!text.startsWith('Status:')) return;
+        const statusName = text.replace('Status:', '').trim();
+        const storedStatuses = JSON.parse(
+          data.allStatuses ?? '[]'
+        );
+        const selectedStatus = storedStatuses.find((s: any) =>
+          s.name === statusName
+        );
+
+        if (!selectedStatus) {
+          appendBotMessage('Could not find selected status.', ['Try Again', '❌ Cancel']);
+          return;
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'confirm_status',
+          data: {
+            ...prev.data,
+            statusId: selectedStatus.id,
+            statusName: selectedStatus.name
+          }
+        }));
+
+        appendBotMessage(
+          `Confirm status update:\n\n` +
+          `👤 **Lead:** ${data.leadName}\n` +
+          `📋 **New Status:** ${selectedStatus.name}\n\n` +
+          `This will update the lead in Leadrat CRM.`,
+          ['✅ Update Status', '❌ Cancel']
+        );
+        break;
+      }
+
       case 'confirm_status': {
         if (text !== '✅ Update Status') return;
         appendBotMessage('Updating lead status in Leadrat...', []);
         try {
-          await api.put(`/api/v1/leads/${data.leadId}/status`, {
-            id: data.leadId,
-            leadStatusId: data.statusId,
-            assignTo: ''
+          await api.put(`/leads/${data.leadId}/status`, {
+            leadStatusId: data.statusId
           });
           setConvState({ flow: 'none', step: '', data: {} });
           appendBotMessage(
@@ -491,11 +681,934 @@ export default function ChatInterface() {
             `✓ Updated in Leadrat CRM`,
             ['Update Another Lead', 'Show All Leads', 'Schedule Visit']
           );
-        } catch {
+        } catch (error: any) {
+          const errorMsg = error.response?.data?.message || 'Failed to update status';
           appendBotMessage(
-            '❌ Failed to update status. Please try again.',
+            `❌ ${errorMsg}\n\nPlease try again or contact support.`,
             ['Try Again', '❌ Cancel']
           );
+        }
+        break;
+      }
+    }
+  }
+
+  async function handleScheduleFlow(text: string) {
+    const { step, data } = convState;
+
+    if (text === '❌ Cancel') {
+      setConvState({ flow: 'none', step: '', data: {} });
+      appendBotMessage('Appointment scheduling cancelled. How else can I help?',
+        ['Show leads', 'Schedule visit', 'Create lead']);
+      return;
+    }
+
+    switch(step) {
+      case 'get_lead': {
+        appendBotMessage('Searching for lead...', []);
+        try {
+          const res = await api.get('/leads', {
+            params: { search: text, page: 0, size: 10 }
+          });
+          const leads = res.data?.data?.content || [];
+          if (!leads.length) {
+            appendBotMessage(
+              `No leads found for "${text}". Try a different name or phone.`,
+              ['Try Again', '❌ Cancel']
+            );
+            return;
+          }
+          setConvState(prev => ({ ...prev, step: 'select_lead' }));
+          appendBotMessage(
+            `Found ${leads.length} lead(s). Select one:`,
+            leads.slice(0, 5).map((l: any) =>
+              `Select: ${l.name ?? 'Unknown'} - ${l.phoneNumber ?? l.contactNo ?? ''}`
+            ).concat(['❌ Cancel'])
+          );
+          sessionStorage.setItem('schedule_leads', JSON.stringify(leads));
+        } catch {
+          appendBotMessage('Failed to search leads.', ['Try Again', '❌ Cancel']);
+        }
+        break;
+      }
+
+      case 'select_lead': {
+        const leads = JSON.parse(sessionStorage.getItem('schedule_leads') || '[]');
+        const selected = leads.find((l: any) =>
+          text.includes(l.name) || text.includes(l.phoneNumber) || text.includes(l.contactNo)
+        );
+
+        if (!selected) {
+          appendBotMessage('Could not find that lead. Please try again.', ['❌ Cancel']);
+          return;
+        }
+
+        appendBotMessage(`Checking status for **${selected.name}**...`, []);
+
+        try {
+          const res = await api.get(`/leads/${selected.id}`);
+          const lead = res.data?.data || res.data;
+          const statusCode = lead?.statusCode || '';
+          const statusName = lead?.status || 'New Lead';
+          const statusId = lead?.statusId || '';
+          const category = getStatusCategory(statusCode);
+          const { message, buttons } = getStatusAwareOptions(category, statusName);
+
+          setConvState(prev => ({
+            ...prev,
+            step: 'status_aware_action',
+            data: {
+              ...prev.data,
+              selectedLeadId: selected.id,
+              selectedLeadName: selected.name,
+              selectedLeadPhone: selected.phoneNumber || selected.contactNo,
+              assignTo: lead?.assignTo || '45abfce5-2746-42e6-bf66-ac7e00e75085',
+              secondaryUserId: lead?.secondaryUserId || '00000000-0000-0000-0000-000000000000',
+              currentStatusId: statusId,
+              currentStatusCode: statusCode,
+              currentStatusName: statusName,
+              statusCategory: category,
+            }
+          }));
+          appendBotMessage(
+            `👤 **${selected.name}** (${selected.phoneNumber || selected.contactNo})\n\n${message}`,
+            buttons
+          );
+        } catch {
+          setConvState(prev => ({
+            ...prev,
+            step: 'status_aware_action',
+            data: {
+              ...prev.data,
+              selectedLeadId: selected.id,
+              selectedLeadName: selected.name,
+              selectedLeadPhone: selected.phoneNumber || selected.contactNo,
+              statusCategory: 'fresh',
+            }
+          }));
+          appendBotMessage(
+            `👤 **${selected.name}**\n\nWhat would you like to schedule?`,
+            ['🏢 Schedule Site Visit', '📞 Schedule Callback', '🤝 Schedule Meeting', '❌ Cancel']
+          );
+        }
+        break;
+      }
+
+      case 'status_aware_action': {
+        const { statusCategory } = data;
+
+        if (text.includes('Cancel')) {
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage('No problem! Let me know if you need anything else.', []);
+          return;
+        }
+
+        // Scheduling actions
+        if (text.includes('Schedule Site Visit')) {
+          setConvState(prev => ({ ...prev, step: 'search_property', data: { ...prev.data, appointmentType: 'Visit' } }));
+          appendBotMessage('Which property would you like to schedule a site visit for? Please enter property name or location.', []);
+          return;
+        }
+        if (text.includes('Schedule Callback')) {
+          setConvState(prev => ({ ...prev, step: 'select_date', data: { ...prev.data, appointmentType: 'Callback' } }));
+          appendBotMessage('When would you like to schedule the callback?', ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']);
+          return;
+        }
+        if (text.includes('Schedule Meeting') || text.includes('Reschedule Meeting')) {
+          setConvState(prev => ({ ...prev, step: 'select_meeting_subtype', data: { ...prev.data, appointmentType: 'Meeting' } }));
+          appendBotMessage('What type of meeting?', ['💻 Online', '🏢 In Person', '📞 On Call', '🔄 Others']);
+          return;
+        }
+        if (text.includes('Reschedule Site Visit')) {
+          setConvState(prev => ({ ...prev, step: 'search_property', data: { ...prev.data, appointmentType: 'Visit' } }));
+          appendBotMessage('Which property would you like to reschedule for?', []);
+          return;
+        }
+        if (text.includes('Revisit')) {
+          setConvState(prev => ({
+            ...prev, step: 'search_property',
+            data: { ...prev.data, appointmentType: 'Visit', targetStatusId: CHILD_STATUS_IDS.site_visit_revisit, targetStatusName: 'Revisit' }
+          }));
+          appendBotMessage('Which property for the revisit?', []);
+          return;
+        }
+
+        // Direct status updates (no date needed)
+        if (text.includes('Follow Up')) {
+          setConvState(prev => ({ ...prev, step: 'confirm_direct_status',
+            data: { ...prev.data, targetStatusId: CHILD_STATUS_IDS.callback_follow_up, targetStatusName: 'Follow Up' }
+          }));
+          appendBotMessage(`Confirm: Set **${data.selectedLeadName}** to Follow Up?`, ['✅ Confirm Update', '❌ Cancel']);
+          return;
+        }
+        if (text.includes('Not Answered')) {
+          setConvState(prev => ({ ...prev, step: 'confirm_direct_status',
+            data: { ...prev.data, targetStatusId: CHILD_STATUS_IDS.callback_not_answered, targetStatusName: 'Not Answered' }
+          }));
+          appendBotMessage(`Confirm: Set **${data.selectedLeadName}** to Not Answered?`, ['✅ Confirm Update', '❌ Cancel']);
+          return;
+        }
+        if (text.includes('Not Reachable')) {
+          setConvState(prev => ({ ...prev, step: 'confirm_direct_status',
+            data: { ...prev.data, targetStatusId: CHILD_STATUS_IDS.callback_not_reachable, targetStatusName: 'Not Reachable' }
+          }));
+          appendBotMessage(`Confirm: Set **${data.selectedLeadName}** to Not Reachable?`, ['✅ Confirm Update', '❌ Cancel']);
+          return;
+        }
+
+        // Done / Not Done actions for meetings and site visits
+        const isDoneAction = text.includes('✅ Done') || text.includes('❌ Not Done');
+        if (isDoneAction && (data.statusCategory === 'meeting' || data.statusCategory === 'site_visit')) {
+          appendBotMessage('Searching for matching status in Leadrat...', []);
+          try {
+            const res = await api.get('/leads/statuses');
+            const statuses: any[] = res.data?.data || [];
+
+            // Determine search keywords based on status category and action
+            const isDone = text.includes('✅ Done');
+            let keywords: string[] = [];
+
+            if (data.statusCategory === 'meeting') {
+              keywords = isDone
+                ? ['meeting done', 'completed', 'confirmed', 'scheduled done']
+                : ['meeting not done', 'no show', 'missed', 'not attended', 'cancelled'];
+            } else if (data.statusCategory === 'site_visit') {
+              keywords = isDone
+                ? ['visit done', 'visited', 'completed', 'site visit completed']
+                : ['not visited', 'not done', 'missed', 'cancelled'];
+            }
+
+            const matched = statuses.find(s =>
+              keywords.some(kw => s.name?.toLowerCase().includes(kw) || s.status?.toLowerCase().includes(kw))
+            );
+
+            if (matched) {
+              setConvState(prev => ({ ...prev, step: 'confirm_direct_status',
+                data: { ...prev.data, targetStatusId: matched.id, targetStatusName: matched.name }
+              }));
+              appendBotMessage(`Confirm: Set **${data.selectedLeadName}** to **${matched.name}**?`, ['✅ Confirm Update', '❌ Cancel']);
+            } else {
+              // Fallback: show all statuses for manual selection
+              const buttons = statuses.slice(0, 8).map((s: any) => `Status: ${s.name}`);
+              setConvState(prev => ({ ...prev, step: 'select_manual_status', data: { ...prev.data, allStatuses: JSON.stringify(statuses) } }));
+              appendBotMessage(`I couldn't find an exact match. Please select the status:`, buttons);
+            }
+          } catch {
+            appendBotMessage('Could not fetch statuses. Please try again.', ['❌ Cancel']);
+          }
+          return;
+        }
+
+        break;
+      }
+
+      case 'select_type': {
+        let appointmentType: 'Visit' | 'Callback' | 'Meeting' | '' = '';
+        if (text.includes('Site Visit')) appointmentType = 'Visit';
+        else if (text.includes('Callback')) appointmentType = 'Callback';
+        else if (text.includes('Meeting')) appointmentType = 'Meeting';
+
+        if (!appointmentType) {
+          appendBotMessage('Please select a valid appointment type.', ['🏢 Site Visit', '📞 Callback', '🤝 Meeting']);
+          return;
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'select_date',
+          data: { ...prev.data, appointmentType: appointmentType as 'Visit' | 'Callback' | 'Meeting' }
+        }));
+        appendBotMessage(
+          `Perfect! ${appointmentType} scheduled. 📅\n\nWhen would you like to schedule this?`,
+          ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']
+        );
+        break;
+      }
+
+      case 'select_meeting_subtype': {
+        let subtypeId = CHILD_STATUS_IDS.meeting_in_person;
+        let subtypeName = 'In Person';
+        if (text.toLowerCase().includes('online')) { subtypeId = CHILD_STATUS_IDS.meeting_online; subtypeName = 'Online'; }
+        else if (text.toLowerCase().includes('on call') || text.toLowerCase().includes('phone')) { subtypeId = CHILD_STATUS_IDS.meeting_on_call; subtypeName = 'On Call'; }
+        else if (text.toLowerCase().includes('others')) { subtypeId = CHILD_STATUS_IDS.meeting_others; subtypeName = 'Others'; }
+
+        setConvState(prev => ({
+          ...prev, step: 'select_date',
+          data: { ...prev.data, targetStatusId: subtypeId, targetStatusName: subtypeName }
+        }));
+        appendBotMessage('When would you like to schedule the meeting?', ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']);
+        break;
+      }
+
+      case 'search_property': {
+        appendBotMessage('Searching for properties...', []);
+        try {
+          const properties = await searchPropertiesApi(text);
+          if (properties.length > 0) {
+            const buttons = properties.slice(0, 5).map((p: any) => `Property: ${p.name} - ${p.city}`);
+            setConvState(prev => ({
+              ...prev,
+              step: 'select_property',
+              data: { ...prev.data, propertyOptions: JSON.stringify(properties) }
+            }));
+            appendBotMessage('Which property would you like to select?', buttons);
+          } else {
+            appendBotMessage('No properties found. Please try a different search.', []);
+          }
+        } catch {
+          appendBotMessage('Could not search properties. Please try again.', []);
+        }
+        break;
+      }
+
+      case 'select_property': {
+        const properties = JSON.parse(data.propertyOptions || '[]');
+        const selected = properties.find((p: any) =>
+          text.toLowerCase().includes(p.name.toLowerCase()) || text.toLowerCase().includes(p.city.toLowerCase())
+        );
+
+        if (!selected) {
+          appendBotMessage('Please select a valid property.', properties.slice(0, 5).map((p: any) => `Property: ${p.name} - ${p.city}`));
+          return;
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'select_date',
+          data: {
+            ...prev.data,
+            selectedPropertyId: selected.id,
+            selectedPropertyName: selected.name,
+            selectedPropertyCity: selected.city
+          }
+        }));
+        appendBotMessage(
+          `📍 **${selected.name}**, ${selected.city}\n\nWhen would you like to schedule the site visit?`,
+          ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']
+        );
+        break;
+      }
+
+      case 'select_date': {
+        let scheduledDate = '';
+        const today = new Date();
+
+        if (text.includes('Today')) {
+          scheduledDate = today.toISOString().split('T')[0];
+        } else if (text.includes('Tomorrow')) {
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          scheduledDate = tomorrow.toISOString().split('T')[0];
+        } else if (text.match(/\d{4}-\d{2}-\d{2}/)) {
+          scheduledDate = text.match(/\d{4}-\d{2}-\d{2}/)![0];
+        } else {
+          appendBotMessage('Please select a date or enter in YYYY-MM-DD format.', ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']);
+          return;
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'select_time',
+          data: { ...prev.data, scheduledDate }
+        }));
+        appendBotMessage(
+          `Date: ${scheduledDate}\n\nWhat time would you prefer?`,
+          ['🕙 10:00 AM', '🕛 12:00 PM', '🕒 3:00 PM', '🕔 5:00 PM', '⏰ Custom']
+        );
+        break;
+      }
+
+      case 'select_time': {
+        let scheduledTime = '';
+        if (text.includes('10:00')) scheduledTime = '10:00';
+        else if (text.includes('12:00')) scheduledTime = '12:00';
+        else if (text.includes('3:00') || text.includes('15:00')) scheduledTime = '15:00';
+        else if (text.includes('5:00') || text.includes('17:00')) scheduledTime = '17:00';
+        else if (text.match(/\d{1,2}:\d{2}/)) {
+          scheduledTime = text.match(/\d{1,2}:\d{2}/)![0];
+        } else {
+          appendBotMessage('Please select a time or enter in HH:MM format.', ['🕙 10:00 AM', '🕛 12:00 PM', '🕒 3:00 PM', '🕔 5:00 PM']);
+          return;
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'get_notes',
+          data: { ...prev.data, scheduledTime }
+        }));
+        appendBotMessage(
+          `Time: ${scheduledTime}\n\nAny special notes or customer requirements?`,
+          ['✏️ Add Note', '⏭️ Skip']
+        );
+        break;
+      }
+
+      case 'get_notes': {
+        let notes = '';
+        if (!text.includes('Skip')) {
+          notes = text.replace(/^✏️\s*Add Note:\s*/i, '').trim();
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'confirm',
+          data: { ...prev.data, notes }
+        }));
+
+        const { selectedLeadName, selectedLeadPhone, appointmentType, scheduledDate, scheduledTime } = data;
+        appendBotMessage(
+          `📋 **Confirm Appointment**\n\n` +
+          `👤 **Lead:** ${selectedLeadName}\n` +
+          `📞 **Phone:** ${selectedLeadPhone}\n` +
+          `📅 **Type:** ${appointmentType}\n` +
+          `📅 **Date:** ${scheduledDate}\n` +
+          `🕐 **Time:** ${scheduledTime}\n` +
+          (notes ? `📝 **Notes:** ${notes}\n` : '') +
+          `\nThis will update the lead status in Leadrat CRM.`,
+          ['✅ Confirm Schedule', '❌ Cancel']
+        );
+        break;
+      }
+
+      case 'select_manual_status': {
+        if (text.startsWith('Status: ')) {
+          const statusName = text.replace('Status: ', '');
+          const statuses = JSON.parse(data.allStatuses || '[]');
+          const matched = statuses.find((s: any) => s.name === statusName);
+          if (matched) {
+            setConvState(prev => ({ ...prev, step: 'confirm_direct_status',
+              data: { ...prev.data, targetStatusId: matched.id, targetStatusName: matched.name }
+            }));
+            appendBotMessage(`Confirm: Set **${data.selectedLeadName}** to **${statusName}**?`, ['✅ Confirm Update', '❌ Cancel']);
+          }
+        }
+        break;
+      }
+
+      case 'confirm_direct_status': {
+        if (text.includes('Cancel')) {
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage('Cancelled.', []);
+          return;
+        }
+        if (!text.includes('Confirm Update')) return;
+
+        const { selectedLeadId, selectedLeadName, targetStatusId, targetStatusName, assignTo, secondaryUserId } = data;
+        appendBotMessage('Updating status in Leadrat CRM...', []);
+        try {
+          const payload = {
+            id: selectedLeadId,
+            leadStatusId: targetStatusId,
+            rating: null,
+            notes: null,
+            IsNotesUpdated: false,
+            bookedUnderName: null,
+            agreementValue: null,
+            purchasedFrom: null,
+            propertiesList: [],
+            projectsList: [],
+            projectIds: null,
+            unitTypeId: null,
+            propertyIds: null,
+            currency: 'INR',
+            buyer: null,
+            paymentPlans: null,
+            lowerBudget: null,
+            upperBudget: null,
+            purpose: null,
+            addresses: [],
+            assignTo: assignTo || '45abfce5-2746-42e6-bf66-ac7e00e75085',
+            secondaryUserId: secondaryUserId || '00000000-0000-0000-0000-000000000000',
+            scheduledDate: null,
+            meetingOrSiteVisit: null,
+          };
+          const res = await api.put(`/leads/${selectedLeadId}/status`, payload);
+          if (res.data?.success === false) {
+            throw new Error(res.data?.message || 'Update failed');
+          }
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage(
+            `✅ **Status Updated Successfully!**\n\n👤 **Lead:** ${selectedLeadName}\n📋 **New Status:** ${targetStatusName}\n✓ Updated in Leadrat CRM`,
+            ['Schedule Another', 'Show All Leads', 'Create Lead']
+          );
+        } catch (error: any) {
+          appendBotMessage(`Failed to update status: ${error.message || 'Please try again.'}`, ['✅ Confirm Update', '❌ Cancel']);
+        }
+        break;
+      }
+
+      case 'confirm': {
+        if (!text.includes('Confirm Schedule')) return;
+
+        setConvState(prev => ({ ...prev, step: 'updating' }));
+        appendBotMessage('Scheduling appointment in Leadrat CRM...', []);
+
+        try {
+          const { selectedLeadId, appointmentType, scheduledDate, scheduledTime, notes, targetStatusId, assignTo, secondaryUserId, selectedPropertyId } = data;
+
+          // Map appointment type to status ID and meetingOrSiteVisit number
+          let statusId = '';
+          let meetingOrSiteVisit = 0;
+
+          if (targetStatusId) {
+            // Use specific child ID if set (e.g. meeting_in_person, site_visit_revisit)
+            statusId = targetStatusId;
+            if (appointmentType === 'Meeting') meetingOrSiteVisit = 1;
+            else if (appointmentType === 'Visit') meetingOrSiteVisit = 2;
+            else meetingOrSiteVisit = 0;
+          } else if (appointmentType === 'Callback') {
+            statusId = PARENT_STATUS_IDS.callback;
+            meetingOrSiteVisit = 0;
+          } else if (appointmentType === 'Meeting') {
+            statusId = CHILD_STATUS_IDS.meeting_in_person;
+            meetingOrSiteVisit = 1;
+          } else if (appointmentType === 'Visit') {
+            statusId = CHILD_STATUS_IDS.site_visit_first_visit;
+            meetingOrSiteVisit = 2;
+          }
+
+          const scheduledDateTime = `${scheduledDate}T${scheduledTime}:00Z`;
+
+          const payload = {
+            id: selectedLeadId,
+            leadStatusId: statusId,
+            rating: null,
+            notes: notes || null,
+            IsNotesUpdated: !!notes,
+            bookedUnderName: null,
+            agreementValue: null,
+            purchasedFrom: null,
+            propertiesList: selectedPropertyId ? [selectedPropertyId] : [],
+            projectsList: [],
+            projectIds: null,
+            unitTypeId: null,
+            propertyIds: selectedPropertyId ? [selectedPropertyId] : null,
+            currency: 'INR',
+            buyer: null,
+            paymentPlans: null,
+            lowerBudget: null,
+            upperBudget: null,
+            purpose: null,
+            addresses: [],
+            assignTo: assignTo || '45abfce5-2746-42e6-bf66-ac7e00e75085',
+            secondaryUserId: secondaryUserId || '00000000-0000-0000-0000-000000000000',
+            scheduledDate: scheduledDateTime,
+            meetingOrSiteVisit: meetingOrSiteVisit
+          };
+
+          await api.put(`/leads/${selectedLeadId}/status`, payload);
+
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage(
+            `✅ **Appointment Scheduled Successfully!**\n\n` +
+            `👤 **Lead:** ${data.selectedLeadName}\n` +
+            `📞 **Phone:** ${data.selectedLeadPhone}\n` +
+            `📅 **Type:** ${appointmentType}\n` +
+            (data.selectedPropertyName ? `📍 **Property:** ${data.selectedPropertyName}, ${data.selectedPropertyCity}\n` : '') +
+            `📅 **Date:** ${scheduledDate}\n` +
+            `🕐 **Time:** ${scheduledTime}\n` +
+            `✓ Updated in Leadrat CRM`,
+            ['Schedule Another', 'Show All Leads', 'Create Lead']
+          );
+        } catch (error: any) {
+          console.error('[ChatInterface] Schedule failed:', error);
+          setConvState(prev => ({ ...prev, step: 'get_notes' }));
+          appendBotMessage(
+            `Let me retry scheduling this appointment...`,
+            ['✅ Confirm Schedule', '❌ Cancel']
+          );
+        }
+        break;
+      }
+    }
+  }
+
+  async function handleCallbackFlow(text: string) {
+    const { step, data } = convState;
+
+    if (text === '❌ Cancel') {
+      setConvState({ flow: 'none', step: '', data: {} });
+      appendBotMessage('Callback scheduling cancelled. How else can I help?',
+        ['Show leads', 'Schedule visit', 'Create lead']);
+      return;
+    }
+
+    // Callback flow is similar to schedule_visit but appointmentType is pre-set
+    // Reuse handleScheduleFlow logic but skip type selection
+    switch(step) {
+      case 'get_lead': {
+        // Same as schedule_visit
+        appendBotMessage('Searching for lead...', []);
+        try {
+          const res = await api.get('/leads', {
+            params: { search: text, page: 0, size: 10 }
+          });
+          const leads = res.data?.data?.content || [];
+          if (!leads.length) {
+            appendBotMessage(`No leads found for "${text}". Try again.`, ['Try Again', '❌ Cancel']);
+            return;
+          }
+          setConvState(prev => ({ ...prev, step: 'select_lead', data: { ...prev.data, appointmentType: 'Callback' } }));
+          appendBotMessage(
+            `Found ${leads.length} lead(s). Select one:`,
+            leads.slice(0, 5).map((l: any) =>
+              `Select: ${l.name ?? 'Unknown'} - ${l.phoneNumber ?? l.contactNo ?? ''}`
+            ).concat(['❌ Cancel'])
+          );
+          sessionStorage.setItem('schedule_leads', JSON.stringify(leads));
+        } catch {
+          appendBotMessage('Failed to search leads.', ['Try Again', '❌ Cancel']);
+        }
+        break;
+      }
+
+      case 'select_lead': {
+        const leads = JSON.parse(sessionStorage.getItem('schedule_leads') || '[]');
+        const selected = leads.find((l: any) =>
+          text.includes(l.name) || text.includes(l.phoneNumber) || text.includes(l.contactNo)
+        );
+        if (!selected) {
+          appendBotMessage('Could not find that lead.', ['❌ Cancel']);
+          return;
+        }
+
+        appendBotMessage(`Checking status for **${selected.name}**...`, []);
+
+        try {
+          const res = await api.get(`/leads/${selected.id}`);
+          const lead = res.data?.data || res.data;
+          const statusCode = lead?.statusCode || '';
+          const statusName = lead?.status || 'New Lead';
+          const statusId = lead?.statusId || '';
+          const category = getStatusCategory(statusCode);
+          const { message, buttons } = getStatusAwareOptions(category, statusName);
+
+          setConvState(prev => ({
+            ...prev,
+            step: 'status_aware_action',
+            data: {
+              ...prev.data,
+              selectedLeadId: selected.id,
+              selectedLeadName: selected.name,
+              selectedLeadPhone: selected.phoneNumber || selected.contactNo,
+              assignTo: lead?.assignTo || '45abfce5-2746-42e6-bf66-ac7e00e75085',
+              secondaryUserId: lead?.secondaryUserId || '00000000-0000-0000-0000-000000000000',
+              currentStatusId: statusId,
+              currentStatusCode: statusCode,
+              currentStatusName: statusName,
+              statusCategory: category,
+            }
+          }));
+          appendBotMessage(
+            `👤 **${selected.name}** (${selected.phoneNumber || selected.contactNo})\n\n${message}`,
+            buttons
+          );
+        } catch {
+          setConvState(prev => ({
+            ...prev,
+            step: 'status_aware_action',
+            data: {
+              ...prev.data,
+              selectedLeadId: selected.id,
+              selectedLeadName: selected.name,
+              selectedLeadPhone: selected.phoneNumber || selected.contactNo,
+              statusCategory: 'fresh',
+            }
+          }));
+          appendBotMessage(
+            `👤 **${selected.name}**\n\nWhat would you like to schedule?`,
+            ['🏢 Schedule Site Visit', '📞 Schedule Callback', '🤝 Schedule Meeting', '❌ Cancel']
+          );
+        }
+        break;
+      }
+
+      case 'select_date': {
+        let scheduledDate = '';
+        const today = new Date();
+        if (text.includes('Today')) {
+          scheduledDate = today.toISOString().split('T')[0];
+        } else if (text.includes('Tomorrow')) {
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          scheduledDate = tomorrow.toISOString().split('T')[0];
+        } else if (text.match(/\d{4}-\d{2}-\d{2}/)) {
+          scheduledDate = text.match(/\d{4}-\d{2}-\d{2}/)![0];
+        } else {
+          appendBotMessage('Please select a valid date.', ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']);
+          return;
+        }
+        setConvState(prev => ({
+          ...prev,
+          step: 'select_time',
+          data: { ...prev.data, scheduledDate }
+        }));
+        appendBotMessage(
+          `Date: ${scheduledDate}\n\nWhat time?`,
+          ['🕙 10:00 AM', '🕛 12:00 PM', '🕒 3:00 PM', '🕔 5:00 PM']
+        );
+        break;
+      }
+
+      case 'select_time': {
+        let scheduledTime = '';
+        if (text.includes('10:00')) scheduledTime = '10:00';
+        else if (text.includes('12:00')) scheduledTime = '12:00';
+        else if (text.includes('3:00') || text.includes('15:00')) scheduledTime = '15:00';
+        else if (text.includes('5:00') || text.includes('17:00')) scheduledTime = '17:00';
+        else {
+          appendBotMessage('Please select a valid time.', ['🕙 10:00 AM', '🕛 12:00 PM', '🕒 3:00 PM', '🕔 5:00 PM']);
+          return;
+        }
+        setConvState(prev => ({
+          ...prev,
+          step: 'confirm',
+          data: { ...prev.data, scheduledTime }
+        }));
+        const { selectedLeadName, selectedLeadPhone, scheduledDate } = data;
+        appendBotMessage(
+          `📋 **Confirm Callback**\n\n👤 **Lead:** ${selectedLeadName}\n📞 **Phone:** ${selectedLeadPhone}\n📅 **Date:** ${scheduledDate}\n🕐 **Time:** ${scheduledTime}`,
+          ['✅ Confirm Schedule', '❌ Cancel']
+        );
+        break;
+      }
+
+      case 'confirm': {
+        if (!text.includes('Confirm')) return;
+        appendBotMessage('Scheduling callback in Leadrat CRM...', []);
+        try {
+          const { selectedLeadId, scheduledDate, scheduledTime } = data;
+          const scheduledDateTime = `${scheduledDate}T${scheduledTime}:00Z`;
+          const payload = {
+            id: selectedLeadId,
+            leadStatusId: '54bd52ee-914f-4a78-b919-cd99be9dee88',
+            rating: null,
+            notes: null,
+            IsNotesUpdated: false,
+            bookedUnderName: null,
+            agreementValue: null,
+            purchasedFrom: null,
+            propertiesList: [],
+            projectsList: [],
+            projectIds: null,
+            unitTypeId: null,
+            propertyIds: null,
+            currency: 'INR',
+            buyer: null,
+            paymentPlans: null,
+            lowerBudget: null,
+            upperBudget: null,
+            purpose: null,
+            addresses: [],
+            assignTo: '45abfce5-2746-42e6-bf66-ac7e00e75085',
+            secondaryUserId: '00000000-0000-0000-0000-000000000000',
+            scheduledDate: scheduledDateTime,
+            meetingOrSiteVisit: 0
+          };
+          await api.put(`/leads/${selectedLeadId}/status`, payload);
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage(
+            `✅ **Callback Scheduled Successfully!**\n\n👤 **Lead:** ${data.selectedLeadName}\n📞 **Phone:** ${data.selectedLeadPhone}\n📅 **Date:** ${scheduledDate}\n🕐 **Time:** ${scheduledTime}`,
+            ['Schedule Another', 'Show All Leads', 'Create Lead']
+          );
+        } catch (error: any) {
+          console.error('[ChatInterface] Callback failed:', error);
+          appendBotMessage('Let me retry...', ['✅ Confirm Schedule', '❌ Cancel']);
+        }
+        break;
+      }
+    }
+  }
+
+  async function handleMeetingFlow(text: string) {
+    const { step, data } = convState;
+
+    if (text === '❌ Cancel') {
+      setConvState({ flow: 'none', step: '', data: {} });
+      appendBotMessage('Meeting scheduling cancelled. How else can I help?',
+        ['Show leads', 'Schedule visit', 'Create lead']);
+      return;
+    }
+
+    // Meeting flow: reuse handleScheduleFlow logic with appointmentType pre-set to 'Meeting'
+    switch(step) {
+      case 'get_lead': {
+        appendBotMessage('Searching for lead...', []);
+        try {
+          const res = await api.get('/leads', {
+            params: { search: text, page: 0, size: 10 }
+          });
+          const leads = res.data?.data?.content || [];
+          if (!leads.length) {
+            appendBotMessage(`No leads found for "${text}". Try again.`, ['Try Again', '❌ Cancel']);
+            return;
+          }
+          setConvState(prev => ({ ...prev, step: 'select_lead', data: { ...prev.data, appointmentType: 'Meeting' } }));
+          appendBotMessage(
+            `Found ${leads.length} lead(s). Select one:`,
+            leads.slice(0, 5).map((l: any) =>
+              `Select: ${l.name ?? 'Unknown'} - ${l.phoneNumber ?? l.contactNo ?? ''}`
+            ).concat(['❌ Cancel'])
+          );
+          sessionStorage.setItem('schedule_leads', JSON.stringify(leads));
+        } catch {
+          appendBotMessage('Failed to search leads.', ['Try Again', '❌ Cancel']);
+        }
+        break;
+      }
+
+      case 'select_lead': {
+        const leads = JSON.parse(sessionStorage.getItem('schedule_leads') || '[]');
+        const selected = leads.find((l: any) =>
+          text.includes(l.name) || text.includes(l.phoneNumber) || text.includes(l.contactNo)
+        );
+        if (!selected) {
+          appendBotMessage('Could not find that lead.', ['❌ Cancel']);
+          return;
+        }
+
+        appendBotMessage(`Checking status for **${selected.name}**...`, []);
+
+        try {
+          const res = await api.get(`/leads/${selected.id}`);
+          const lead = res.data?.data || res.data;
+          const statusCode = lead?.statusCode || '';
+          const statusName = lead?.status || 'New Lead';
+          const statusId = lead?.statusId || '';
+          const category = getStatusCategory(statusCode);
+          const { message, buttons } = getStatusAwareOptions(category, statusName);
+
+          setConvState(prev => ({
+            ...prev,
+            step: 'status_aware_action',
+            data: {
+              ...prev.data,
+              selectedLeadId: selected.id,
+              selectedLeadName: selected.name,
+              selectedLeadPhone: selected.phoneNumber || selected.contactNo,
+              assignTo: lead?.assignTo || '45abfce5-2746-42e6-bf66-ac7e00e75085',
+              secondaryUserId: lead?.secondaryUserId || '00000000-0000-0000-0000-000000000000',
+              currentStatusId: statusId,
+              currentStatusCode: statusCode,
+              currentStatusName: statusName,
+              statusCategory: category,
+            }
+          }));
+          appendBotMessage(
+            `👤 **${selected.name}** (${selected.phoneNumber || selected.contactNo})\n\n${message}`,
+            buttons
+          );
+        } catch {
+          setConvState(prev => ({
+            ...prev,
+            step: 'status_aware_action',
+            data: {
+              ...prev.data,
+              selectedLeadId: selected.id,
+              selectedLeadName: selected.name,
+              selectedLeadPhone: selected.phoneNumber || selected.contactNo,
+              statusCategory: 'fresh',
+            }
+          }));
+          appendBotMessage(
+            `👤 **${selected.name}**\n\nWhat would you like to schedule?`,
+            ['🏢 Schedule Site Visit', '📞 Schedule Callback', '🤝 Schedule Meeting', '❌ Cancel']
+          );
+        }
+        break;
+      }
+
+      case 'select_date': {
+        let scheduledDate = '';
+        const today = new Date();
+        if (text.includes('Today')) {
+          scheduledDate = today.toISOString().split('T')[0];
+        } else if (text.includes('Tomorrow')) {
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          scheduledDate = tomorrow.toISOString().split('T')[0];
+        } else if (text.match(/\d{4}-\d{2}-\d{2}/)) {
+          scheduledDate = text.match(/\d{4}-\d{2}-\d{2}/)![0];
+        } else {
+          appendBotMessage('When would you like to meet?', ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']);
+          return;
+        }
+        setConvState(prev => ({
+          ...prev,
+          step: 'select_time',
+          data: { ...prev.data, scheduledDate }
+        }));
+        appendBotMessage(
+          `Date: ${scheduledDate}\n\nWhat time?`,
+          ['🕙 10:00 AM', '🕛 12:00 PM', '🕒 3:00 PM', '🕔 5:00 PM']
+        );
+        break;
+      }
+
+      case 'select_time': {
+        let scheduledTime = '';
+        if (text.includes('10:00')) scheduledTime = '10:00';
+        else if (text.includes('12:00')) scheduledTime = '12:00';
+        else if (text.includes('3:00') || text.includes('15:00')) scheduledTime = '15:00';
+        else if (text.includes('5:00') || text.includes('17:00')) scheduledTime = '17:00';
+        else {
+          appendBotMessage('Please select a valid time.', ['🕙 10:00 AM', '🕛 12:00 PM', '🕒 3:00 PM', '🕔 5:00 PM']);
+          return;
+        }
+        setConvState(prev => ({
+          ...prev,
+          step: 'confirm',
+          data: { ...prev.data, scheduledTime }
+        }));
+        const { selectedLeadName, selectedLeadPhone, scheduledDate } = data;
+        appendBotMessage(
+          `📋 **Confirm Meeting**\n\n👤 **Lead:** ${selectedLeadName}\n📞 **Phone:** ${selectedLeadPhone}\n📅 **Date:** ${scheduledDate}\n🕐 **Time:** ${scheduledTime}`,
+          ['✅ Confirm Schedule', '❌ Cancel']
+        );
+        break;
+      }
+
+      case 'confirm': {
+        if (!text.includes('Confirm')) return;
+        appendBotMessage('Scheduling meeting in Leadrat CRM...', []);
+        try {
+          const { selectedLeadId, scheduledDate, scheduledTime } = data;
+          const scheduledDateTime = `${scheduledDate}T${scheduledTime}:00Z`;
+          const payload = {
+            id: selectedLeadId,
+            leadStatusId: '1c204d66-0f0e-4718-af99-563dad02a39b',
+            rating: null,
+            notes: null,
+            IsNotesUpdated: false,
+            bookedUnderName: null,
+            agreementValue: null,
+            purchasedFrom: null,
+            propertiesList: [],
+            projectsList: [],
+            projectIds: null,
+            unitTypeId: null,
+            propertyIds: null,
+            currency: 'INR',
+            buyer: null,
+            paymentPlans: null,
+            lowerBudget: null,
+            upperBudget: null,
+            purpose: null,
+            addresses: [],
+            assignTo: '45abfce5-2746-42e6-bf66-ac7e00e75085',
+            secondaryUserId: '00000000-0000-0000-0000-000000000000',
+            scheduledDate: scheduledDateTime,
+            meetingOrSiteVisit: 1
+          };
+          await api.put(`/leads/${selectedLeadId}/status`, payload);
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage(
+            `✅ **Meeting Scheduled Successfully!**\n\n👤 **Lead:** ${data.selectedLeadName}\n📅 **Date:** ${scheduledDate}\n🕐 **Time:** ${scheduledTime}`,
+            ['Schedule Another', 'Show All Leads', 'Create Lead']
+          );
+        } catch (error: any) {
+          console.error('[ChatInterface] Meeting failed:', error);
+          appendBotMessage('Let me retry...', ['✅ Confirm Schedule', '❌ Cancel']);
         }
         break;
       }
@@ -527,76 +1640,182 @@ export default function ChatInterface() {
       return;
     }
 
-    // Detect status update intent
-    const statusKeywords = [
-      'mark done', 'mark complete', 'site visit done',
-      'meeting done', 'callback done', 'not done',
-      'no show', 'missed', 'update status', 'visited'
-    ];
-    if (statusKeywords.some(kw => text.toLowerCase().includes(kw))) {
-      setConvState({ flow: 'update_status', step: 'get_lead', data: {} });
-      appendBotMessage(
-        'Which lead do you want to update?\nEnter the lead name or phone number:',
-        ['❌ Cancel']
-      );
+    if (convState.flow === 'schedule_visit') {
+      await handleScheduleFlow(text);
       return;
     }
 
-    // Handle property/project selection for lead creation
-    if (text.startsWith('Interested:') || text.startsWith('Interested in')) {
-      const propertyName = text.replace(/^Interested:?\s*/i, '').trim();
-      setConvState({
-        flow: 'create_lead',
-        step: 'get_name',
-        data: { selectedPropertyName: propertyName }
-      });
-      appendBotMessage(
-        `Great choice! 🏠 **${propertyName}**\n\nLet me create an enquiry.\nWhat is the customer's name?`,
-        ['❌ Cancel']
-      );
+    if (convState.flow === 'callback_booking') {
+      await handleCallbackFlow(text);
       return;
     }
 
-    // Normal intent detection
-    let text_expanded = expandShortReply(text);
-    const loadingId = (Date.now() + 1).toString();
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: loadingId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        isLoading: true,
-      },
-    ]);
-    setIsLoading(true);
+    if (convState.flow === 'meeting_booking') {
+      await handleMeetingFlow(text);
+      return;
+    }
 
-    try {
-      const intent = detectIntent(text_expanded);
-      const searchTerm = extractSearchTerm(text_expanded);
-      const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text_expanded, messages);
+    // Classify intent and route to appropriate flow (CRM Agent)
+    const intent = detectIntent(text);
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === loadingId ? { ...msg, content, quickReplies, isLoading: false } : msg
-        )
-      );
-    } catch {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === loadingId
-            ? {
-                ...msg,
-                content: 'Something went wrong. Please try again.',
-                quickReplies: ['Try again', 'Show all leads'],
-                isLoading: false,
-              }
-            : msg
-        )
-      );
-    } finally {
-      setIsLoading(false);
+    switch (intent) {
+      // === BOOKING FLOWS ===
+      case 'site_visit_booking':
+        // If a lead was just created, use it directly
+        if (convState.data.leadId && convState.data.leadName) {
+          setConvState(prev => ({
+            ...prev,
+            flow: 'schedule_visit',
+            step: 'select_type',
+            data: {
+              ...prev.data,
+              selectedLeadId: convState.data.leadId,
+              selectedLeadName: convState.data.leadName,
+              selectedLeadPhone: convState.data.leadPhone,
+              appointmentType: 'Visit'
+            }
+          }));
+          appendBotMessage(
+            `Perfect! 👤 **${convState.data.leadName}**\n\n🏢 **Site Visit**\n\nWhen would you like to schedule this?`,
+            ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']
+          );
+        } else {
+          setConvState({ flow: 'schedule_visit', step: 'get_lead', data: {} });
+          appendBotMessage(
+            'Let me schedule a site visit! 🏢\n\nEnter the lead name or phone number:',
+            ['❌ Cancel']
+          );
+        }
+        return;
+
+      case 'callback_booking':
+        // If a lead was just created, use it directly
+        if (convState.data.leadId && convState.data.leadName) {
+          setConvState(prev => ({
+            ...prev,
+            flow: 'callback_booking',
+            step: 'select_date',
+            data: {
+              ...prev.data,
+              selectedLeadId: convState.data.leadId,
+              selectedLeadName: convState.data.leadName,
+              selectedLeadPhone: convState.data.leadPhone,
+              appointmentType: 'Callback'
+            }
+          }));
+          appendBotMessage(
+            `Perfect! 👤 **${convState.data.leadName}**\n\n📞 **Callback**\n\nWhen would you like to schedule this?`,
+            ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']
+          );
+        } else {
+          setConvState({ flow: 'callback_booking', step: 'get_lead', data: {} });
+          appendBotMessage(
+            'Let me schedule a callback! 📞\n\nEnter the lead name or phone number:',
+            ['❌ Cancel']
+          );
+        }
+        return;
+
+      case 'meeting_booking':
+        // If a lead was just created, use it directly
+        if (convState.data.leadId && convState.data.leadName) {
+          setConvState(prev => ({
+            ...prev,
+            flow: 'meeting_booking',
+            step: 'select_date',
+            data: {
+              ...prev.data,
+              selectedLeadId: convState.data.leadId,
+              selectedLeadName: convState.data.leadName,
+              selectedLeadPhone: convState.data.leadPhone,
+              appointmentType: 'Meeting'
+            }
+          }));
+          appendBotMessage(
+            `Perfect! 👤 **${convState.data.leadName}**\n\n🤝 **Meeting**\n\nWhen would you like to schedule this?`,
+            ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']
+          );
+        } else {
+          setConvState({ flow: 'meeting_booking', step: 'get_lead', data: {} });
+          appendBotMessage(
+            'Let me schedule a meeting! 🤝\n\nEnter the lead name or phone number:',
+            ['❌ Cancel']
+          );
+        }
+        return;
+
+      // === LEAD MANAGEMENT ===
+      case 'lead_creation':
+        setConvState({ flow: 'create_lead', step: 'get_name', data: {} });
+        appendBotMessage(
+          'Let me create a new lead! 👤\n\nWhat is the customer\'s name?',
+          ['❌ Cancel']
+        );
+        return;
+
+      case 'status_followup':
+        setConvState({ flow: 'update_status', step: 'get_lead', data: {} });
+        appendBotMessage(
+          'Let me check the lead status! 📋\n\nEnter the lead name or phone number:',
+          ['❌ Cancel']
+        );
+        return;
+
+      // === ESCALATION ===
+      case 'human_handoff_request':
+        appendBotMessage(
+          '🤝 **Connecting you with our team!**\n\n' +
+          'A relationship manager will contact you shortly.\n' +
+          'You can also reach our team directly.',
+          ['📞 Call Sales Team', 'Show Leads', 'Back to Main']
+        );
+        return;
+
+      // === PROPERTY/PROJECT DISCOVERY (async intent detection + API call) ===
+      case 'unit_availability':
+      case 'project_discovery':
+      case 'pricing_inquiry':
+      default:
+        // Use FastAPI for intent detection + property/project search
+        let text_expanded = expandShortReply(text);
+        const loadingId = (Date.now() + 1).toString();
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: loadingId,
+            role: 'assistant',
+            content: '',
+            timestamp: new Date(),
+            isLoading: true,
+          },
+        ]);
+        setIsLoading(true);
+
+        try {
+          const searchTerm = extractSearchTerm(text_expanded);
+          const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text_expanded, messages);
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === loadingId ? { ...msg, content, quickReplies, isLoading: false } : msg
+            )
+          );
+        } catch {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === loadingId
+                ? {
+                    ...msg,
+                    content: 'Let me search that for you...',
+                    quickReplies: ['Show All Properties', 'Show All Projects', 'Create Lead'],
+                    isLoading: false,
+                  }
+                : msg
+            )
+          );
+        } finally {
+          setIsLoading(false);
+        }
     }
   }
 
@@ -728,9 +1947,9 @@ export default function ChatInterface() {
             {/* Quick Replies */}
             {msg.role === 'assistant' && msg.quickReplies && !msg.isLoading && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: '44px' }}>
-                {msg.quickReplies.map((reply) => (
+                {msg.quickReplies.map((reply, idx) => (
                   <button
-                    key={reply}
+                    key={`${msg.id}-reply-${idx}`}
                     onClick={() => handleQuickReply(reply)}
                     disabled={isLoading}
                     style={{

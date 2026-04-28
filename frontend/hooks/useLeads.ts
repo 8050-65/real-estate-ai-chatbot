@@ -51,7 +51,7 @@ export function useLeadDetail(id: string) {
   return useQuery({
     queryKey: ['lead', id],
     queryFn: async () => {
-      const res = await api.get<Lead>(`/api/v1/leads/${id}`);
+      const res = await api.get<Lead>(`/leads/${id}`);
       return res.data;
     },
     enabled: !!id,
@@ -63,7 +63,7 @@ export function useCreateLead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<Lead>) => {
-      const res = await api.post<Lead>('/api/v1/leads', data);
+      const res = await api.post<Lead>('/leads', data);
       return res.data;
     },
     onSuccess: () => {

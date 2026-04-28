@@ -5,6 +5,7 @@ import { Plus, CheckCircle, XCircle, Clock, Sparkles, Calendar } from 'lucide-re
 import { useActivities } from '@/hooks/useActivities';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { formatDateTime } from '@/lib/utils';
+import { DUMMY_VISITS } from '@/lib/dummy-data';
 
 const statusConfig: Record<string, { bgColor: string; textColor: string; borderColor: string }> = {
   scheduled: { bgColor: 'rgba(59, 130, 246, 0.1)', textColor: '#3b82f6', borderColor: 'rgba(59, 130, 246, 0.3)' },
@@ -35,8 +36,13 @@ export default function VisitsPage() {
     return <LoadingSpinner message="Loading visits..." />;
   }
 
-  const activities = data?.content || [];
+  // Use demo data if API returns empty results
+  const activities = data?.content && data.content.length > 0 ? data.content : DUMMY_VISITS;
   const statuses = ['scheduled', 'confirmed', 'completed', 'cancelled'];
+
+  if (!data?.content?.length) {
+    console.log('[Visits] Using demo mode: showing', activities.length, 'demo visits');
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

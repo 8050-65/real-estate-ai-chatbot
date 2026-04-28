@@ -1,11 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { MessageCircle, X } from 'lucide-react';
 import ChatInterface from './ChatInterface';
 
 export function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Hide floating chatbot on the AI Assistant page (it has its own integrated chat)
+  if (pathname === '/ai-assistant' || pathname.includes('/ai-assistant')) {
+    return null;
+  }
 
   return (
     <>

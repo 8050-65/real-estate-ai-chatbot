@@ -28,7 +28,7 @@ export function useActivities({
         });
         if (status) params.append('status', status);
         const res = await api.get<PageResponse<Activity>>(
-          `/api/v1/activities?${params}`,
+          `/activities?${params}`,
         );
         return res.data;
       } catch (error: any) {
@@ -59,7 +59,7 @@ export function useCreateActivity() {
   return useMutation({
     mutationFn: async (data: Partial<Activity>) => {
       try {
-        const res = await api.post<Activity>('/api/v1/activities', data);
+        const res = await api.post<Activity>('/activities', data);
         return res.data;
       } catch (error: any) {
         if (error.response?.status === 404 || error.code === 'ECONNREFUSED') {
@@ -86,7 +86,7 @@ export function useUpdateActivityStatus() {
       status: string;
     }) => {
       try {
-        const res = await api.put<Activity>(`/api/v1/activities/${id}/status`, {
+        const res = await api.put<Activity>(`/activities/${id}/status`, {
           status,
         });
         return res.data;
