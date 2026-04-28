@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Sliders, Users, User } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function SettingsPage() {
+  const { logAction } = useActivityLogger();
+  const { language, updateLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState('bot');
   const [botConfig, setBotConfig] = useState({
     personaName: 'Aria',
@@ -16,13 +20,44 @@ export default function SettingsPage() {
     language: 'en',
   });
 
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('bot_config');
+    if (saved) {
+      try {
+        const config = JSON.parse(saved);
+        setBotConfig(config);
+        // Sync language with global language hook
+        if (config.language) {
+          updateLanguage(config.language);
+        }
+      } catch (e) {
+        console.error('Failed to load settings:', e);
+      }
+    }
+  }, [updateLanguage]);
+
   const handleSave = async () => {
     try {
-      const { SettingsAPI } = await import('@/lib/api-client');
-      await SettingsAPI.updateBotConfig(botConfig);
-      // toast.success is called inside API client
+      // Save to localStorage first (always works)
+      localStorage.setItem('bot_config', JSON.stringify(botConfig));
+      logAction('Settings Updated', `Bot persona: ${botConfig.personaName}, Tone: ${botConfig.tone}, Language: ${botConfig.language}`);
+      toast.success('Settings saved successfully! ✅');
+
+      // Try to save to backend (optional - silently fails if not available)
+      setTimeout(async () => {
+        try {
+          const { SettingsAPI } = await import('@/lib/api-client');
+          await SettingsAPI.updateBotConfig(botConfig);
+          console.log('[Settings] Backend sync completed');
+        } catch {
+          // Silently fail - localStorage backup is already saved
+          console.log('[Settings] Using local storage (backend not available)');
+        }
+      }, 100);
     } catch (error) {
       console.error('Failed to save settings:', error);
+      toast.error('Failed to save settings');
     }
   };
 
@@ -179,13 +214,27 @@ export default function SettingsPage() {
               </label>
               <select
                 value={botConfig.language}
-                onChange={(e) =>
-                  setBotConfig({ ...botConfig, language: e.target.value })
-                }
+                onChange={(e) => {
+                  const newLang = e.target.value;
+                  setBotConfig({ ...botConfig, language: newLang });
+                  updateLanguage(newLang);
+                }}
                 style={inputStyle}
               >
-                <option value="en">English</option>
-                <option value="hi">Hindi</option>
+                <option value="en">🇬🇧 English</option>
+                <option value="hi">🇮🇳 Hindi</option>
+                <option value="kn">🇮🇳 Kannada</option>
+                <option value="ta">🇮🇳 Tamil</option>
+                <option value="te">🇮🇳 Telugu</option>
+                <option value="bn">🇧🇩 Bengali</option>
+                <option value="ur">🇵🇰 Urdu</option>
+                <option value="fr">🇫🇷 French</option>
+                <option value="es">🇪🇸 Spanish</option>
+                <option value="pt">🇵🇹 Portuguese</option>
+                <option value="de">🇩🇪 German</option>
+                <option value="zh">🇨🇳 Chinese</option>
+                <option value="ja">🇯🇵 Japanese</option>
+                <option value="ar">🇸🇦 Arabic</option>
               </select>
             </div>
           </div>

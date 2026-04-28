@@ -4,6 +4,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Loader, Bot, User } from 'lucide-react';
 import fastApiClient from '@/lib/fastapi-client';
 import api from '@/lib/api';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
+import { useLanguage } from '@/hooks/useLanguage';
+import { getTranslation } from '@/lib/translations';
 
 interface Message {
   id: string;
@@ -268,7 +271,7 @@ async function searchPropertiesApi(query: string): Promise<any[]> {
   }
 }
 
-async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = []): Promise<{ content: string; quickReplies: string[] }> {
+async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en'): Promise<{ content: string; quickReplies: string[] }> {
   const tenantId = typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || null) : null;
 
   console.log('[ChatInterface] Processing message:', originalMessage.substring(0, 50) + '...');
@@ -286,13 +289,15 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
     // Only pass tenant_id if explicitly set, otherwise backend uses .env default
     const requestPayload: any = {
       message: originalMessage,
-      conversation_history: historyContext
+      conversation_history: historyContext,
+      language: language || 'en',
     };
 
     if (tenantId) {
       requestPayload.tenant_id = tenantId;
     }
 
+    console.log('[ChatInterface] Sending message with language:', requestPayload.language);
     const response = await fastApiClient.post('api/v1/chat/message', requestPayload);
 
     const routerResponse = response.data?.response || response.data?.content || '';
@@ -360,16 +365,8 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
   }
 }
 
-const WELCOME_MESSAGE: Message = {
-  id: 'welcome',
-  role: 'assistant',
-  content: `Hello! I'm your AI Real Estate Assistant. 🏠\n\nI can help you with:\n• 👥 Finding and managing leads\n• 🏠 Searching property inventory\n• 📋 Projects and availability\n• 📅 Scheduling visits and meetings\n• 📊 Sales analytics and reports\n\nWhat would you like to know?`,
-  timestamp: new Date(),
-  quickReplies: ["Show today's leads", 'Available properties', 'Upcoming visits', 'Sales summary'],
-};
-
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [convState, setConvState] = useState<ConversationState>({
@@ -379,10 +376,29 @@ export default function ChatInterface() {
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageCounterRef = useRef<number>(0);
+  const { logChatMessage, logLeadCreate, logScheduling, logStatusUpdate } = useActivityLogger();
+  const { language } = useLanguage();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    // Initialize welcome message when language changes
+    const welcomeMessage: Message = {
+      id: 'welcome',
+      role: 'assistant',
+      content: `${getTranslation(language, 'welcome_title')} 🏠\n\n${getTranslation(language, 'welcome_desc')}\n\n${getTranslation(language, 'ask_ai')}?`,
+      timestamp: new Date(),
+      quickReplies: [
+        getTranslation(language, 'search_leads'),
+        getTranslation(language, 'find_properties'),
+        getTranslation(language, 'schedule_visit'),
+        getTranslation(language, 'book_callback'),
+      ],
+    };
+    setMessages([welcomeMessage]);
+  }, [language]);
 
   function appendBotMessage(content: string, quickReplies: string[] = []) {
     messageCounterRef.current += 1;
@@ -412,7 +428,7 @@ export default function ChatInterface() {
           data: { ...prev.data, leadName: text }
         }));
         appendBotMessage(
-          `Thanks **${text}**! 📞 What is the phone number?`,
+          `Thanks **${text}**! 📞 ${getTranslation(language, 'phone_number_prompt')}`,
           ['❌ Cancel']
         );
         break;
@@ -420,7 +436,7 @@ export default function ChatInterface() {
       case 'get_phone': {
         const phone = text.replace(/\D/g, '');
         if (phone.length < 10) {
-          appendBotMessage('Please enter a valid 10-digit phone number.', ['❌ Cancel']);
+          appendBotMessage(getTranslation(language, 'valid_phone_required'), ['❌ Cancel']);
           return;
         }
         setConvState(prev => ({
@@ -428,11 +444,11 @@ export default function ChatInterface() {
           data: { ...prev.data, leadPhone: phone }
         }));
         appendBotMessage(
-          `Please confirm the enquiry details:\n\n` +
+          `${getTranslation(language, 'confirm_lead_details')}\n\n` +
           `👤 **Name:** ${data.leadName}\n` +
           `📞 **Phone:** ${phone}\n` +
           `🏠 **Property/Project:** ${data.selectedPropertyName ?? data.selectedProjectName}\n\n` +
-          `Shall I create this lead in Leadrat CRM?`,
+          `${getTranslation(language, 'confirm_create_lead')}`,
           ['✅ Confirm & Create Lead', '❌ Cancel']
         );
         break;
@@ -440,7 +456,7 @@ export default function ChatInterface() {
 
       case 'confirm':
         if (text === '✅ Confirm & Create Lead') {
-          appendBotMessage('Creating lead in Leadrat CRM...', []);
+          appendBotMessage(getTranslation(language, 'creating_lead'), []);
           try {
             const response = await api.post('/leads', {
               name: data.leadName,
@@ -460,8 +476,9 @@ export default function ChatInterface() {
                 leadPhone: data.leadPhone
               }
             });
+            logLeadCreate(data.leadName || 'Unknown', data.leadPhone || 'N/A');
             appendBotMessage(
-              `✅ **Lead Created Successfully!**\n\n` +
+              `✅ **${getTranslation(language, 'lead_created_success')}**\n\n` +
               `👤 ${data.leadName} has been added to Leadrat CRM.\n` +
               `📞 Phone: ${data.leadPhone}\n` +
               `🏠 Interest: ${data.selectedPropertyName ?? data.selectedProjectName}`,
@@ -506,7 +523,7 @@ export default function ChatInterface() {
 
     switch(step) {
       case 'get_lead': {
-        appendBotMessage('Searching for lead...', []);
+        appendBotMessage(getTranslation(language, 'searching_lead'), []);
         try {
           const res = await api.get('/leads', {
             params: { search: text, page: 0, size: 5 }
@@ -717,7 +734,7 @@ export default function ChatInterface() {
 
     switch(step) {
       case 'get_lead': {
-        appendBotMessage('Searching for lead...', []);
+        appendBotMessage(getTranslation(language, 'searching_lead'), []);
         try {
           const res = await api.get('/leads', {
             params: { search: text, page: 0, size: 10 }
@@ -755,7 +772,7 @@ export default function ChatInterface() {
           return;
         }
 
-        appendBotMessage(`Checking status for **${selected.name}**...`, []);
+        appendBotMessage(`${getTranslation(language, 'checking_status')} **${selected.name}**...`, []);
 
         try {
           const res = await api.get(`/leads/${selected.id}`);
@@ -1250,6 +1267,7 @@ export default function ChatInterface() {
 
           await api.put(`/leads/${selectedLeadId}/status`, payload);
 
+          logScheduling(data.selectedLeadName || 'Unknown', appointmentType || 'Appointment', scheduledDate || '', scheduledTime || '');
           setConvState({ flow: 'none', step: '', data: {} });
           appendBotMessage(
             `✅ **Appointment Scheduled Successfully!**\n\n` +
@@ -1290,7 +1308,7 @@ export default function ChatInterface() {
     switch(step) {
       case 'get_lead': {
         // Same as schedule_visit
-        appendBotMessage('Searching for lead...', []);
+        appendBotMessage(getTranslation(language, 'searching_lead'), []);
         try {
           const res = await api.get('/leads', {
             params: { search: text, page: 0, size: 10 }
@@ -1324,7 +1342,7 @@ export default function ChatInterface() {
           return;
         }
 
-        appendBotMessage(`Checking status for **${selected.name}**...`, []);
+        appendBotMessage(`${getTranslation(language, 'checking_status')} **${selected.name}**...`, []);
 
         try {
           const res = await api.get(`/leads/${selected.id}`);
@@ -1485,7 +1503,7 @@ export default function ChatInterface() {
     // Meeting flow: reuse handleScheduleFlow logic with appointmentType pre-set to 'Meeting'
     switch(step) {
       case 'get_lead': {
-        appendBotMessage('Searching for lead...', []);
+        appendBotMessage(getTranslation(language, 'searching_lead'), []);
         try {
           const res = await api.get('/leads', {
             params: { search: text, page: 0, size: 10 }
@@ -1519,7 +1537,7 @@ export default function ChatInterface() {
           return;
         }
 
-        appendBotMessage(`Checking status for **${selected.name}**...`, []);
+        appendBotMessage(`${getTranslation(language, 'checking_status')} **${selected.name}**...`, []);
 
         try {
           const res = await api.get(`/leads/${selected.id}`);
@@ -1800,7 +1818,7 @@ export default function ChatInterface() {
       case 'lead_creation':
         setConvState({ flow: 'create_lead', step: 'get_name', data: {} });
         appendBotMessage(
-          'Let me create a new lead! 👤\n\nWhat is the customer\'s name?',
+          `${getTranslation(language, 'create_new_lead')} 👤\n\n${getTranslation(language, 'customer_name_prompt')}`,
           ['❌ Cancel']
         );
         return;
@@ -1845,7 +1863,7 @@ export default function ChatInterface() {
 
         try {
           const searchTerm = extractSearchTerm(text_expanded);
-          const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text_expanded, messages);
+          const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language);
 
           setMessages((prev) =>
             prev.map((msg) =>
@@ -1858,8 +1876,12 @@ export default function ChatInterface() {
               msg.id === loadingId
                 ? {
                     ...msg,
-                    content: 'Let me search that for you...',
-                    quickReplies: ['Show All Properties', 'Show All Projects', 'Create Lead'],
+                    content: getTranslation(language, 'help_message'),
+                    quickReplies: [
+                      getTranslation(language, 'show_all_properties'),
+                      getTranslation(language, 'show_all_projects'),
+                      getTranslation(language, 'create_lead'),
+                    ],
                     isLoading: false,
                   }
                 : msg
@@ -1920,7 +1942,7 @@ export default function ChatInterface() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'hsl(40 30% 95%)', fontFamily: "'Playfair Display', serif" }}>
-              ESTATE AI
+              REIA
             </h2>
             <p style={{ margin: 0, fontSize: '11px', color: 'hsl(195 85% 55%)', fontWeight: '500' }}>
               Real Estate CRM Assistant
@@ -1952,6 +1974,20 @@ export default function ChatInterface() {
             }}
           >
             Leadrat Connected
+          </div>
+          <div
+            style={{
+              padding: '4px 10px',
+              borderRadius: '999px',
+              background: 'hsl(270 60% 55% / 0.1)',
+              border: '1px solid hsl(270 60% 55% / 0.3)',
+              fontSize: '10px',
+              color: 'hsl(270 60% 55%)',
+              fontWeight: '600',
+            }}
+            title={`Chat Language: ${language}`}
+          >
+            🌐 {language.toUpperCase()}
           </div>
         </div>
       </div>
@@ -1988,7 +2024,7 @@ export default function ChatInterface() {
               fontFamily: "'Playfair Display', serif",
               margin: '0',
             }}>
-              Welcome to ESTATE AI
+              {getTranslation(language, 'welcome_title')}
             </div>
             <p style={{
               color: 'hsl(220 10% 65%)',
@@ -1996,7 +2032,7 @@ export default function ChatInterface() {
               margin: '0',
               maxWidth: '280px',
             }}>
-              Your intelligent real estate CRM assistant. Search properties, manage leads, and schedule appointments.
+              {getTranslation(language, 'welcome_desc')}
             </p>
             <div style={{
               display: 'grid',
@@ -2006,10 +2042,10 @@ export default function ChatInterface() {
               maxWidth: '320px',
             }}>
               {[
-                '🔍 Search Leads',
-                '🏢 Find Properties',
-                '📅 Schedule Visit',
-                '📞 Book Callback',
+                getTranslation(language, 'search_leads'),
+                getTranslation(language, 'find_properties'),
+                getTranslation(language, 'schedule_visit'),
+                getTranslation(language, 'book_callback'),
               ].map((action, idx) => (
                 <button
                   key={idx}
@@ -2114,7 +2150,7 @@ export default function ChatInterface() {
                         />
                       ))}
                     </div>
-                    <span style={{ color: 'hsl(195 85% 55%)', fontSize: '12px' }}>thinking...</span>
+                    <span style={{ color: 'hsl(195 85% 55%)', fontSize: '12px' }}>{getTranslation(language, 'thinking')}</span>
                   </div>
                 ) : (
                   msg.content
@@ -2191,8 +2227,8 @@ export default function ChatInterface() {
       <div
         style={{
           padding: '16px 24px',
-          borderTop: '1px solid hsl(195 85% 55% / 0.2)',
-          background: 'linear-gradient(135deg, rgba(195, 100, 255, 0.05) 0%, rgba(195, 100, 255, 0.02) 100%)',
+          borderTop: '1px solid hsl(195 85% 55% / 0.15)',
+          background: 'rgba(220, 30% 6%, 0.7)',
           backdropFilter: 'blur(10px)',
           display: 'flex',
           gap: '12px',
@@ -2203,7 +2239,7 @@ export default function ChatInterface() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-          placeholder="Ask about properties, leads, or schedule meetings..."
+          placeholder={getTranslation(language, 'input_placeholder')}
           disabled={isLoading}
           style={{
             flex: 1,
