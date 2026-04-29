@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
-const navItems = [
+const allNavItems = [
   { icon: MessageCircle, label: 'AI Assistant', href: '/ai-assistant' },
   { icon: Home, label: 'Dashboard', href: '/dashboard' },
   { icon: Users, label: 'Leads', href: '/leads' },
@@ -24,6 +24,10 @@ const navItems = [
   { icon: BarChart3, label: 'Analytics', href: '/analytics' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];
+
+// Demo mode: show only AI Assistant
+const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+const navItems = demoMode ? allNavItems.filter(item => item.label === 'AI Assistant') : allNavItems;
 
 export function Sidebar() {
   const pathname = usePathname();

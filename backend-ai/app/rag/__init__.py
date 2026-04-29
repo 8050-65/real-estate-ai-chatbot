@@ -1,6 +1,6 @@
 """Retrieval Augmented Generation (RAG) for semantic search of project documentation."""
 
-from app.rag.indexer import index_documents
-from app.rag.retriever import semantic_search
+from app.rag.indexer import RAGIndexer
+from app.rag.retriever import RAGRetriever
 
-__all__ = ["index_documents", "semantic_search"]
+__all__ = ["RAGIndexer", "RAGRetriever"]

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopNav } from '@/components/layout/TopNav';
 import { FloatingChatbot } from '@/components/ai/FloatingChatbot';
@@ -9,15 +9,25 @@ import { HistorySidebar } from '@/components/layout/HistorySidebar';
 import { SessionProvider } from '@/lib/session-context';
 import { isAuthenticated } from '@/lib/auth';
 
+const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    // DEMO MODE: Redirect non-AI-assistant pages to /ai-assistant
+    if (demoMode && pathname !== '/ai-assistant') {
+      console.log('[Demo] Redirecting from', pathname, 'to /ai-assistant');
+      router.push('/ai-assistant');
+      return;
+    }
+
     // DEMO MODE: Skip authentication check and allow direct access
     console.log('[Demo] Dashboard access granted (auth bypassed for demo)');
     setIsReady(true);
@@ -27,7 +37,7 @@ export default function DashboardLayout({
     // } else {
     //   setIsReady(true);
     // }
-  }, [router]);
+  }, [router, pathname]);
 
   if (!isReady) {
     return null;
@@ -60,11 +70,11 @@ export default function DashboardLayout({
           </main>
         </div>
 
-        {/* Floating Chat */}
-        <FloatingChatbot />
+        {/* Floating Chat - hidden in demo mode */}
+        {!demoMode && <FloatingChatbot />}
 
-        {/* Session History Sidebar */}
-        <HistorySidebar />
+        {/* Session History Sidebar - hidden in demo mode */}
+        {!demoMode && <HistorySidebar />}
       </div>
     </SessionProvider>
   );

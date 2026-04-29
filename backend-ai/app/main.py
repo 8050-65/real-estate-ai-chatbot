@@ -133,6 +133,10 @@ app.include_router(leadrat_router)
 from app.routers.intent_router import router as intent_router
 app.include_router(intent_router)
 
+# RAG Router
+from app.routers.rag import router as rag_router
+app.include_router(rag_router)
+
 
 # ============================================================================
 # Leadrat Integration Routes (for CRM Dashboard)
@@ -377,15 +381,36 @@ async def chat_endpoint(request: ChatRequest):
         message_lower = request.message.lower()
         intent = "general"
         response = ""
+        rag_context = None
+
+        # Try RAG retrieval for property/project related queries
+        if any(word in message_lower for word in ["property", "properties", "villa", "apartment", "home", "house", "bedroom", "pool", "location", "dubai", "marina", "downtown"]):
+            try:
+                from app.routers.rag import retriever
+                rag_results = await retriever.semantic_search(
+                    query=request.message,
+                    tenant_id=request.tenant_id,
+                    top_k=3
+                )
+                if rag_results:
+                    rag_context = rag_results
+                    logger.info(f"RAG retrieved {len(rag_results)} context documents")
+            except Exception as e:
+                logger.warning(f"RAG retrieval failed: {str(e)}")
+                rag_context = None
 
         # Route to appropriate API based on detected intent
         if any(word in message_lower for word in ["lead", "leads", "hot", "active", "follow"]):
             intent = "leads_inquiry"
             response = await get_leads_summary()
 
-        elif any(word in message_lower for word in ["project", "property", "properties", "available", "inventory"]):
+        elif any(word in message_lower for word in ["project", "property", "properties", "available", "inventory", "villa", "apartment"]):
             intent = "property_inquiry"
             response = await get_properties_summary()
+            if rag_context:
+                response += f"\n\nBased on our property database:\n"
+                for idx, doc in enumerate(rag_context[:3], 1):
+                    response += f"\n{idx}. {doc.get('text', 'Property details available')}"
 
         elif any(word in message_lower for word in ["visit", "schedule", "book", "appointment", "site", "meeting"]):
             intent = "visit_booking"
