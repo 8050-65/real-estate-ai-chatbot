@@ -2248,7 +2248,7 @@ export default function ChatInterface() {
             backdropFilter: 'blur(10px)',
             borderRadius: '1rem',
             padding: '12px 16px',
-            color: 'hsl(40 30% 95%)',
+            color: '#000000',
             fontSize: '13px',
             outline: 'none',
             transition: 'all 0.3s ease',

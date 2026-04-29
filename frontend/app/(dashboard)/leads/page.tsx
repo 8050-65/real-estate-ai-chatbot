@@ -88,7 +88,7 @@ export default function LeadsPage() {
               borderRadius: '12px',
               paddingLeft: '44px',
               paddingRight: '14px',
-              color: '#ffffff',
+              color: '#000000',
               fontSize: '14px',
               outline: 'none',
               transition: 'all 0.3s',
