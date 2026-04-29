@@ -1,6 +1,14 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const API_BASE_URL = '/api/v1';
+// Use environment variable for backend URL, fallback to Render production URL
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://real-estate-api-dev.onrender.com';
+const API_BASE_URL = `${BACKEND_URL}/api/v1`;
+
+// Debug logging
+if (typeof window !== 'undefined') {
+  console.log('API Config - BACKEND_URL:', BACKEND_URL);
+  console.log('API Config - API_BASE_URL:', API_BASE_URL);
+}
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -39,7 +47,7 @@ async function refreshToken(): Promise<string | null> {
 
     console.log('[API] 🔄 Refreshing token...');
 
-    const response = await axios.post('/api/v1/auth/login', {
+    const response = await axios.post(`${API_BASE_URL}/auth/login`, {
       email,
       password,
     });
