@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Estate Website - Leadrat AI Chatbot Integration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .section {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .section p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .features {
+            list-style: none;
+            margin-top: 15px;
+        }
+
+        .features li {
+            padding: 8px 0;
+            color: #555;
+            display: flex;
+            align-items: center;
+        }
+
+        .features li:before {
+            content: "✓";
+            color: #4CAF50;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .code-block {
+            background: #1a1a1a;
+            color: #4CAF50;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .code-block code {
+            color: #4CAF50;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+            color: #856404;
+        }
+
+        .footer {
+            text-align: center;
+            padding-top: 40px;
+            border-top: 2px solid #ddd;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .grid-config {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .config-item {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+
+        .config-item strong {
+            color: #667eea;
+        }
+
+        .config-item code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .grid-config {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🏢 Leadrat Real Estate AI Chatbot</h1>
+            <p class="subtitle">Embed our AI assistant on your website in seconds</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="content">
+            <!-- Left Section: Features -->
+            <div class="section">
+                <h2>Why Add Our Chatbot?</h2>
+                <ul class="features">
+                    <li>Answer property questions instantly</li>
+                    <li>Qualify leads automatically</li>
+                    <li>Schedule site visits in real-time</li>
+                    <li>Powered by Ollama LLM + RAG</li>
+                    <li>Works on all devices (mobile-friendly)</li>
+                    <li>No configuration needed</li>
+                    <li>Real-time Ollama & CRM monitoring</li>
+                </ul>
+            </div>
+
+            <!-- Right Section: Quick Start -->
+            <div class="section">
+                <h2>Quick Start (3 Steps)</h2>
+                <p><strong>Step 1:</strong> Copy the script tag below</p>
+                <div class="code-block"><code>&lt;script async src="https://your-domain.com/chatbot-embed.js"
+  data-chatbot-url="https://chatbot.your-domain.com"
+  data-position="bottom-right"
+  data-theme="dark"&gt;
+&lt;/script&gt;</code></div>
+                <p><strong>Step 2:</strong> Paste it into your HTML (before closing &lt;/body&gt;)</p>
+                <p><strong>Step 3:</strong> The chatbot appears automatically!</p>
+            </div>
+        </div>
+
+        <!-- Configuration Section -->
+        <div class="section" style="margin-bottom: 30px;">
+            <h2>⚙️ Configuration Options</h2>
+            <p>Customize the chatbot behavior with these data attributes:</p>
+            <div class="grid-config">
+                <div class="config-item">
+                    <strong>data-chatbot-url</strong><br>
+                    <code>https://chatbot.your-domain.com</code><br>
+                    Backend URL where chatbot runs
+                </div>
+                <div class="config-item">
+                    <strong>data-position</strong><br>
+                    <code>bottom-right | bottom-left | top-right | top-left</code><br>
+                    Where button appears (default: bottom-right)
+                </div>
+                <div class="config-item">
+                    <strong>data-theme</strong><br>
+                    <code>dark | light</code><br>
+                    UI theme (default: dark)
+                </div>
+            </div>
+        </div>
+
+        <!-- Local Testing -->
+        <div class="section" style="margin-bottom: 30px;">
+            <h2>🚀 Testing Locally</h2>
+            <p>To test the chatbot before deploying to production:</p>
+            <div class="code-block"><code>&lt;!-- Local Development URL --&gt;
+&lt;script async src="http://localhost:3000/chatbot-embed.js"
+  data-chatbot-url="http://localhost:3000"
+  data-position="bottom-right"
+  data-theme="dark"&gt;
+&lt;/script&gt;</code></div>
+            <p style="margin-top: 15px;"><strong>Requirements:</strong></p>
+            <ul class="features">
+                <li>Frontend running on http://localhost:3000</li>
+                <li>Ollama running (http://localhost:11434)</li>
+                <li>Backend running (http://localhost:8001)</li>
+            </ul>
+        </div>
+
+        <!-- Usage Examples -->
+        <div class="section" style="margin-bottom: 30px;">
+            <h2>📋 Usage Examples</h2>
+
+            <p><strong>Example 1: Dark theme, bottom-right (default)</strong></p>
+            <div class="code-block"><code>&lt;script async src="https://chatbot.leadrat.com/chatbot-embed.js"
+  data-chatbot-url="https://chatbot.leadrat.com"&gt;
+&lt;/script&gt;</code></div>
+
+            <p style="margin-top: 20px;"><strong>Example 2: Light theme, bottom-left</strong></p>
+            <div class="code-block"><code>&lt;script async src="https://chatbot.leadrat.com/chatbot-embed.js"
+  data-chatbot-url="https://chatbot.leadrat.com"
+  data-position="bottom-left"
+  data-theme="light"&gt;
+&lt;/script&gt;</code></div>
+
+            <p style="margin-top: 20px;"><strong>Example 3: Programmatic control</strong></p>
+            <div class="code-block"><code>// Open chatbot
+window.leadratChatbot.open();
+
+// Close chatbot
+window.leadratChatbot.close();
+
+// Toggle chatbot
+window.leadratChatbot.toggle();</code></div>
+        </div>
+
+        <!-- Important Info -->
+        <div class="highlight">
+            <strong>ℹ️ Important:</strong>
+            Replace <code>https://your-domain.com</code> with your actual backend URL.
+            For local testing, use <code>http://localhost:3000</code>.
+            Ensure your chatbot backend and Ollama are running before users interact with the widget.
+        </div>
+
+        <!-- Features Breakdown -->
+        <div class="section" style="margin-bottom: 30px;">
+            <h2>✨ What Happens When Users Click</h2>
+            <ol style="margin-left: 20px; color: #555; line-height: 2;">
+                <li><strong>Button Click:</strong> Floating button opens chat window with animation</li>
+                <li><strong>Status Check:</strong> Shows Ollama, RAG, and Leadrat connection status</li>
+                <li><strong>Chat Interaction:</strong> User types question or command</li>
+                <li><strong>Smart Routing:</strong>
+                    <ul style="margin: 10px 0 10px 20px;">
+                        <li><em>General questions:</em> Uses RAG + Ollama for AI answer (2-5 sec)</li>
+                        <li><em>Structured queries:</em> Routes to Leadrat API for live data (&lt;1 sec)</li>
+                    </ul>
+                </li>
+                <li><strong>Response Display:</strong> Natural language answer with quick reply buttons</li>
+                <li><strong>Multi-turn:</strong> Remembers conversation history for context</li>
+            </ol>
+        </div>
+
+        <!-- Full Page HTML Template -->
+        <div class="section">
+            <h2>📄 Complete HTML Template</h2>
+            <p style="margin-bottom: 15px;">Copy this entire HTML file and modify the chatbot URL for your domain:</p>
+            <div class="code-block"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;My Real Estate Website&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;Welcome to Our Real Estate Portal&lt;/h1&gt;
+    &lt;p&gt;Browse properties and chat with our AI assistant...&lt;/p&gt;
+
+    &lt;!-- Embed Leadrat Chatbot --&gt;
+    &lt;script async src="https://chatbot.leadrat.com/chatbot-embed.js"
+      data-chatbot-url="https://chatbot.leadrat.com"
+      data-position="bottom-right"
+      data-theme="dark"&gt;
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></div>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="section" style="margin-bottom: 30px;">
+            <h2>🔧 Troubleshooting</h2>
+            <p><strong>Chatbot doesn't appear?</strong></p>
+            <ul class="features">
+                <li>Check browser console for errors (F12 → Console)</li>
+                <li>Verify script URL is correct and accessible</li>
+                <li>Ensure backend chatbot URL is running</li>
+                <li>Check for CORS issues if domains don't match</li>
+            </ul>
+            <p style="margin-top: 15px;"><strong>Status shows offline?</strong></p>
+            <ul class="features">
+                <li>Start Ollama: <code>ollama run llama3.2</code></li>
+                <li>Verify FastAPI backend is running on port 8001</li>
+                <li>Check ChromaDB is seeded with: <code>python scripts/seed_rag.py</code></li>
+            </ul>
+        </div>
+
+        <!-- CTA Buttons -->
+        <div style="display: flex; gap: 15px; justify-content: center; margin: 40px 0;">
+            <button class="btn btn-primary" onclick="alert('Copy this to your website: <script async src=https://your-domain.com/chatbot-embed.js data-chatbot-url=https://your-domain.com></script>')">
+                📋 Copy Embed Code
+            </button>
+            <a href="#" class="btn btn-secondary">
+                📖 Full Documentation
+            </a>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Leadrat Real Estate AI Chatbot • Powered by Ollama LLM + RAG • Built with LangChain & ChromaDB</p>
+            <p style="margin-top: 10px; color: #999;">For questions, contact: vikram.h@leadrat.com</p>
+        </div>
+    </div>
+
+    <!-- Chatbot Embed Script (Local Testing) -->
+    <script async src="http://localhost:3000/chatbot-embed.js"
+      data-chatbot-url="http://localhost:3000"
+      data-position="bottom-right"
+      data-theme="dark">
+    </script>
+</body>
+</html>

@@ -119,7 +119,14 @@ class Settings(BaseSettings):
     # ========================================================================
     # CORS Configuration
     # ========================================================================
-    allowed_origins: str = "http://localhost:3000,http://localhost:8080"
+    allowed_origins: str = (
+        "http://localhost:3000,"
+        "http://localhost:8080,"
+        "http://127.0.0.1:3000,"
+        "https://chatbot-leadrat.vercel.app,"
+        "https://real-estate-crm.vercel.app,"
+        "https://chatbot.leadrat.com"
+    )
 
     # ========================================================================
     # Rate Limiting
