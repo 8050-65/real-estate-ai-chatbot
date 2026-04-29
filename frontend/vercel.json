@@ -1,10 +1,7 @@
 {
-  "name": "real-estate-ai-chatbot-frontend",
-  "version": 2,
-  "public": false,
+  "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "framework": "nextjs",
   "env": {
     "NEXT_PUBLIC_API_URL": {
       "description": "API endpoint for Java backend",
@@ -27,32 +24,6 @@
       "default": "development"
     }
   },
-  "envs": {
-    "development": {
-      "NEXT_PUBLIC_API_URL": "https://dev-api.example.in",
-      "NEXT_PUBLIC_RAG_URL": "https://dev-rag.example.in",
-      "NEXT_PUBLIC_ENVIRONMENT": "development"
-    }
-  },
-  "git": {
-    "silent": false
-  },
-  "regions": ["iad1"],
-  "functions": {
-    "api/**/*.ts": {
-      "memory": 512,
-      "maxDuration": 30
-    }
-  },
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/",
-      "status": 200
-    }
-  ],
-  "redirects": [],
-  "rewrites": [],
   "headers": [
     {
       "source": "/api/(.*)",
