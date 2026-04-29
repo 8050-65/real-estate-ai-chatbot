@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Leadrat AI Chatbot - Embed Test</title>
+    <title>Leadrat AI Chatbot - Test</title>
     <style>
         * {
             margin: 0;
@@ -17,40 +17,25 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 800px;
             margin: 0 auto;
-        }
-
-        .header {
             background: white;
             padding: 40px;
             border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            margin-bottom: 30px;
         }
 
         h1 {
             color: #111827;
-            margin-top: 0;
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
-            color: #6b7280;
-            font-size: 16px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .info-box {
             background: #f0f4ff;
             padding: 15px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             border-left: 4px solid #667eea;
-            color: #111827;
-        }
-
-        .info-box strong {
             color: #111827;
         }
 
@@ -59,7 +44,7 @@
             padding: 15px;
             border-radius: 8px;
             font-family: 'Courier New', monospace;
-            font-size: 12px;
+            font-size: 13px;
             overflow-x: auto;
             color: #111827;
             margin: 15px 0;
@@ -90,21 +75,9 @@
             box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
         }
 
-        button:active {
-            transform: translateY(0);
-        }
-
-        .section {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            margin-bottom: 30px;
-        }
-
         h2 {
             color: #111827;
-            margin-top: 0;
+            margin-top: 30px;
             margin-bottom: 15px;
             font-size: 18px;
         }
@@ -121,14 +94,20 @@
             margin-bottom: 10px;
         }
 
-        .checklist {
-            list-style: none;
-            padding-left: 0;
+        ul {
+            color: #6b7280;
+            margin-left: 20px;
+            margin-bottom: 15px;
+            line-height: 1.6;
         }
 
-        .checklist li {
-            padding: 8px 0;
-            color: #111827;
+        li {
+            margin-bottom: 8px;
+        }
+
+        .checklist {
+            list-style: none;
+            margin-left: 0;
         }
 
         .checklist li:before {
@@ -136,15 +115,6 @@
             margin-right: 8px;
             color: #667eea;
             font-weight: bold;
-        }
-
-        .warning {
-            background: #fef3c7;
-            border: 1px solid #fcd34d;
-            padding: 15px;
-            border-radius: 8px;
-            color: #78350f;
-            margin: 15px 0;
         }
 
         .success {
@@ -155,230 +125,97 @@
             color: #065f46;
             margin: 15px 0;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        table th, table td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        table th {
-            color: #111827;
-            font-weight: 600;
-        }
-
-        table td {
-            color: #6b7280;
-        }
-
-        @media (max-width: 768px) {
-            .header, .section {
-                padding: 20px;
-            }
-
-            h1 {
-                font-size: 24px;
-            }
-
-            h2 {
-                font-size: 16px;
-            }
-
-            button {
-                padding: 10px 16px;
-                font-size: 13px;
-            }
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>🤖 Leadrat AI Chatbot - Embed Test</h1>
-            <p class="subtitle">Test the embedded chatbot widget with floating button</p>
+        <h1>🤖 Leadrat AI Chatbot - Test Page</h1>
 
-            <div class="info-box">
-                <strong>✅ Widget is embedded on this page</strong><br>
-                Look for the floating button in the bottom-right corner of your screen. Click it to open the chatbot!
-            </div>
+        <div class="info-box">
+            <strong>✅ Chatbot is embedded on this page</strong><br>
+            Look for the floating button in the <strong>bottom-right corner</strong>!
         </div>
 
-        <!-- Control Section -->
-        <div class="section">
-            <h2>Test Controls</h2>
-            <p>Use these buttons to control the chatbot widget:</p>
-
-            <div class="button-group">
-                <button onclick="window.leadratChatbot.open()">📂 Open Chat</button>
-                <button onclick="window.leadratChatbot.close()">📁 Close Chat</button>
-                <button onclick="window.leadratChatbot.toggle()">🔄 Toggle</button>
-            </div>
-
-            <div class="info-box">
-                <strong>Note:</strong> You can also click the floating button to toggle the widget, or click outside the widget to close it.
-            </div>
+        <h2>Test Controls</h2>
+        <p>Use these buttons to control the chatbot:</p>
+        <div class="button-group">
+            <button onclick="window.leadratChatbot.open()">📂 Open Chat</button>
+            <button onclick="window.leadratChatbot.close()">📁 Close Chat</button>
+            <button onclick="window.leadratChatbot.toggle()">🔄 Toggle</button>
         </div>
 
-        <!-- Installation Section -->
-        <div class="section">
-            <h2>Installation</h2>
-            <p>To add the chatbot to your website, add this single line of code before closing &lt;/body&gt; tag:</p>
-
-            <div class="code-block">
+        <h2>Installation Code</h2>
+        <p>To add the chatbot to your website, add this single line before &lt;/body&gt;:</p>
+        <div class="code-block">
 &lt;script async src="http://localhost:3000/EMBED.js"&gt;&lt;/script&gt;
-            </div>
+        </div>
 
-            <h3>For Production</h3>
-            <p>When deploying to production, update the URL:</p>
-
-            <div class="code-block">
+        <h2>For Production</h2>
+        <p>When deployed, update the URL to your production domain:</p>
+        <div class="code-block">
 &lt;script async src="https://your-domain.com/EMBED.js"&gt;&lt;/script&gt;
-            </div>
         </div>
 
-        <!-- Configuration Section -->
-        <div class="section">
-            <h2>Configuration</h2>
-            <p>You can specify a custom chatbot URL (for multi-domain setups):</p>
+        <h2>Features</h2>
+        <ul>
+            <li>✅ Floating button at bottom-right corner</li>
+            <li>✅ Click button to open/close chat widget</li>
+            <li>✅ Auto-closes when clicking outside</li>
+            <li>✅ Responsive on mobile and desktop</li>
+            <li>✅ Works on any website</li>
+            <li>✅ JavaScript API for programmatic control</li>
+        </ul>
 
-            <div class="code-block">
-&lt;script async src="http://localhost:3000/EMBED.js"
-  data-chatbot-url="http://localhost:3000"&gt;
-&lt;/script&gt;
-            </div>
+        <h2>JavaScript API</h2>
+        <p>Control the chatbot programmatically:</p>
+        <div class="code-block">
+window.leadratChatbot.open()     // Open chat
+window.leadratChatbot.close()    // Close chat
+window.leadratChatbot.toggle()   // Toggle open/close
         </div>
 
-        <!-- Features Section -->
-        <div class="section">
-            <h2>Features</h2>
-            <ul class="checklist">
-                <li>Floating button in bottom-right corner</li>
-                <li>Click to open/close widget</li>
-                <li>Auto-closes when clicking outside</li>
-                <li>Works on mobile and desktop</li>
-                <li>Responsive design</li>
-                <li>Light theme with readable text</li>
-                <li>JavaScript API for programmatic control</li>
-            </ul>
+        <h2>Verification</h2>
+        <ul class="checklist">
+            <li>Floating button appears in bottom-right corner</li>
+            <li>Button has purple gradient background</li>
+            <li>Click button → widget opens above it</li>
+            <li>Widget shows chat interface</li>
+            <li>Text is readable (dark on light background)</li>
+            <li>Type message → get response</li>
+            <li>Click close button → widget closes</li>
+            <li>Click outside widget → auto-closes</li>
+            <li>Open/Close/Toggle buttons work</li>
+            <li>No console errors (F12)</li>
+        </ul>
+
+        <div class="success">
+            <strong>✅ If ALL checks pass:</strong> Chatbot embed is working perfectly!
         </div>
 
-        <!-- API Section -->
-        <div class="section">
-            <h2>JavaScript API</h2>
-            <p>Control the chatbot programmatically:</p>
+        <h2>Troubleshooting</h2>
+        <h3>Button not showing?</h3>
+        <ul>
+            <li>Check dev server is running: npm run dev</li>
+            <li>Press F12 → Console tab, look for initialization message</li>
+            <li>Verify http://localhost:3000 loads</li>
+        </ul>
 
-            <div class="code-block">
-// Open the chat widget
-window.leadratChatbot.open()
+        <h3>Widget not opening?</h3>
+        <ul>
+            <li>Check F12 console for errors</li>
+            <li>Try clicking the floating button</li>
+            <li>Use window.leadratChatbot.open() in console</li>
+        </ul>
 
-// Close the chat widget
-window.leadratChatbot.close()
-
-// Toggle open/close
-window.leadratChatbot.toggle()
-            </div>
-
-            <h3>Example: Custom Button</h3>
-            <div class="code-block">
-&lt;button onclick="window.leadratChatbot.open()"&gt;
-  Get Help
-&lt;/button&gt;
-            </div>
-        </div>
-
-        <!-- Verification Section -->
-        <div class="section">
-            <h2>✅ Verification Checklist</h2>
-            <ul class="checklist">
-                <li>Floating button appears in bottom-right corner</li>
-                <li>Button has purple gradient background</li>
-                <li>Button shows chat icon and badge</li>
-                <li>Click button → widget opens above button</li>
-                <li>Widget shows "AI Assistant" header</li>
-                <li>Text is clearly readable (dark text on light background)</li>
-                <li>Input field is visible and has placeholder text</li>
-                <li>Can type and send messages</li>
-                <li>Get responses from chatbot</li>
-                <li>Click close button or outside widget → widget closes</li>
-                <li>F12 → Console shows no red errors</li>
-            </ul>
-
-            <div class="success">
-                <strong>If ALL checked:</strong> ✅ Chatbot embed is working correctly!
-            </div>
-        </div>
-
-        <!-- Troubleshooting Section -->
-        <div class="section">
-            <h2>🔧 Troubleshooting</h2>
-
-            <h3>Button not showing?</h3>
-            <ul class="checklist">
-                <li>Check dev server is running: npm run dev</li>
-                <li>Open F12 console, look for initialization message</li>
-                <li>Verify http://localhost:3000 loads in browser</li>
-                <li>Check browser is not blocking popups/scripts</li>
-            </ul>
-
-            <h3>Widget looks broken?</h3>
-            <ul class="checklist">
-                <li>Check http://localhost:3000/embed loads properly</li>
-                <li>Check browser console (F12) for errors</li>
-                <li>Try hard refresh (Ctrl+Shift+R or Cmd+Shift+R)</li>
-                <li>Check Network tab for failed requests</li>
-            </ul>
-
-            <h3>Text not readable?</h3>
-            <ul class="checklist">
-                <li>Widget should have white background</li>
-                <li>Text should be dark gray/black</li>
-                <li>Input field should have visible placeholder</li>
-                <li>Buttons should have good contrast</li>
-                <li>If not, try clearing browser cache</li>
-            </ul>
-
-            <div class="warning">
-                <strong>⚠️ Note:</strong> If you see console errors mentioning "SessionProvider", make sure /embed route is using the new EmbedChatWidget component, not ChatInterface.
-            </div>
-        </div>
-
-        <!-- Quick Reference -->
-        <div class="section">
-            <h2>📖 Quick Reference</h2>
-            <table>
-                <tr>
-                    <th><strong>URL</strong></th>
-                    <th><strong>Purpose</strong></th>
-                </tr>
-                <tr>
-                    <td>http://localhost:3000/EMBED.js</td>
-                    <td>Embed script for websites</td>
-                </tr>
-                <tr>
-                    <td>http://localhost:3000/embed</td>
-                    <td>Standalone widget page</td>
-                </tr>
-                <tr>
-                    <td>http://localhost:3000/TEST.html</td>
-                    <td>This test page</td>
-                </tr>
-            </table>
-        </div>
-
-        <!-- Footer -->
-        <div style="text-align: center; margin-top: 40px; color: white;">
-            <p>Leadrat AI Chatbot Embed System v3.0</p>
-            <p style="font-size: 12px; opacity: 0.8;">Made with ❤️ by Leadrat</p>
-        </div>
+        <h3>Text not readable?</h3>
+        <ul>
+            <li>Widget should have white background</li>
+            <li>Text should be dark gray/black</li>
+            <li>Try clearing browser cache</li>
+        </ul>
     </div>
 
-    <!-- 🎯 THE EMBED SCRIPT -->
+    <!-- EMBED SCRIPT - Only one line needed! -->
     <script async src="http://localhost:3000/EMBED.js"></script>
 </body>
 </html>

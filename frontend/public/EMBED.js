@@ -1,12 +1,9 @@
 /**
  * Leadrat Real Estate AI Chatbot - Embed Script
- * Version 3.0 - Inline Widget with Floating Button
+ * Version 4.0 - Iframe-based Widget
  *
- * Opens chatbot as an inline widget at bottom-right corner
- * Shows floating button, click to toggle widget
- *
- * USAGE:
- * <script async src="http://localhost:3000/EMBED.js"></script>
+ * Injects floating button + iframe widget at bottom-right
+ * USAGE: <script async src="http://localhost:3000/EMBED.js"></script>
  */
 
 (function() {
@@ -19,174 +16,104 @@
   if (window.__leadratChatbotInit) return;
   window.__leadratChatbotInit = true;
 
-  // Create container for floating button and widget
+  // Create container
   const container = document.createElement('div');
   container.id = 'leadrat-chatbot-container';
-  container.innerHTML = `
-    <div id="leadrat-chatbot-button" class="leadrat-chatbot-button" title="Open AI Assistant">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-      </svg>
-      <span class="leadrat-chatbot-badge">1</span>
-    </div>
-    <div id="leadrat-chatbot-widget" class="leadrat-chatbot-widget" style="display: none;">
-      <iframe
-        id="leadrat-chatbot-iframe"
-        src="${config.chatbotUrl}/embed"
-        style="width: 100%; height: 100%; border: none; border-radius: 12px;"
-        allow="geolocation; microphone; camera"
-      ></iframe>
-    </div>
+  container.style.all = 'initial';
+
+  // Create floating button
+  const button = document.createElement('button');
+  button.id = 'leadrat-chatbot-button';
+  button.innerHTML = `
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
   `;
 
-  // Create styles for floating button and widget
-  const style = document.createElement('style');
-  style.textContent = `
-    #leadrat-chatbot-container {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      position: fixed;
-      z-index: 9999;
-      bottom: 20px;
-      right: 20px;
-    }
+  button.style.position = 'fixed';
+  button.style.bottom = '24px';
+  button.style.right = '24px';
+  button.style.width = '60px';
+  button.style.height = '60px';
+  button.style.borderRadius = '50%';
+  button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+  button.style.color = 'white';
+  button.style.border = 'none';
+  button.style.cursor = 'pointer';
+  button.style.display = 'flex';
+  button.style.alignItems = 'center';
+  button.style.justifyContent = 'center';
+  button.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+  button.style.transition = 'all 0.3s ease';
+  button.style.zIndex = '1000000';
+  button.style.padding = '0';
+  button.style.fontFamily = 'inherit';
 
-    .leadrat-chatbot-button {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-      transition: all 0.3s ease;
-      position: relative;
-    }
-
-    .leadrat-chatbot-button:hover {
-      transform: scale(1.1);
-      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
-    }
-
-    .leadrat-chatbot-button:active {
-      transform: scale(0.95);
-    }
-
-    .leadrat-chatbot-badge {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      background: #ef4444;
-      color: white;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: bold;
-      border: 2px solid #ffffff;
-    }
-
-    .leadrat-chatbot-widget {
-      position: absolute;
-      bottom: 80px;
-      right: 0;
-      width: 420px;
-      height: 600px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-      overflow: hidden;
-      animation: slideUp 0.3s ease-out;
-    }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @media (max-width: 480px) {
-      .leadrat-chatbot-widget {
-        width: calc(100vw - 40px);
-        height: 70vh;
-        max-width: 420px;
-        bottom: auto;
-        top: 50%;
-        right: 20px;
-        left: 20px;
-        transform: translateY(-50%);
-      }
-
-      .leadrat-chatbot-widget[style*="display: block"] {
-        animation: slideUp 0.3s ease-out;
-      }
-    }
-  `;
-
-  document.head.appendChild(style);
-  document.body.appendChild(container);
-
-  const button = document.getElementById('leadrat-chatbot-button');
-  const widget = document.getElementById('leadrat-chatbot-widget');
-  let isOpen = false;
-
-  // Toggle widget visibility
-  function toggleChatWidget() {
-    isOpen = !isOpen;
-    widget.style.display = isOpen ? 'block' : 'none';
-    button.style.transform = isOpen ? 'scale(0.95)' : 'scale(1)';
-  }
-
-  function openChatWidget() {
-    if (!isOpen) {
-      isOpen = true;
-      widget.style.display = 'block';
-    }
-  }
-
-  function closeChatWidget() {
-    if (isOpen) {
-      isOpen = false;
-      widget.style.display = 'none';
-    }
-  }
-
-  // Button click opens/closes widget
-  button.addEventListener('click', toggleChatWidget);
-
-  // Close widget when clicking outside
-  document.addEventListener('click', function(event) {
-    if (isOpen && !container.contains(event.target)) {
-      closeChatWidget();
-    }
+  // Button hover effects
+  button.addEventListener('mouseenter', function() {
+    this.style.transform = 'scale(1.1)';
+    this.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.6)';
   });
 
-  // Global API for external control
-  window.leadratChatbot = {
-    open: function() {
-      openChatWidget();
-    },
-    close: function() {
-      closeChatWidget();
-    },
-    toggle: function() {
-      toggleChatWidget();
+  button.addEventListener('mouseleave', function() {
+    this.style.transform = 'scale(1)';
+    this.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+  });
+
+  // Create iframe for widget
+  const iframe = document.createElement('iframe');
+  iframe.id = 'leadrat-chatbot-iframe';
+  iframe.src = config.chatbotUrl + '/embed/widget';
+  iframe.style.position = 'fixed';
+  iframe.style.bottom = '90px';
+  iframe.style.right = '24px';
+  iframe.style.width = '380px';
+  iframe.style.height = '560px';
+  iframe.style.border = 'none';
+  iframe.style.borderRadius = '16px';
+  iframe.style.boxShadow = '0 20px 60px rgba(0, 0, 0, 0.25)';
+  iframe.style.zIndex = '999999';
+  iframe.style.display = 'none';
+  iframe.style.background = '#ffffff';
+
+  // Add to page
+  container.appendChild(button);
+  container.appendChild(iframe);
+  document.body.appendChild(container);
+
+  let isOpen = false;
+
+  // Toggle function
+  function toggle() {
+    isOpen = !isOpen;
+    iframe.style.display = isOpen ? 'block' : 'none';
+  }
+
+  function open() {
+    if (!isOpen) {
+      isOpen = true;
+      iframe.style.display = 'block';
     }
+  }
+
+  function close() {
+    if (isOpen) {
+      isOpen = false;
+      iframe.style.display = 'none';
+    }
+  }
+
+  // Button click
+  button.addEventListener('click', toggle);
+
+  // Global API
+  window.leadratChatbot = {
+    open: open,
+    close: close,
+    toggle: toggle,
   };
 
   console.log('✅ Leadrat AI Chatbot initialized');
   console.log('🌐 URL:', config.chatbotUrl);
   console.log('💡 API: window.leadratChatbot.open() / .close() / .toggle()');
-  console.log('📝 Shows as inline widget in bottom-right corner');
 })();
