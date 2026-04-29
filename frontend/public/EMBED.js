@@ -63,7 +63,7 @@
   // Create iframe for widget
   const iframe = document.createElement('iframe');
   iframe.id = 'leadrat-chatbot-iframe';
-  iframe.src = config.chatbotUrl + '/embed/widget';
+  iframe.src = config.chatbotUrl + '/embed';
   iframe.style.position = 'fixed';
   iframe.style.bottom = '90px';
   iframe.style.right = '24px';
