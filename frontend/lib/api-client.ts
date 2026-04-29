@@ -2,7 +2,13 @@ import axios, { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-const FASTAPI_BASE_URL = 'http://localhost:8000';
+const FASTAPI_BASE_URL = process.env.NEXT_PUBLIC_RAG_URL || 'http://localhost:8000';
+
+// Debug logging for deployment
+if (typeof window !== 'undefined') {
+  console.log('API_BASE_URL:', API_BASE_URL);
+  console.log('FASTAPI_BASE_URL:', FASTAPI_BASE_URL);
+}
 
 // Create axios instance for Spring Boot backend
 export const apiClient = axios.create({
