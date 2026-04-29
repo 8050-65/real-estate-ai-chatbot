@@ -137,6 +137,10 @@ app.include_router(intent_router)
 from app.routers.rag import router as rag_router
 app.include_router(rag_router)
 
+# Chat Router (RAG + Ollama)
+from app.api.chat import router as chat_router
+app.include_router(chat_router)
+
 
 # ============================================================================
 # Leadrat Integration Routes (for CRM Dashboard)

@@ -365,7 +365,12 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
   }
 }
 
-export default function ChatInterface() {
+interface ChatInterfaceProps {
+  isFloating?: boolean
+  fullPage?: boolean
+}
+
+export default function ChatInterface({ isFloating = true, fullPage = false }: ChatInterfaceProps = {}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
