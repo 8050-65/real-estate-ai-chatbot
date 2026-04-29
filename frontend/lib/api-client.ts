@@ -38,20 +38,24 @@ apiClient.interceptors.request.use(
 const handleApiError = (error: AxiosError, context: string) => {
   console.error(`API Error (${context}):`, error);
 
-  if (error.response?.status === 401) {
+  // Extract status safely to avoid TypeScript undefined error
+  const status = error.response?.status;
+
+  if (status === 401) {
     // Unauthorized - redirect to login
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token');
       window.location.href = '/login';
     }
-  } else if (error.response?.status === 403) {
+  } else if (status === 403) {
     toast.error('You do not have permission to perform this action');
-  } else if (error.response?.status === 404) {
+  } else if (status === 404) {
     toast.error('Resource not found');
-  } else if (error.response?.status >= 500) {
+  } else if (status !== undefined && status >= 500) {
     toast.error('Server error. Please try again later');
   } else {
-    toast.error(error.response?.data?.message || `Error: ${context}`);
+    const message = (error.response?.data as any)?.message || `Error: ${context}`;
+    toast.error(message);
   }
 };
 
