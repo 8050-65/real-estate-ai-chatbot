@@ -18,11 +18,15 @@ export default function DashboardLayout({
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push('/login');
-    } else {
-      setIsReady(true);
-    }
+    // DEMO MODE: Skip authentication check and allow direct access
+    console.log('[Demo] Dashboard access granted (auth bypassed for demo)');
+    setIsReady(true);
+    // Original auth check (commented for demo):
+    // if (!isAuthenticated()) {
+    //   router.push('/login');
+    // } else {
+    //   setIsReady(true);
+    // }
   }, [router]);
 
   if (!isReady) {
