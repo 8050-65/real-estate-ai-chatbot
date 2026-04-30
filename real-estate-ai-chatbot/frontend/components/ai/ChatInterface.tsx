@@ -15,7 +15,8 @@ interface Message {
   timestamp: Date;
   quickReplies?: string[];
   isLoading?: boolean;
-  data?: unknown;
+  data?: any[];
+  template?: string;
 }
 
 interface ConversationState {
@@ -271,7 +272,7 @@ async function searchPropertiesApi(query: string): Promise<any[]> {
   }
 }
 
-async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en', tenantIdOverride?: string, backendUrlOverride?: string): Promise<{ content: string; quickReplies: string[] }> {
+async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en', tenantIdOverride?: string, backendUrlOverride?: string): Promise<{ content: string; quickReplies: string[]; template?: string; data?: any[] }> {
   const tenantId = tenantIdOverride || (typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'dubait11') : 'dubait11');
   const backendUrl = backendUrlOverride || (typeof window !== 'undefined' ? (localStorage.getItem('backendUrl') || 'https://real-estate-rag-dev.onrender.com') : 'https://real-estate-rag-dev.onrender.com');
   const maxRetries = 2;
@@ -319,11 +320,13 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
         timeoutPromise
       ]) as any;
 
-      const routerResponse = response?.data?.response || response?.data?.content || '';
-      const detectedIntent = response?.data?.intent || intent || 'general';
-      const source = response?.data?.source || 'Leadrat';
+      const routerResponse = response?.response || response?.data?.response || response?.data?.content || response?.content || '';
+      const detectedIntent = response?.intent || intent || 'general';
+      const source = response?.source || 'Leadrat';
+      const template = response?.template;
+      const dataItems = response?.data || [];
 
-      console.log('[ChatAPI] Success:', { intent: detectedIntent, source, hasResponse: !!routerResponse });
+      console.log('[ChatAPI] Success:', { intent: detectedIntent, source, hasResponse: !!routerResponse, template, dataCount: dataItems.length });
 
       if (!routerResponse) {
         console.warn('[ChatAPI] Empty response - retrying...');
@@ -336,21 +339,23 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
 
       let quickReplies = getQuickReplies(detectedIntent);
 
-      if (detectedIntent === 'property' && routerResponse) {
-        const propertyNames = ['3BHK Apartment', '2BHK Villa', 'Luxury Penthouse'];
-        const interestedButtons = propertyNames.map(p => `Interested: ${p}`);
-        quickReplies = interestedButtons.concat(['Show more', 'Filter by BHK']);
+      if ((detectedIntent === 'property' || template === 'property_list') && dataItems.length > 0) {
+        const propertyNames = dataItems.slice(0, 3).map((p: any) => p.name || p.title || 'Property');
+        const interestedButtons = propertyNames.map((p: string) => `Interested: ${p}`);
+        quickReplies = interestedButtons.concat(['Show more', 'Filter results']);
       }
 
-      if (detectedIntent === 'project' && routerResponse) {
-        const projectNames = ['Tower A', 'Phase 2 Development', 'Premium Complex'];
-        const interestedButtons = projectNames.map(p => `Interested: ${p}`);
-        quickReplies = interestedButtons.concat(['Show more', 'View amenities']);
+      if ((detectedIntent === 'project' || template === 'project_list') && dataItems.length > 0) {
+        const projectNames = dataItems.slice(0, 3).map((p: any) => p.name || 'Project');
+        const interestedButtons = projectNames.map((p: string) => `Interested: ${p}`);
+        quickReplies = interestedButtons.concat(['Show more', 'View details']);
       }
 
       return {
         content: routerResponse,
-        quickReplies: quickReplies
+        quickReplies: quickReplies,
+        template: template,
+        data: dataItems
       };
 
     } catch (error: any) {
@@ -1927,11 +1932,11 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
 
         try {
           const searchTerm = extractSearchTerm(text_expanded);
-          const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language, tenantId, backendUrl);
+          const { content, quickReplies, template, data } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language, tenantId, backendUrl);
 
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === loadingId ? { ...msg, content, quickReplies, isLoading: false } : msg
+              msg.id === loadingId ? { ...msg, content, quickReplies, isLoading: false, data: data, template: template } : msg
             )
           );
         } catch {
@@ -2220,6 +2225,57 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
                   msg.content
                 )}
               </div>
+
+              {/* Data Items Rendering */}
+              {msg.role === 'assistant' && !msg.isLoading && msg.data && msg.data.length > 0 && (
+                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '100%' }}>
+                  {msg.data.map((item: any, idx: number) => (
+                    <div
+                      key={idx}
+                      style={{
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        border: '1px solid rgba(6, 182, 212, 0.3)',
+                        borderRadius: '0.75rem',
+                        padding: '12px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.15)';
+                        e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
+                        e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
+                      }}
+                    >
+                      <div style={{ fontWeight: '600', color: 'hsl(195 85% 55%)', marginBottom: '4px' }}>
+                        {item.name || item.title || 'Item'}
+                      </div>
+                      {item.price && (
+                        <div style={{ fontSize: '12px', color: 'hsl(40 100% 60%)', marginBottom: '4px' }}>
+                          💰 {item.price}
+                        </div>
+                      )}
+                      {item.location && (
+                        <div style={{ fontSize: '12px', color: 'hsl(220 10% 65%)', marginBottom: '4px' }}>
+                          📍 {item.location}
+                        </div>
+                      )}
+                      {item.propertyType && (
+                        <div style={{ fontSize: '12px', color: 'hsl(220 10% 65%)', marginBottom: '4px' }}>
+                          🏠 {item.propertyType}
+                        </div>
+                      )}
+                      {item.status && (
+                        <div style={{ fontSize: '12px', color: 'hsl(40 100% 50%)', marginBottom: '4px' }}>
+                          ✓ {item.status}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {msg.role === 'user' && (
                 <div
