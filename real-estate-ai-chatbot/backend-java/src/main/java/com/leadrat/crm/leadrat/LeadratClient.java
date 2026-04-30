@@ -45,7 +45,10 @@ public class LeadratClient {
     @Value("${leadrat.request-timeout:30}")
     private int requestTimeout;
 
-    private static final String TOKEN_CACHE_KEY = "leadrat:token";
+    // Use tenant-specific cache key to support multi-tenancy
+    private String getTokenCacheKey() {
+        return "leadrat:" + (tenant != null ? tenant : "default") + ":token";
+    }
 
     public String getAccessToken() {
         try {
@@ -59,7 +62,7 @@ public class LeadratClient {
             return null;
         } catch (Exception e) {
             log.error("Error fetching fresh token", e);
-            String cachedToken = (String) redisTemplate.opsForValue().get(TOKEN_CACHE_KEY);
+            String cachedToken = (String) redisTemplate.opsForValue().get(getTokenCacheKey());
             if (cachedToken != null) {
                 log.warn("Using cached token as fallback");
                 return cachedToken;
@@ -125,8 +128,8 @@ public class LeadratClient {
                 log.info("Leadrat token fetched successfully for tenant {}", tenant);
 
                 try {
-                    redisTemplate.opsForValue().set(TOKEN_CACHE_KEY, token, 55, TimeUnit.MINUTES);
-                    log.debug("Token cached in Redis for 55 minutes");
+                    redisTemplate.opsForValue().set(getTokenCacheKey(), token, 55, TimeUnit.MINUTES);
+                    log.debug("Token cached in Redis for 55 minutes with key: {}", getTokenCacheKey());
                 } catch (Exception e) {
                     log.warn("Could not cache token in Redis: {}", e.getMessage());
                 }
@@ -445,7 +448,8 @@ public class LeadratClient {
     }
 
     public void clearTokenCache() {
-        redisTemplate.delete(TOKEN_CACHE_KEY);
+        redisTemplate.delete(getTokenCacheKey());
+        log.info("Cleared token cache for tenant: {}", tenant);
     }
 
     private String mapStatusIdToChildStatus(String parentStatusId) {
