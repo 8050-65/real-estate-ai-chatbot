@@ -1,0 +1,14 @@
+#!/bin/bash
+# Apache Maven Wrapper for Unix/Linux/MacOS/MINGW64
+
+# Check if Maven is installed
+if ! command -v mvn &> /dev/null; then
+    echo "Maven not found. Please install Maven 3.9.x"
+    echo "On Windows: choco install maven -y"
+    echo "On Mac: brew install maven"
+    echo "On Linux: sudo apt-get install maven"
+    exit 1
+fi
+
+# Run Maven with all arguments
+mvn "$@"
