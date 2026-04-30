@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+# real-estate-ai-chatbot
+AI-powered WhatsApp chatbot for real estate property search integrated with Leadrat CRM. Supports dynamic property discovery, lead capture, and scalable microservices architecture with optional RAG-based intelligence.
+=======
 # Real Estate AI Chatbot — WhatsApp + CRM Dashboard
 
 A **production-grade, commercially scalable** AI-powered WhatsApp chatbot for real estate builders that answers customer queries 24/7, captures leads, books site visits, and provides an admin analytics dashboard.
@@ -569,3 +573,4 @@ MIT License — See LICENSE file
 
 **Built with ❤️ for real estate builders worldwide**  
 *Version 1.0.0 · Next.js 14 · Spring Boot 3 · FastAPI · Ollama · PostgreSQL · Redis*
+>>>>>>> f84d4d051a229cf41722c09203701c87da3e75d4

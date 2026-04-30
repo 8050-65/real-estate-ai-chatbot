@@ -205,6 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+<<<<<<< HEAD
+=======
 
 
 
@@ -214,3 +216,4 @@ __marimo__/
 venv/
 __pycache__/
 *.pyc
+>>>>>>> f84d4d051a229cf41722c09203701c87da3e75d4

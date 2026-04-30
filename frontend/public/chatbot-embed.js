@@ -19,7 +19,7 @@
 
   // Configuration
   const config = {
-    chatbotUrl: document.currentScript?.getAttribute('data-chatbot-url') || 'http://localhost:3000',
+    chatbotUrl: document.currentScript?.getAttribute('data-chatbot-url') || 'https://real-estate-ai-chatbot-frontend.pages.dev',
     position: document.currentScript?.getAttribute('data-position') || 'bottom-right',
     theme: document.currentScript?.getAttribute('data-theme') || 'dark',
     title: 'Aria - Real Estate Assistant',
@@ -90,7 +90,7 @@
   // Create styles
   function createStyles() {
     const style = document.createElement('style');
-    style.textContent = `
+    style.textContent = \`
       * {
         --leadrat-primary: #667eea;
         --leadrat-primary-dark: #764ba2;
@@ -105,10 +105,10 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         position: fixed;
         z-index: 9999;
-        ${config.position === 'bottom-right' ? 'bottom: 20px; right: 20px;' : ''}
-        ${config.position === 'bottom-left' ? 'bottom: 20px; left: 20px;' : ''}
-        ${config.position === 'top-right' ? 'top: 20px; right: 20px;' : ''}
-        ${config.position === 'top-left' ? 'top: 20px; left: 20px;' : ''}
+        \${config.position === 'bottom-right' ? 'bottom: 20px; right: 20px;' : ''}
+        \${config.position === 'bottom-left' ? 'bottom: 20px; left: 20px;' : ''}
+        \${config.position === 'top-right' ? 'top: 20px; right: 20px;' : ''}
+        \${config.position === 'top-left' ? 'top: 20px; left: 20px;' : ''}
       }
 
       /* Floating Button */
@@ -157,10 +157,10 @@
       /* Chat Window */
       .leadrat-chatbot-window {
         position: absolute;
-        ${config.position === 'bottom-right' ? 'bottom: 80px; right: 0;' : ''}
-        ${config.position === 'bottom-left' ? 'bottom: 80px; left: 0;' : ''}
-        ${config.position === 'top-right' ? 'top: 80px; right: 0;' : ''}
-        ${config.position === 'top-left' ? 'top: 80px; left: 0;' : ''}
+        \${config.position === 'bottom-right' ? 'bottom: 80px; right: 0;' : ''}
+        \${config.position === 'bottom-left' ? 'bottom: 80px; left: 0;' : ''}
+        \${config.position === 'top-right' ? 'top: 80px; right: 0;' : ''}
+        \${config.position === 'top-left' ? 'top: 80px; left: 0;' : ''}
         width: 420px;
         height: 600px;
         max-height: 80vh;
@@ -291,7 +291,7 @@
       }
 
       /* Dark theme (default) */
-      ${config.theme === 'dark' ? `
+      \${config.theme === 'dark' ? \`
         .leadrat-chatbot-window {
           background: var(--leadrat-bg-dark);
           color: var(--leadrat-text);
@@ -300,10 +300,10 @@
         .leadrat-chatbot-header {
           background: linear-gradient(135deg, var(--leadrat-primary) 0%, var(--leadrat-primary-dark) 100%);
         }
-      ` : ''}
+      \` : ''}
 
       /* Light theme */
-      ${config.theme === 'light' ? `
+      \${config.theme === 'light' ? \`
         * {
           --leadrat-bg-dark: #ffffff;
           --leadrat-bg-lighter: #f3f4f6;
@@ -319,8 +319,8 @@
         .leadrat-status-item {
           color: #6b7280;
         }
-      ` : ''}
-    `;
+      \` : ''}
+    \`;
 
     document.head.appendChild(style);
   }
@@ -363,6 +363,7 @@
     setInterval(checkOllamaStatus, 30000);
 
     function checkOllamaStatus() {
+      // Local Ollama check
       fetch('http://localhost:11434/api/tags', { method: 'GET' })
         .then(() => {
           ollamaStatus.style.background = '#4CAF50';
@@ -374,7 +375,7 @@
         });
     }
 
-    // Send message to iframe (if needed)
+    // Programmatic API
     window.leadratChatbot = {
       open: () => {
         window_.style.display = 'flex';
@@ -386,9 +387,9 @@
       },
       toggle: () => {
         if (window_.style.display === 'none') {
-          window_.open();
+          window.leadratChatbot.open();
         } else {
-          window_.close();
+          window.leadratChatbot.close();
         }
       }
     };
