@@ -1,0 +1,290 @@
+name: Deploy to Dev Environment
+
+on:
+  push:
+    branches:
+      - develop
+      - feature/*
+  pull_request:
+    branches:
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ==================== SECURITY CHECK ====================
+  security:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ==================== FRONTEND BUILD ====================
+  frontend:
+    name: Build & Test Frontend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint --if-present
+
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://dev-api.example.in
+          NEXT_PUBLIC_RAG_URL: https://dev-rag.example.in
+          NEXT_PUBLIC_ENVIRONMENT: development
+
+      - name: Test
+        working-directory: ./frontend
+        run: npm test --if-present -- --coverage
+        continue-on-error: true
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+
+  # ==================== JAVA BACKEND BUILD ====================
+  backend-java:
+    name: Build & Test Java Backend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: [17]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run tests
+        working-directory: ./backend-java
+        run: mvn clean test -q
+        continue-on-error: true
+
+      - name: Build
+        working-directory: ./backend-java
+        run: mvn clean package -DskipTests -q
+
+  # ==================== FASTAPI BUILD ====================
+  backend-ai:
+    name: Build & Test FastAPI
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: ./backend-ai
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint with flake8
+        working-directory: ./backend-ai
+        run: |
+          pip install flake8
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        continue-on-error: true
+
+      - name: Test with pytest
+        working-directory: ./backend-ai
+        run: |
+          pip install pytest pytest-cov
+          pytest --cov=. --cov-report=xml
+        continue-on-error: true
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./backend-ai/coverage.xml
+          flags: backend-ai
+
+  # ==================== DOCKER BUILD ====================
+  docker:
+    name: Build Docker Images
+    needs: [frontend, backend-java, backend-ai]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.dev
+          push: false
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend-dev:latest
+
+      - name: Build and push backend-java image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend-java
+          file: ./backend-java/Dockerfile
+          push: false
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend-java-dev:latest
+
+      - name: Build and push backend-ai image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend-ai
+          file: ./backend-ai/Dockerfile
+          push: false
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend-ai-dev:latest
+
+  # ==================== DEPLOY TO DEV ====================
+  deploy-dev:
+    name: Deploy to Dev Environment
+    needs: [security, docker]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: development
+      url: https://dev-chatbot.example.in
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Frontend to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          working-directory: ./frontend
+
+      - name: Deploy Backend Java to Render
+        run: |
+          curl -X POST "https://api.render.com/deploy/srv?key=${{ secrets.RENDER_API_KEY }}&svcId=${{ secrets.RENDER_SERVICE_ID_JAVA }}"
+
+      - name: Deploy Backend AI to Render
+        run: |
+          curl -X POST "https://api.render.com/deploy/srv?key=${{ secrets.RENDER_API_KEY }}&svcId=${{ secrets.RENDER_SERVICE_ID_AI }}"
+
+      - name: Wait for deployments
+        run: sleep 60
+
+      - name: Run health checks
+        run: |
+          echo "Checking Frontend..."
+          curl -f https://dev-chatbot.example.in || exit 1
+
+          echo "Checking API..."
+          curl -f https://dev-api.example.in/actuator/health || exit 1
+
+          echo "Checking RAG..."
+          curl -f https://dev-rag.example.in/health || exit 1
+
+      - name: Notify Slack (Success)
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "✅ Dev Deployment Successful",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Dev Deployment Successful* 🚀\n\n*Services:*\n• Frontend: https://dev-chatbot.example.in\n• API: https://dev-api.example.in\n• RAG: https://dev-rag.example.in\n\n*Commit:* ${{ github.sha }}\n*Branch:* ${{ github.ref }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Notify Slack (Failure)
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "❌ Dev Deployment Failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Dev Deployment Failed* ❌\n\n*Commit:* ${{ github.sha }}\n*Branch:* ${{ github.ref }}\n\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  # ==================== PROTECTION: NO PRODUCTION DEPLOYMENT ====================
+  prevent-prod-deploy:
+    name: Prevent Production Deployment
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Block Production Deployment
+        run: |
+          echo "❌ PRODUCTION DEPLOYMENT BLOCKED"
+          echo "This workflow only deploys to DEV environment."
+          echo "Production deployments require explicit approval and separate workflow."
+          exit 1

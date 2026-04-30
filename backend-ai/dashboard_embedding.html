@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Embedding Manager - Real Estate AI CRM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status-badge.active {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .status-badge.inactive {
+            background: #f44336;
+            color: white;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #45a049;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            margin-top: 30px;
+        }
+
+        .result-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-item strong {
+            color: #333;
+        }
+
+        .score {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s linear infinite;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 RAG Embedding Manager</h1>
+            <p>Manage document embeddings and semantic search for Real Estate AI CRM</p>
+            <div class="status-badge active" id="status">
+                <span class="spinner"></span> System Ready
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- LEFT COLUMN: Document Upload & Embedding -->
+            <div class="card">
+                <h2>📄 Upload & Embed Documents</h2>
+                <div id="uploadAlert" class="alert"></div>
+
+                <div class="form-group">
+                    <label for="tenantId">Tenant ID *</label>
+                    <input type="text" id="tenantId" placeholder="e.g., dubaitt11" value="dubaitt11">
+                </div>
+
+                <div class="form-group">
+                    <label for="projectId">Project ID (optional)</label>
+                    <input type="text" id="projectId" placeholder="e.g., real-estate-ai">
+                </div>
+
+                <div class="form-group">
+                    <label for="documents">Documents *</label>
+                    <textarea id="documents" placeholder="Paste your documents here (one per line, separated by double newlines)&#10;&#10;Example:&#10;Luxury villa in Dubai Marina with 4 bedrooms...&#10;&#10;Modern apartment in Downtown Dubai..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="metadata">Metadata (JSON)</label>
+                    <textarea id="metadata" placeholder='{"source": "website", "category": "luxury"}'></textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="embedDocuments()" id="embedBtn">
+                        <span id="embedText">✨ Embed Documents</span>
+                    </button>
+                    <button class="btn-secondary" onclick="loadSampleData()">📋 Load Sample</button>
+                </div>
+
+                <div id="embedProgress" style="display: none; margin-top: 15px;">
+                    <p>Processing... <span class="loading"></span></p>
+                    <div id="progressText"></div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Semantic Search -->
+            <div class="card">
+                <h2>🔍 Semantic Search</h2>
+                <div id="searchAlert" class="alert"></div>
+
+                <div class="form-group">
+                    <label for="searchTenant">Tenant ID *</label>
+                    <input type="text" id="searchTenant" placeholder="e.g., dubaitt11" value="dubaitt11">
+                </div>
+
+                <div class="form-group">
+                    <label for="searchProject">Project ID (optional)</label>
+                    <input type="text" id="searchProject" placeholder="e.g., real-estate-ai">
+                </div>
+
+                <div class="form-group">
+                    <label for="searchQuery">Search Query *</label>
+                    <input type="text" id="searchQuery" placeholder="e.g., luxury villa with pool">
+                </div>
+
+                <div class="form-group">
+                    <label for="topK">Top Results</label>
+                    <input type="number" id="topK" value="3" min="1" max="10">
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-success" onclick="performSearch()" id="searchBtn">
+                        <span id="searchText">🔎 Search</span>
+                    </button>
+                </div>
+
+                <div id="searchResults" class="results"></div>
+            </div>
+        </div>
+
+        <!-- BOTTOM SECTION: Collection Stats & Management -->
+        <div class="card">
+            <h2>📊 Collection Statistics & Management</h2>
+
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">Total Embeddings</div>
+                    <div class="stat-value" id="statEmbeddings">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Last Updated</div>
+                    <div class="stat-value" id="statUpdated" style="font-size: 14px;">Never</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="statsSearch">Search Collections</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="statsTenant" placeholder="Tenant ID" style="flex: 1;">
+                    <input type="text" id="statsProject" placeholder="Project ID (optional)" style="flex: 1;">
+                    <button class="btn-secondary" onclick="getStats()" style="min-width: auto; flex: 0;">Info</button>
+                </div>
+            </div>
+
+            <div id="statsResults"></div>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+            <h3 style="color: #333; margin-bottom: 15px;">⚙️ Advanced Options</h3>
+
+            <div class="button-group">
+                <button class="btn-danger" onclick="deleteCollection()">🗑️ Delete Collection</button>
+                <button class="btn-secondary" onclick="exportConfig()">📥 Export Config</button>
+            </div>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+            <h3 style="color: #333; margin-bottom: 15px;">📝 CLI Alternative</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 10px;">Run this in your terminal instead:</p>
+            <code style="display: block; padding: 10px; background: #f4f4f4; border-radius: 5px; margin-bottom: 10px;">
+                python scripts/embed_documents.py --tenant "dubaitt11" --project "real-estate-ai" --file "documents.json"
+            </code>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000/api/v1";
+
+        // Embed Documents
+        async function embedDocuments() {
+            const tenantId = document.getElementById("tenantId").value.trim();
+            const projectId = document.getElementById("projectId").value.trim();
+            const documents = document.getElementById("documents").value.trim().split('\n\n').filter(d => d);
+            const metadataStr = document.getElementById("metadata").value.trim();
+
+            if (!tenantId || documents.length === 0) {
+                showAlert("uploadAlert", "Tenant ID and documents are required", "error");
+                return;
+            }
+
+            let metadata = {};
+            if (metadataStr) {
+                try {
+                    metadata = JSON.parse(metadataStr);
+                } catch (e) {
+                    showAlert("uploadAlert", "Invalid metadata JSON", "error");
+                    return;
+                }
+            }
+
+            showProgress("embedProgress", "Embedding " + documents.length + " documents...");
+
+            try {
+                const response = await fetch(`${API_URL}/rag/embed`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        tenant_id: tenantId,
+                        documents: documents,
+                        project_id: projectId || null,
+                        metadata: metadata
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert("uploadAlert", `✅ Successfully embedded ${data.chunks} chunks from ${data.indexed} documents!`, "success");
+                    document.getElementById("documents").value = "";
+                    updateStats(tenantId, projectId);
+                } else {
+                    showAlert("uploadAlert", "Error: " + (data.message || "Embedding failed"), "error");
+                }
+            } catch (error) {
+                showAlert("uploadAlert", "Connection error: " + error.message, "error");
+            } finally {
+                hideProgress("embedProgress");
+            }
+        }
+
+        // Perform Semantic Search
+        async function performSearch() {
+            const tenantId = document.getElementById("searchTenant").value.trim();
+            const projectId = document.getElementById("searchProject").value.trim();
+            const query = document.getElementById("searchQuery").value.trim();
+            const topK = parseInt(document.getElementById("topK").value);
+
+            if (!tenantId || !query) {
+                showAlert("searchAlert", "Tenant ID and search query are required", "error");
+                return;
+            }
+
+            showProgress("searchBtn", "Searching...");
+
+            try {
+                const response = await fetch(`${API_URL}/rag/search`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        query: query,
+                        tenant_id: tenantId,
+                        project_id: projectId || null,
+                        top_k: topK
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.results && data.results.length > 0) {
+                    displaySearchResults(data.results);
+                    showAlert("searchAlert", `Found ${data.results.length} relevant documents`, "success");
+                } else {
+                    document.getElementById("searchResults").innerHTML = `
+                        <div class="result-item" style="border-left-color: #ff9800;">
+                            No documents found. Try embedding some documents first.
+                        </div>
+                    `;
+                    showAlert("searchAlert", "No results found", "info");
+                }
+            } catch (error) {
+                showAlert("searchAlert", "Connection error: " + error.message, "error");
+            } finally {
+                hideProgress("searchBtn");
+            }
+        }
+
+        // Display Search Results
+        function displaySearchResults(results) {
+            const html = results.map((result, idx) => `
+                <div class="result-item">
+                    <strong>#${idx + 1}</strong>
+                    <span class="score">${(result.score * 100).toFixed(1)}% match</span>
+                    <p style="margin-top: 10px; color: #666;">${result.text.substring(0, 200)}...</p>
+                    ${result.metadata ? `<small style="color: #999;">Source: ${result.metadata.source || 'unknown'}</small>` : ''}
+                </div>
+            `).join('');
+            document.getElementById("searchResults").innerHTML = html;
+        }
+
+        // Load Sample Data
+        function loadSampleData() {
+            const samples = [
+                "Luxury villa in Dubai Marina with 4 bedrooms, 5 bathrooms, stunning sea views, private beach access, gym, spa, and smart home automation. Built in 2022. Asking price: AED 8.5 million.",
+                "Modern apartment in Downtown Dubai, 2 bedrooms, 2 bathrooms, floor-to-ceiling windows, concierge service, 24/7 security, swimming pool, and fitness center.",
+                "Commercial office space in Business Bay, 1,500 sq ft, partitioned areas, meeting rooms, high-speed internet, parking included. Monthly rent: AED 6,500.",
+                "Villa in Arabian Ranches, 5 bedrooms, private pool, landscaped garden, maid's room, laundry room. Community amenities include golf course, equestrian center."
+            ];
+            document.getElementById("documents").value = samples.join("\n\n");
+            showAlert("uploadAlert", "Sample documents loaded!", "info");
+        }
+
+        // Get Collection Stats
+        async function getStats() {
+            const tenantId = document.getElementById("statsTenant").value.trim();
+            const projectId = document.getElementById("statsProject").value.trim();
+
+            if (!tenantId) {
+                showAlert("searchAlert", "Tenant ID is required", "error");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/rag/stats?tenant_id=${tenantId}&project_id=${projectId || ''}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById("statsResults").innerHTML = `
+                        <div class="result-item">
+                            <strong>Collection:</strong> ${data.collection}<br>
+                            <strong>Documents:</strong> ${data.documents}<br>
+                            <strong>Model:</strong> ${data.embedding_model}<br>
+                            <strong>Vector Size:</strong> ${data.vector_size}
+                        </div>
+                    `;
+                } else {
+                    document.getElementById("statsResults").innerHTML = `
+                        <div class="result-item" style="border-left-color: #ff9800;">
+                            Collection not found. Embed documents first.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById("statsResults").innerHTML = `
+                    <div class="result-item" style="border-left-color: #f44336;">
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Delete Collection
+        function deleteCollection() {
+            const tenantId = document.getElementById("statsTenant").value.trim();
+            const projectId = document.getElementById("statsProject").value.trim();
+
+            if (!tenantId) {
+                showAlert("searchAlert", "Tenant ID is required", "error");
+                return;
+            }
+
+            if (!confirm(`Delete collection "${tenantId}:${projectId || 'default'}"? This cannot be undone.`)) {
+                return;
+            }
+
+            fetch(`${API_URL}/rag/delete`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tenant_id: tenantId, project_id: projectId || null })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    showAlert("searchAlert", "✅ Collection deleted", "success");
+                    getStats();
+                } else {
+                    showAlert("searchAlert", "Error: " + d.message, "error");
+                }
+            })
+            .catch(e => showAlert("searchAlert", "Error: " + e.message, "error"));
+        }
+
+        // Utility Functions
+        function showAlert(id, message, type) {
+            const alert = document.getElementById(id);
+            alert.className = `alert show alert-${type}`;
+            alert.textContent = message;
+        }
+
+        function showProgress(id, message) {
+            const elem = document.getElementById(id);
+            elem.style.display = "block";
+            document.getElementById("progressText").textContent = message;
+        }
+
+        function hideProgress(id) {
+            const elem = document.getElementById(id);
+            if (elem.id === "embedProgress") {
+                elem.style.display = "none";
+            } else {
+                const text = id === "embedBtn" ? "✨ Embed Documents" : "🔎 Search";
+                document.getElementById(id.replace("Btn", "Text")).textContent = text;
+            }
+        }
+
+        function updateStats(tenantId, projectId) {
+            document.getElementById("statsTenant").value = tenantId;
+            document.getElementById("statsProject").value = projectId || "";
+            setTimeout(() => getStats(), 500);
+        }
+
+        function exportConfig() {
+            const config = {
+                tenantId: document.getElementById("tenantId").value,
+                projectId: document.getElementById("projectId").value,
+                apiUrl: API_URL,
+                timestamp: new Date().toISOString()
+            };
+            const json = JSON.stringify(config, null, 2);
+            const blob = new Blob([json], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "rag-config.json";
+            a.click();
+        }
+
+        // Initialize on load
+        window.addEventListener("load", () => {
+            console.log("RAG Embedding Manager loaded");
+            console.log("API URL:", API_URL);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: real-estate-rag-dev
+    runtime: python-3
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+    envVars:
+      - key: ENVIRONMENT
+        value: development
+      - key: PYTHONUNBUFFERED
+        value: '1'
+      - key: OLLAMA_HOST
+        value: ${OLLAMA_HOST}
+      - key: REDIS_URL
+        value: redis://${REDIS_HOST}:${REDIS_PORT}
+      - key: REDIS_PASSWORD
+        value: ${REDIS_PASSWORD}
+      - key: VECTOR_DB_URL
+        sync: false
+        value: ${UPSTASH_VECTOR_URL}
+      - key: VECTOR_DB_TOKEN
+        sync: false
+        value: ${UPSTASH_VECTOR_TOKEN}
+      - key: LOG_LEVEL
+        value: INFO
+      - key: CORS_ORIGINS
+        value: https://dev-chatbot.example.in,https://dev-api.example.in
+      - key: MAX_WORKERS
+        value: '2'
+      - key: TIMEOUT
+        value: '30'
+    healthCheckPath: /health
+    healthCheckTimeout: 30
+    region: oregon
+    memoryMB: 512
+    cpuCount: 0.5
+    disk:
+      name: app-data
+      mountPath: /data
+      sizeGB: 1
+    maxConnections: 100
+
+# Environment Variables Notes:
+# OLLAMA_HOST: Self-hosted or container URL
+# UPSTASH_VECTOR_URL: From Upstash Vector DB
+# UPSTASH_VECTOR_TOKEN: From Upstash Vector DB
+# REDIS settings: From Upstash Redis
