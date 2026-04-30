@@ -217,3 +217,13 @@ venv/
 __pycache__/
 *.pyc
 >>>>>>> f84d4d051a229cf41722c09203701c87da3e75d4
+real-estate-ai-chatbot/node_modules/
+# Node modules
+node_modules/
+*/node_modules/
+real-estate-ai-chatbot/node_modules/
+widget/node_modules/
+
+# Dependencies
+*/venv/
+.venv/
