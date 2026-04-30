@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leadrat Chat Widget - Local Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: white;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .test-content {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      margin-bottom: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .test-content h2 {
+      color: #111827;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    .test-content p {
+      color: #6B7280;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    .test-content pre {
+      background: #F3F4F6;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+
+    .test-content code {
+      color: #d73a49;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    }
+
+    .test-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .test-btn {
+      padding: 10px 20px;
+      background: #6C63FF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .test-btn:hover {
+      background: #5652d4;
+      transform: translateY(-2px);
+    }
+
+    .test-btn:active {
+      transform: translateY(0);
+    }
+
+    .status {
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-weight: 600;
+    }
+
+    .status.success {
+      background: #D1FAE5;
+      color: #059669;
+    }
+
+    .status.error {
+      background: #FEE2E2;
+      color: #DC2626;
+    }
+
+    .status.info {
+      background: #DBEAFE;
+      color: #2563EB;
+    }
+
+    .config-section {
+      background: #F9FAFB;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      border: 1px solid #E5E7EB;
+    }
+
+    .config-field {
+      margin-bottom: 15px;
+    }
+
+    .config-field label {
+      display: block;
+      color: #111827;
+      font-weight: 600;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    .config-field input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #E5E7EB;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: 'Monaco', monospace;
+    }
+
+    .config-field input:focus {
+      outline: none;
+      border-color: #6C63FF;
+      box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1);
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .feature {
+      background: #F9FAFB;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #6C63FF;
+    }
+
+    .feature h3 {
+      color: #111827;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .feature p {
+      color: #6B7280;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 Leadrat Chat Widget - Local Test</h1>
+
+    <div class="test-content">
+      <h2>Widget Configuration</h2>
+      <p>Configure the widget below and click "Load Widget" to test it:</p>
+
+      <div class="config-section">
+        <div class="config-field">
+          <label for="apiUrl">API URL</label>
+          <input
+            type="text"
+            id="apiUrl"
+            value="http://localhost:8000/api/v1/chat"
+            placeholder="http://localhost:8000/api/v1/chat"
+          />
+        </div>
+
+        <div class="config-field">
+          <label for="botName">Bot Name</label>
+          <input
+            type="text"
+            id="botName"
+            value="Leadrat Assistant"
+            placeholder="Bot Name"
+          />
+        </div>
+
+        <div class="config-field">
+          <label for="botSubtitle">Bot Subtitle</label>
+          <input
+            type="text"
+            id="botSubtitle"
+            value="Real Estate AI"
+            placeholder="Bot Subtitle"
+          />
+        </div>
+
+        <div class="config-field">
+          <label for="primaryColor">Primary Color (Hex)</label>
+          <input
+            type="color"
+            id="primaryColor"
+            value="#6C63FF"
+          />
+        </div>
+      </div>
+
+      <div class="test-buttons">
+        <button class="test-btn" onclick="loadWidgetScript()">Load Widget</button>
+        <button class="test-btn" onclick="testAPI()">Test API Connection</button>
+        <button class="test-btn" onclick="showConfig()">Show Config</button>
+      </div>
+
+      <div id="status"></div>
+    </div>
+
+    <div class="test-content">
+      <h2>📋 Integration Instructions</h2>
+      <p>Once the widget is deployed to your CDN, add this to any website:</p>
+
+      <pre><code>&lt;script&gt;
+  window.LeadratChatConfig = {
+    apiUrl: "https://your-api.com/api/v1/chat",
+    botName: "AI Assistant",
+    botSubtitle: "Real Estate AI",
+    primaryColor: "#6C63FF",
+    position: "bottom-right"
+  };
+&lt;/script&gt;
+&lt;script src="https://cdn.yourdomain.com/chatbot/leadrat-chat.js" async&gt;&lt;/script&gt;</code></pre>
+
+      <p style="margin-top: 15px; color: #6B7280; font-size: 14px;">
+        The script will automatically inject a floating chat button in the bottom-right corner.
+        No additional setup required!
+      </p>
+    </div>
+
+    <div class="test-content">
+      <h2>✨ Features</h2>
+      <div class="features">
+        <div class="feature">
+          <h3>🎯 Single Script Tag</h3>
+          <p>Add the widget to any site with just one script tag. No framework needed.</p>
+        </div>
+        <div class="feature">
+          <h3>🔐 Isolated Iframe</h3>
+          <p>Chat UI runs in an isolated iframe to prevent CSS/JS conflicts.</p>
+        </div>
+        <div class="feature">
+          <h3>📱 Responsive Design</h3>
+          <p>Works on desktop and mobile with adaptive layout.</p>
+        </div>
+        <div class="feature">
+          <h3>⚙️ Configurable</h3>
+          <p>Customize bot name, colors, API endpoint via config.</p>
+        </div>
+        <div class="feature">
+          <h3>💬 Full Chat UI</h3>
+          <p>Rich message bubbles, typing indicators, quick replies.</p>
+        </div>
+        <div class="feature">
+          <h3>🚀 Zero Dependencies</h3>
+          <p>No jQuery, React, Vue, or other frameworks required.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function loadWidgetScript() {
+      const apiUrl = document.getElementById("apiUrl").value;
+      const botName = document.getElementById("botName").value;
+      const botSubtitle = document.getElementById("botSubtitle").value;
+      const primaryColor = document.getElementById("primaryColor").value;
+
+      if (!apiUrl) {
+        showStatus("API URL is required", "error");
+        return;
+      }
+
+      // Set window config
+      window.LeadratChatConfig = {
+        apiUrl: apiUrl,
+        botName: botName,
+        botSubtitle: botSubtitle,
+        primaryColor: primaryColor,
+        position: "bottom-right",
+      };
+
+      // Load the widget script
+      const script = document.createElement("script");
+      script.src = "/dist/leadrat-chat.js";
+      script.onload = () => {
+        showStatus("✅ Widget loaded successfully! Chat button should appear in bottom-right", "success");
+      };
+      script.onerror = () => {
+        showStatus("❌ Failed to load widget script. Make sure to run 'npm run build'", "error");
+      };
+      document.body.appendChild(script);
+    }
+
+    function testAPI() {
+      const apiUrl = document.getElementById("apiUrl").value;
+
+      if (!apiUrl) {
+        showStatus("API URL is required", "error");
+        return;
+      }
+
+      showStatus("Testing API connection...", "info");
+
+      fetch(apiUrl + "/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Hello! Can you help me?",
+          session_id: "test",
+          tenant_id: "dubait11",
+          conversation_history: [],
+        }),
+      })
+        .then((response) => {
+          if (response.ok) {
+            showStatus("✅ API connection successful!", "success");
+            return response.json();
+          } else {
+            showStatus(`❌ API returned ${response.status}`, "error");
+          }
+        })
+        .then((data) => {
+          if (data) {
+            console.log("API Response:", data);
+          }
+        })
+        .catch((error) => {
+          showStatus(`❌ Connection failed: ${error.message}`, "error");
+          console.error(error);
+        });
+    }
+
+    function showConfig() {
+      const config = {
+        apiUrl: document.getElementById("apiUrl").value,
+        botName: document.getElementById("botName").value,
+        botSubtitle: document.getElementById("botSubtitle").value,
+        primaryColor: document.getElementById("primaryColor").value,
+      };
+      console.log("Current Config:", config);
+      showStatus(`Config logged to console. Check browser dev tools.`, "info");
+    }
+
+    function showStatus(message, type = "info") {
+      const statusEl = document.getElementById("status");
+      statusEl.className = `status ${type}`;
+      statusEl.textContent = message;
+    }
+
+    // Show initial info
+    window.addEventListener("load", () => {
+      showStatus(
+        "📝 Configure the widget above and click 'Load Widget' to test it locally",
+        "info"
+      );
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leadrat Chat Widget - Embed Documentation</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      padding: 60px 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      color: #111827;
+      margin-bottom: 12px;
+      font-size: 36px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 18px;
+      margin-bottom: 40px;
+    }
+
+    h2 {
+      color: #1f2937;
+      font-size: 24px;
+      margin-top: 40px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #6C63FF;
+      padding-bottom: 8px;
+    }
+
+    p {
+      color: #4b5563;
+      margin-bottom: 12px;
+      line-height: 1.8;
+    }
+
+    .code-block {
+      background: #1f2937;
+      color: #10b981;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 20px 0;
+      border-left: 4px solid #6C63FF;
+    }
+
+    code {
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #d97706;
+      font-family: monospace;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin: 30px 0;
+    }
+
+    .feature-card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px rgba(108, 99, 255, 0.1);
+    }
+
+    .feature-card h3 {
+      color: #6C63FF;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .feature-card p {
+      color: #6b7280;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .step {
+      background: #f9fafb;
+      border-left: 4px solid #6C63FF;
+      padding: 20px;
+      margin: 16px 0;
+      border-radius: 4px;
+    }
+
+    .step h3 {
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+
+    .step p {
+      margin: 8px 0;
+      color: #4b5563;
+    }
+
+    .button {
+      display: inline-block;
+      background: #6C63FF;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      margin-top: 12px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .button:hover {
+      background: #5652d4;
+    }
+
+    .config-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+
+    .config-table th {
+      background: #f3f4f6;
+      color: #111827;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .config-table td {
+      padding: 12px;
+      border-bottom: 1px solid #e5e7eb;
+      color: #4b5563;
+    }
+
+    .config-table code {
+      background: #f3f4f6;
+      padding: 3px 6px;
+    }
+
+    .example-box {
+      background: #f0f9ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .example-box h4 {
+      color: #1e40af;
+      margin-bottom: 12px;
+    }
+
+    .success {
+      background: #dcfce7;
+      border-left: 4px solid #22c55e;
+      padding: 16px;
+      border-radius: 4px;
+      margin: 20px 0;
+      color: #15803d;
+    }
+
+    .warning {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      padding: 16px;
+      border-radius: 4px;
+      margin: 20px 0;
+      color: #92400e;
+    }
+
+    footer {
+      margin-top: 60px;
+      padding-top: 40px;
+      border-top: 2px solid #e5e7eb;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    footer a {
+      color: #6C63FF;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 30px 20px;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      .code-block {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 Leadrat Chat Widget</h1>
+    <p class="subtitle">Embed an AI-powered real estate chatbot on any website in minutes</p>
+
+    <div class="success">
+      ✅ This is the <strong>production-ready CDN hosted widget</strong>. Add it to any website with a single script tag!
+    </div>
+
+    <!-- Quick Start -->
+    <h2>⚡ Quick Start</h2>
+    <p>Add this code to your website, just before the closing <code>&lt;/body&gt;</code> tag:</p>
+
+    <div class="code-block">&lt;script&gt;
+  window.LeadratChatConfig = {
+    apiUrl: "https://your-api.com/api/v1/chat/message",
+    botName: "Aria",
+    botSubtitle: "Real Estate AI",
+    primaryColor: "#6C63FF",
+    tenantId: "dubait11"
+  };
+&lt;/script&gt;
+&lt;script src="https://leadrat-chat-widget.pages.dev/leadrat-chat.js" async&gt;&lt;/script&gt;</div>
+
+    <!-- Features -->
+    <h2>✨ Features</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>🚀 Zero Configuration</h3>
+        <p>Works out of the box. Just configure your API URL and you're done.</p>
+      </div>
+      <div class="feature-card">
+        <h3>📱 Mobile Ready</h3>
+        <p>Fully responsive design. Works perfectly on phones, tablets, and desktops.</p>
+      </div>
+      <div class="feature-card">
+        <h3>🎨 Customizable</h3>
+        <p>Change bot name, subtitle, colors, and position to match your brand.</p>
+      </div>
+      <div class="feature-card">
+        <h3>🔒 Secure</h3>
+        <p>Runs in an isolated iframe. No conflicts with host page styles or JavaScript.</p>
+      </div>
+      <div class="feature-card">
+        <h3>⚡ Fast</h3>
+        <p>Minified bundle. ~15KB script + 23KB HTML. Loads instantly from global CDN.</p>
+      </div>
+      <div class="feature-card">
+        <h3>🔄 No Dependencies</h3>
+        <p>Pure JavaScript. No jQuery, React, or external libraries required.</p>
+      </div>
+    </div>
+
+    <!-- Configuration -->
+    <h2>⚙️ Configuration Options</h2>
+    <p>Customize the widget behavior with these config properties:</p>
+
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>apiUrl</code></td>
+          <td>string</td>
+          <td>✅ Yes</td>
+          <td>Backend API endpoint for chat messages. Must include full path to message endpoint.</td>
+        </tr>
+        <tr>
+          <td><code>botName</code></td>
+          <td>string</td>
+          <td>❌ No</td>
+          <td>Bot display name. Default: "AI Assistant"</td>
+        </tr>
+        <tr>
+          <td><code>botSubtitle</code></td>
+          <td>string</td>
+          <td>❌ No</td>
+          <td>Bot subtitle shown under name. Default: "Powered by Leadrat"</td>
+        </tr>
+        <tr>
+          <td><code>primaryColor</code></td>
+          <td>hex color</td>
+          <td>❌ No</td>
+          <td>Header and button color. Default: "#6C63FF"</td>
+        </tr>
+        <tr>
+          <td><code>position</code></td>
+          <td>"bottom-right" | "bottom-left"</td>
+          <td>❌ No</td>
+          <td>Widget position on screen. Default: "bottom-right"</td>
+        </tr>
+        <tr>
+          <td><code>tenantId</code></td>
+          <td>string</td>
+          <td>❌ No</td>
+          <td>Multi-tenant identifier. Default: "dubait11"</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Examples -->
+    <h2>📚 Integration Examples</h2>
+
+    <div class="example-box">
+      <h4>React App</h4>
+      <p>Add to your <code>public/index.html</code>:</p>
+      <div class="code-block">&lt;script&gt;
+  window.LeadratChatConfig = {
+    apiUrl: "https://your-api.com/api/v1/chat/message",
+    botName: "Aria",
+    primaryColor: "#6C63FF"
+  };
+&lt;/script&gt;
+&lt;script src="https://leadrat-chat-widget.pages.dev/leadrat-chat.js" async&gt;&lt;/script&gt;</div>
+    </div>
+
+    <div class="example-box">
+      <h4>Plain HTML Website</h4>
+      <p>Add anywhere on your page (typically before closing body tag):</p>
+      <div class="code-block">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;
+  &lt;h1&gt;My Website&lt;/h1&gt;
+  &lt;p&gt;Welcome to our site...&lt;/p&gt;
+
+  &lt;!-- Chat Widget --&gt;
+  &lt;script&gt;
+    window.LeadratChatConfig = { ... };
+  &lt;/script&gt;
+  &lt;script src="https://leadrat-chat-widget.pages.dev/leadrat-chat.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</div>
+    </div>
+
+    <div class="example-box">
+      <h4>WordPress</h4>
+      <p>Add to Theme Editor (Appearance → Theme Editor → footer.php):</p>
+      <div class="code-block">&lt;script&gt;
+  window.LeadratChatConfig = { ... };
+&lt;/script&gt;
+&lt;script src="https://leadrat-chat-widget.pages.dev/leadrat-chat.js"&gt;&lt;/script&gt;
+&lt;?php wp_footer(); ?&gt;</div>
+    </div>
+
+    <!-- API Endpoint Format -->
+    <h2>🔌 API Endpoint Format</h2>
+    <p>The widget sends POST requests to your API endpoint with this format:</p>
+
+    <div class="code-block">POST /api/v1/chat/message
+Content-Type: application/json
+
+{
+  "message": "User's message",
+  "session_id": "unique-session-id",
+  "tenant_id": "dubait11",
+  "conversation_history": [
+    { "role": "user", "content": "Previous message" },
+    { "role": "assistant", "content": "Bot response" }
+  ]
+}</div>
+
+    <p>Expected response:</p>
+
+    <div class="code-block">{
+  "response": "Bot's text response",
+  "intent": "general|lead|property|project",
+  "source": "llm|api",
+  "data": null,
+  "quickReplies": ["Option 1", "Option 2"]
+}</div>
+
+    <!-- Troubleshooting -->
+    <h2>🐛 Troubleshooting</h2>
+
+    <div class="step">
+      <h3>Widget doesn't appear</h3>
+      <p>1. Check browser console (F12) for errors</p>
+      <p>2. Verify <code>apiUrl</code> is set correctly in config</p>
+      <p>3. Check that <code>LeadratChatConfig</code> is set BEFORE the script tag loads</p>
+      <p>4. Verify script is loaded from correct CDN URL</p>
+    </div>
+
+    <div class="step">
+      <h3>Messages don't send</h3>
+      <p>1. Check Network tab (F12) to see if API requests are being made</p>
+      <p>2. Verify backend API is running and accessible</p>
+      <p>3. Check backend CORS settings allow requests from your domain</p>
+      <p>4. Verify API endpoint returns proper JSON response</p>
+    </div>
+
+    <div class="step">
+      <h3>Widget blocks page content</h3>
+      <p>The widget uses z-index 999999 and is fixed position. If it's blocking important content:</p>
+      <p>1. Change <code>position</code> to "bottom-left"</p>
+      <p>2. Or adjust your page layout</p>
+    </div>
+
+    <div class="step">
+      <h3>Multiple widgets on same page</h3>
+      <p>The widget automatically prevents duplicates. Only one instance will be created even if the script is included multiple times.</p>
+    </div>
+
+    <!-- CDN URLs -->
+    <h2>📍 CDN Files</h2>
+    <p>All files are hosted on Cloudflare Pages global CDN:</p>
+
+    <table class="config-table">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>URL</th>
+          <th>Size</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Main Widget Script</td>
+          <td><code>leadrat-chat.js</code></td>
+          <td>~15 KB</td>
+        </tr>
+        <tr>
+          <td>Chat UI (for iframe)</td>
+          <td><code>chat-ui.html</code></td>
+          <td>~23 KB</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>Both files are automatically loaded from the same CDN origin.</p>
+
+    <!-- Support -->
+    <h2>📞 Support & Documentation</h2>
+    <p>For more information and support:</p>
+    <p>
+      <a href="https://github.com/8050-65/real-estate-ai-chatbot" class="button">📖 View on GitHub</a>
+    </p>
+
+    <div class="warning">
+      <strong>⚠️ Important:</strong> Always verify your backend API is accessible from client-side before deploying the widget. CORS headers must be properly configured.
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Leadrat AI. Built with ❤️ for real estate professionals.</p>
+      <p><a href="https://github.com/8050-65/real-estate-ai-chatbot">GitHub</a> • <a href="https://leadrat.com">Website</a></p>
+    </footer>
+  </div>
+</body>
+</html>
