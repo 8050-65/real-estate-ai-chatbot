@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leadrat Widget - Cloudflare Pages Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      color: #111827;
+      margin-bottom: 20px;
+      font-size: 32px;
+    }
+
+    .status-section {
+      background: #F3F4F6;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+
+    .status-item.pending {
+      color: #D97706;
+    }
+
+    .status-item.success {
+      color: #059669;
+    }
+
+    .status-item.error {
+      color: #DC2626;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: auto;
+    }
+
+    .badge.success {
+      background: #D1FAE5;
+      color: #059669;
+    }
+
+    .badge.pending {
+      background: #FEF3C7;
+      color: #D97706;
+    }
+
+    .badge.error {
+      background: #FEE2E2;
+      color: #DC2626;
+    }
+
+    .url-box {
+      background: #1F2937;
+      color: #10B981;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Monaco', monospace;
+      font-size: 13px;
+      overflow-x: auto;
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+
+    .info-box {
+      background: #DBEAFE;
+      border-left: 4px solid #2563EB;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      color: #1e40af;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .success-box {
+      background: #D1FAE5;
+      border-left: 4px solid #059669;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      color: #065f46;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .button {
+      background: #6C63FF;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    .button:hover {
+      background: #5652d4;
+      transform: translateY(-2px);
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    code {
+      background: #F3F4F6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #D97706;
+    }
+
+    .checklist {
+      list-style: none;
+      margin-top: 15px;
+    }
+
+    .checklist li {
+      padding: 10px 0;
+      border-bottom: 1px solid #E5E7EB;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .checklist li:before {
+      content: "☐";
+      font-size: 20px;
+      color: #D1D5DB;
+    }
+
+    .checklist li.checked:before {
+      content: "✓";
+      color: #10B981;
+      font-weight: bold;
+    }
+
+    h2 {
+      color: #111827;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+
+    p {
+      color: #6B7280;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Leadrat Widget - Cloudflare Pages Test</h1>
+
+    <div class="info-box">
+      <strong>ℹ️ This page tests the widget deployment from Cloudflare Pages CDN.</strong><br>
+      The chat widget should appear in the bottom-right corner with a purple button.
+    </div>
+
+    <div class="status-section">
+      <h2>Deployment Status</h2>
+      <div class="status-item pending">
+        Script Loading
+        <span class="badge pending" id="script-status">Checking...</span>
+      </div>
+      <div class="status-item pending">
+        Configuration
+        <span class="badge pending" id="config-status">Checking...</span>
+      </div>
+      <div class="status-item pending">
+        Widget Injection
+        <span class="badge pending" id="injection-status">Checking...</span>
+      </div>
+      <div class="status-item pending">
+        API Connection
+        <span class="badge pending" id="api-status">Checking...</span>
+      </div>
+    </div>
+
+    <div class="status-section">
+      <h2>Widget URLs</h2>
+      <p><strong>Script:</strong></p>
+      <div class="url-box">https://leadrat-chat-widget.pages.dev/leadrat-chat.js</div>
+
+      <p><strong>Chat UI:</strong></p>
+      <div class="url-box">https://leadrat-chat-widget.pages.dev/chat-ui.html</div>
+    </div>
+
+    <div class="status-section">
+      <h2>Configuration</h2>
+      <p>The widget is configured to connect to:</p>
+      <div class="url-box">https://real-estate-rag-dev.onrender.com/api/v1/chat</div>
+
+      <p style="margin-top: 15px; margin-bottom: 0;">
+        <strong>Bot Name:</strong> Leadrat Assistant<br>
+        <strong>Bot Subtitle:</strong> Real Estate AI<br>
+        <strong>Primary Color:</strong> #6C63FF<br>
+        <strong>Tenant ID:</strong> dubait11
+      </p>
+    </div>
+
+    <div class="status-section">
+      <h2>Test Instructions</h2>
+      <ol class="checklist">
+        <li id="check-button">Chat button appears in bottom-right corner</li>
+        <li id="check-color">Button is purple (#6C63FF)</li>
+        <li id="check-click">Button is clickable</li>
+        <li id="check-open">Chat window opens when clicked</li>
+        <li id="check-ui">Chat UI displays correctly</li>
+        <li id="check-input">Can type messages in input field</li>
+        <li id="check-send">Can send messages (may fail if backend offline)</li>
+        <li id="check-close">Close button works</li>
+        <li id="check-console">No console errors</li>
+      </ol>
+    </div>
+
+    <div class="status-section">
+      <h2>Actions</h2>
+      <button class="button" onclick="checkStatus()">Check Status</button>
+      <button class="button" onclick="openDevTools()">Open DevTools</button>
+      <button class="button" onclick="testAPI()">Test API</button>
+      <button class="button" onclick="location.reload()">Reload Page</button>
+    </div>
+
+    <div id="results" style="margin-top: 30px;"></div>
+  </div>
+
+  <!-- Widget Configuration -->
+  <script>
+    window.LeadratChatConfig = {
+      apiUrl: "https://real-estate-rag-dev.onrender.com/api/v1/chat",
+      botName: "Leadrat Assistant",
+      botSubtitle: "Real Estate AI",
+      primaryColor: "#6C63FF",
+      position: "bottom-right",
+      tenantId: "dubait11"
+    };
+
+    console.log('Config set:', window.LeadratChatConfig);
+  </script>
+
+  <!-- Load Widget from Cloudflare Pages -->
+  <script src="https://leadrat-chat-widget.pages.dev/leadrat-chat.js" async></script>
+
+  <!-- Test Scripts -->
+  <script>
+    function updateStatus(id, status, text) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.className = `badge ${status}`;
+        el.textContent = text;
+      }
+    }
+
+    function checkStatus() {
+      console.log('=== Widget Status Check ===');
+
+      // Check configuration
+      if (window.LeadratChatConfig) {
+        updateStatus('config-status', 'success', 'Set');
+        console.log('✅ Config loaded:', window.LeadratChatConfig);
+      } else {
+        updateStatus('config-status', 'error', 'Missing');
+        console.log('❌ Config not found');
+      }
+
+      // Check widget injection
+      setTimeout(() => {
+        const button = document.getElementById('leadrat-chat-launcher');
+        if (button) {
+          updateStatus('injection-status', 'success', 'Injected');
+          console.log('✅ Widget button injected');
+        } else {
+          updateStatus('injection-status', 'error', 'Not Found');
+          console.log('❌ Widget not injected');
+        }
+      }, 500);
+
+      // Test API
+      testAPI();
+    }
+
+    function testAPI() {
+      updateStatus('api-status', 'pending', 'Testing...');
+
+      const config = window.LeadratChatConfig;
+      if (!config || !config.apiUrl) {
+        updateStatus('api-status', 'error', 'No API URL');
+        return;
+      }
+
+      fetch(config.apiUrl + '/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Hello',
+          session_id: 'test',
+          tenant_id: config.tenantId || 'dubait11',
+          conversation_history: []
+        })
+      })
+        .then(r => {
+          if (r.ok) {
+            updateStatus('api-status', 'success', 'Connected');
+            console.log('✅ API connected');
+          } else {
+            updateStatus('api-status', 'error', `Error: ${r.status}`);
+            console.log('❌ API error:', r.status);
+          }
+        })
+        .catch(e => {
+          updateStatus('api-status', 'error', 'Failed');
+          console.log('❌ API connection failed:', e.message);
+        });
+    }
+
+    function openDevTools() {
+      console.log('Press F12 or Ctrl+Shift+I to open Developer Tools');
+      alert('Press F12 or Ctrl+Shift+I to open Developer Tools\n\nCheck the Console tab for any errors.');
+    }
+
+    // Auto-check on load
+    window.addEventListener('load', () => {
+      console.log('Page loaded, checking widget status...');
+      setTimeout(checkStatus, 1000);
+    });
+
+    // Check for errors
+    window.addEventListener('error', (e) => {
+      console.error('JavaScript Error:', e.error);
+    });
+  </script>
+</body>
+</html>

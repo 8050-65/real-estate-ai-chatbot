@@ -1,0 +1,27 @@
+{
+  "name": "@leadrat/chatbot-widget",
+  "version": "1.0.0",
+  "description": "Embeddable AI chatbot widget for Leadrat CRM",
+  "main": "dist/leadrat-chat.js",
+  "scripts": {
+    "build": "npm run build:js && npm run build:html",
+    "build:js": "esbuild src/leadrat-chat.ts --bundle --minify --outfile=dist/leadrat-chat.js --format=iife --global-name=LeadratChat --target=es2020",
+    "build:dev": "esbuild src/leadrat-chat.ts --bundle --outfile=dist/leadrat-chat.js --format=iife --global-name=LeadratChat --target=es2020",
+    "build:html": "node -e \"const fs=require('fs');fs.copyFileSync('src/chat-ui.html','dist/chat-ui.html');fs.copyFileSync('src/index.html','dist/index.html')\"",
+    "dev": "esbuild src/leadrat-chat.ts --bundle --outfile=dist/leadrat-chat.js --format=iife --global-name=LeadratChat --target=es2020 --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "chatbot",
+    "leadrat",
+    "crm",
+    "widget",
+    "embeddable"
+  ],
+  "author": "Leadrat",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.20.2",
+    "typescript": "^5.9.3"
+  }
+}

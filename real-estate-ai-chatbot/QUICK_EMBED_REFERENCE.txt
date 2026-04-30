@@ -1,0 +1,215 @@
+================================================================================
+                    EMBED SCRIPT - QUICK REFERENCE
+================================================================================
+
+🎯 TEST IT NOW (LOCALHOST)
+================================================================================
+
+1. Make sure dev server is running:
+   npm run dev
+
+2. Open this file in browser:
+   ▶️  test-embed-localhost.html
+
+3. Verify:
+   ✅ Floating button appears (bottom-right corner)
+   ✅ Click "Open Chat" button
+   ✅ Chat window opens
+   ✅ Can send messages and get responses
+   ✅ No red errors in console (F12)
+
+Result: Chatbot is working! ✅
+
+================================================================================
+📋 CODE TO USE
+================================================================================
+
+FOR LOCALHOST TESTING (Right Now):
+──────────────────────────────────────────────────────────────────────────────
+<script async src="http://localhost:3000/chatbot-embed.js"></script>
+
+
+FOR PRODUCTION (After Vercel Deployment):
+──────────────────────────────────────────────────────────────────────────────
+<script async src="https://your-deployed-url.com/chatbot-embed.js"></script>
+
+
+EXAMPLE PRODUCTION (When Ready):
+──────────────────────────────────────────────────────────────────────────────
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"></script>
+
+================================================================================
+🚀 DEPLOYMENT STEPS
+================================================================================
+
+1. Deploy Next.js app to Vercel or your hosting
+2. Get production URL (e.g., https://chatbot-leadrat.vercel.app)
+3. Update embed script URL (change localhost to your URL)
+4. Add script to your website
+5. Test on production domain
+
+================================================================================
+📊 CURRENT STATUS
+================================================================================
+
+✅ AVAILABLE NOW (Use for testing):
+   - Dev Server: http://localhost:3000
+   - Embed Script: http://localhost:3000/chatbot-embed.js
+   - Test File: test-embed-localhost.html
+   - Chatbot Works: Yes
+
+❌ NOT AVAILABLE YET (Needs deployment):
+   - Production URL: https://chatbot-leadrat.vercel.app
+   - Shows: 404 NOT_FOUND
+   - Status: Waiting for Vercel deployment
+
+================================================================================
+🎯 IMMEDIATE ACTIONS
+================================================================================
+
+RIGHT NOW:
+  1. npm run dev                    (Start dev server)
+  2. Open test-embed-localhost.html (Test in browser)
+  3. Click "Open Chat" button       (Verify it works)
+
+THIS WEEK:
+  1. Verify all functionality works
+  2. Test on mobile too
+  3. Review embed script options
+
+NEXT WEEK:
+  1. Deploy to Vercel
+  2. Get production URL
+  3. Update embed script URL
+  4. Deploy to external websites
+
+================================================================================
+💻 TEST COMMANDS
+================================================================================
+
+Start dev server:
+  npm run dev
+
+Check if working:
+  curl http://localhost:3000/api/health
+
+Stop dev server:
+  Ctrl+C
+
+================================================================================
+🔗 THREE KEY URLS
+================================================================================
+
+Dev Embed Script:
+  http://localhost:3000/chatbot-embed.js
+
+Dev Chatbot App:
+  http://localhost:3000/ai-assistant
+
+Dev Embedded Mode:
+  http://localhost:3000/ai-assistant?embedded=true
+
+Production (after deployment):
+  https://your-url.com/chatbot-embed.js
+
+================================================================================
+✨ FEATURES
+================================================================================
+
+✅ No external dependencies
+✅ Lightweight (~15KB)
+✅ Configurable position (4 corners)
+✅ Dark/light theme
+✅ Responsive design
+✅ JavaScript API (open/close/toggle)
+✅ Status indicators
+✅ Mobile-friendly
+✅ HTTPS ready
+
+================================================================================
+🎓 CONFIGURATION OPTIONS
+================================================================================
+
+Position Options:
+  data-position="bottom-right"   (default)
+  data-position="bottom-left"
+  data-position="top-right"
+  data-position="top-left"
+
+Theme Options:
+  data-theme="dark"    (default)
+  data-theme="light"
+
+Example:
+  <script async
+    src="http://localhost:3000/chatbot-embed.js"
+    data-position="bottom-left"
+    data-theme="light">
+  </script>
+
+================================================================================
+🎮 JAVASCRIPT API
+================================================================================
+
+Open chat:
+  window.leadratChatbot.open()
+
+Close chat:
+  window.leadratChatbot.close()
+
+Toggle chat:
+  window.leadratChatbot.toggle()
+
+Example button:
+  <button onclick="window.leadratChatbot.open()">Chat</button>
+
+================================================================================
+🔧 TROUBLESHOOTING
+================================================================================
+
+Button not showing?
+  → Check browser console (F12)
+  → Look for red error messages
+  → Verify http://localhost:3000 is running
+
+Chat window blank?
+  → Verify http://localhost:3000 loads chatbot
+  → Check Network tab for 404 errors
+  → Refresh page
+
+No response to messages?
+  → Check Network tab for failed API calls
+  → Verify backend services are running
+  → Check console for JavaScript errors
+
+================================================================================
+📁 FILES PROVIDED
+================================================================================
+
+For Testing:
+  - test-embed-localhost.html      (Open this in browser)
+  - chatbot-embed-localhost.js     (Dev version)
+
+For Production (when deployed):
+  - test-embed-production.html     (Production test)
+  - chatbot-embed-production.js    (Production version)
+
+Documentation:
+  - EMBED_SCRIPT_USAGE.md
+  - EMBED_SCRIPT_IMMEDIATE_TESTING.md
+  - PRODUCTION_EMBED_SCRIPT_READY.md
+  - FILES_READY_FOR_DEPLOYMENT.md
+
+================================================================================
+🚀 START HERE
+================================================================================
+
+1. npm run dev
+2. Open test-embed-localhost.html
+3. Click "Open Chat"
+4. Verify it works
+5. Check console for "✅ Leadrat AI Chatbot initialized"
+
+Done! 🎉
+
+================================================================================

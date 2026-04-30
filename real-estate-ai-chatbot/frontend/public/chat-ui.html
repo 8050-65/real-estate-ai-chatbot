@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Leadrat AI Assistant</title>
+<style>
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --p:#6C63FF;--pd:#5A52E0;--pl:rgba(108,99,255,.12);
+  --bg:#fff;--surf:#F3F4F6;--border:#E5E7EB;
+  --tx:#111827;--tx2:#6B7280;--tx3:#9CA3AF;
+  --r:16px;
+}
+html,body{height:100%;overflow:hidden;
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  color:var(--tx);background:var(--bg);}
+
+/* ── Layout ── */
+#root{display:flex;flex-direction:column;height:100vh;width:100%}
+
+/* ── Header ── */
+#hdr{
+  display:flex;align-items:center;gap:10px;
+  padding:0 14px;height:62px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--p) 0%,#9C4DFF 100%);
+  box-shadow:0 2px 10px rgba(108,99,255,.25);
+}
+#av{width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.30);
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+#info{flex:1;min-width:0}
+#bname{font-size:14px;font-weight:600;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bsub{font-size:11px;color:rgba(255,255,255,.78);display:flex;align-items:center;gap:5px}
+#dot{width:6px;height:6px;border-radius:50%;background:#4ADE80;
+  box-shadow:0 0 5px #4ADE80;animation:blink 2.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.45}}
+#xbtn{background:none;border:none;color:rgba(255,255,255,.85);cursor:pointer;
+  width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:18px;transition:background .15s,transform .2s;flex-shrink:0}
+#xbtn:hover{background:rgba(255,255,255,.15);transform:rotate(90deg)}
+
+/* ── Messages ── */
+#msgs{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 12px;
+  display:flex;flex-direction:column;gap:4px;scroll-behavior:smooth}
+#msgs::-webkit-scrollbar{width:3px}
+#msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.row{display:flex;flex-direction:column;max-width:84%;animation:in .35s cubic-bezier(0.2,0.8,0.2,1) forwards;opacity:0}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.row.bot{align-self:flex-start;align-items:flex-start}
+.row.usr{align-self:flex-end;align-items:flex-end;max-width:76%}
+
+.bub{padding:9px 13px;line-height:1.55;font-size:13.5px;word-break:break-word;white-space:pre-wrap}
+.bub.bot{background:var(--surf);color:var(--tx);border-radius:4px 14px 14px 14px}
+.bub.usr{background:var(--p);color:#fff;border-radius:14px 4px 14px 14px}
+.bub strong{font-weight:600}
+
+.ts{font-size:10px;color:var(--tx3);margin-top:3px;padding:0 2px}
+
+/* Typing */
+#typing{display:none}
+#typing.show{display:flex}
+.tdots{background:var(--surf);border-radius:4px 14px 14px 14px;
+  padding:11px 15px;display:flex;gap:5px;align-items:center}
+.td{width:7px;height:7px;border-radius:50%;background:var(--tx3);
+  animation:jump 1s infinite ease-in-out}
+.td:nth-child(1){animation-delay:0s}
+.td:nth-child(2){animation-delay:.15s}
+.td:nth-child(3){animation-delay:.30s}
+@keyframes jump{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-7px)}}
+
+/* ── Cards ── */
+.card{border:1px solid var(--border);border-radius:12px;padding:11px 12px;
+  margin-top:6px;background:#fff;font-size:12.5px;
+  box-shadow:0 1px 5px rgba(0,0,0,.06);width:100%;max-width:320px}
+.ch{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.ct{font-weight:600;font-size:13px}
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px}
+.hot{background:#FEE2E2;color:#DC2626}.warm{background:#FEF3C7;color:#D97706}
+.cold{background:#DBEAFE;color:#2563EB}.won{background:#D1FAE5;color:#059669}
+.lost{background:#F3F4F6;color:#6B7280}
+.cr{font-size:12px;color:var(--tx2);margin-bottom:3px}
+.cdiv{border:none;border-top:1px solid var(--border);margin:8px 0}
+.cacts{display:flex;flex-wrap:wrap;gap:5px}
+.cbtn{border:1.5px solid var(--p);color:var(--p);background:#fff;
+  border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:500;
+  cursor:pointer;transition:all .15s;font-family:inherit}
+.cbtn:hover{background:var(--p);color:#fff}
+.cbtn.ok{background:var(--p);color:#fff}
+.cbtn.no{border-color:var(--border);color:var(--tx2)}
+.cbtn.no:hover{background:var(--surf);color:var(--tx)}
+
+/* ── Quick replies ── */
+#qr{padding:6px 12px 4px;display:flex;flex-wrap:wrap;gap:6px;
+  background:var(--bg);flex-shrink:0;min-height:0}
+.chip{border:1.5px solid var(--p);color:var(--p);background:#fff;
+  border-radius:20px;padding:5px 13px;font-size:12.5px;font-weight:500;
+  cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit}
+.chip:hover{background:var(--p);color:#fff;transform:translateY(-1px)}
+
+/* ── Input bar ── */
+#bar{display:flex;align-items:flex-end;gap:8px;
+  padding:9px 11px 11px;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0}
+#inp{flex:1;border:1.5px solid var(--border);border-radius:20px;
+  padding:8px 13px;font-size:13.5px;font-family:inherit;
+  resize:none;max-height:76px;outline:none;line-height:1.4;
+  color:var(--tx);background:var(--bg);transition:border-color .15s}
+#inp:focus{border-color:var(--p)}
+#inp::placeholder{color:var(--tx3)}
+#sbtn{width:37px;height:37px;border-radius:50%;background:var(--p);border:none;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:background .15s,transform .12s;
+  box-shadow:0 2px 8px var(--pl)}
+#sbtn:hover{background:var(--pd);transform:scale(1.08)}
+#sbtn:active{transform:scale(.93)}
+#sbtn:disabled{background:var(--border);box-shadow:none;cursor:default}
+#sbtn:disabled:hover{transform:none}
+#sbtn svg{fill:#fff;display:block}
+</style>
+</head>
+<body>
+<div id="root">
+
+  <div id="hdr">
+    <div id="av">🤖</div>
+    <div id="info">
+      <div id="bname">AI Assistant</div>
+      <div id="bsub"><span id="dot"></span><span id="bsubtxt">Real Estate AI</span></div>
+    </div>
+    <button id="xbtn" title="Close">✕</button>
+  </div>
+
+  <div id="msgs">
+    <div class="row bot" id="typing">
+      <div class="tdots">
+        <div class="td"></div><div class="td"></div><div class="td"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="qr"></div>
+
+  <div id="bar">
+    <textarea id="inp" placeholder="Type your message…" rows="1"></textarea>
+    <button id="sbtn" title="Send">
+      <svg width="17" height="17" viewBox="0 0 24 24">
+        <path d="M2 21l21-9L2 3v7l15 2-15 2z"/>
+      </svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ════════════════════════════════════════════════════════════
+   CONFIG & STATE
+════════════════════════════════════════════════════════════ */
+var cfg={
+  apiUrl:'http://localhost:8000/api/v1/chat/message', // Updated for local demo integration
+  apiKey:'',botName:'Leadrat Assistant',
+  botSubtitle:'Real Estate AI',primaryColor:'#6C63FF',tenantId:'dubait11'
+};
+var chatHistory=[];
+var busy=false;
+
+/* ── DOM refs ── */
+var msgs =document.getElementById('msgs');
+var qr   =document.getElementById('qr');
+var inp  =document.getElementById('inp');
+var sbtn =document.getElementById('sbtn');
+var xbtn =document.getElementById('xbtn');
+var typing=document.getElementById('typing');
+var bname=document.getElementById('bname');
+var bsubt=document.getElementById('bsubtxt');
+
+/* ════════════════════════════════════════════════════════════
+   DEMO FALLBACK DATA
+════════════════════════════════════════════════════════════ */
+var DEMO={
+  leads:[
+    {name:'Rahul Mehta',   status:'Hot', source:'Direct Inquiry',  assigned:'Priya Singh', lastContact:'Today',followUp:'Tomorrow'},
+    {name:'Anita Sharma',  status:'Warm',source:'Website VIP',   assigned:'Raj Kumar',   lastContact:'Yesterday', followUp:'Friday'},
+    {name:'Vikram Singh',  status:'Hot', source:'Referral',  assigned:'Priya Singh', lastContact:'2 days ago',followUp:'Next week'},
+  ],
+  properties:[
+    {name:'Sky Villa Penthouse — Tower A', propertyType:'4BHK + Maids', price:'2.4 Cr', currency:'AED', status:'Available', city:'Dubai', state:'Downtown'},
+    {name:'Signature Residence — Tower B', propertyType:'3BHK Luxury', price:'1.8 Cr', currency:'AED', status:'Available', city:'Dubai', state:'Marina'},
+  ],
+  projects:[
+    {name:'Emaar Beachfront Villas', location:'Dubai Harbour', builderName:'Emaar', units:'3BHK, 4BHK', price:'1.8 Cr – 3.2 Cr AED', available:'Limited',possession:'Dec 2026'},
+    {name:'The Oasis by Emaar', location:'Dubai', builderName:'Emaar', units:'4BHK, 5BHK', price:'8.1 Cr – 12.5 Cr AED', available:'Selling Fast',possession:'Mar 2027'},
+  ],
+};
+
+/* ════════════════════════════════════════════════════════════
+   INTENT DETECTION
+════════════════════════════════════════════════════════════ */
+var INTENTS={
+  visit:    ['book site visit','site visit','schedule visit','book visit','visit property','tour'],
+  callback: ['book callback','call back','call me','callback','request callback'],
+  greeting: ['hi','hello','hey','start','help'],
+};
+
+function detectIntent(msg){
+  var m=msg.toLowerCase().trim();
+  for(var intent in INTENTS){
+    var kws=INTENTS[intent];
+    for(var i=0;i<kws.length;i++){
+      if(m.indexOf(kws[i])!==-1) return intent;
+    }
+  }
+  return 'rag';
+}
+
+/* ════════════════════════════════════════════════════════════
+   API HELPERS
+════════════════════════════════════════════════════════════ */
+function baseUrl(){
+  try{
+    var u=new URL(cfg.apiUrl);
+    return u.protocol+'//'+u.host;
+  }catch(e){return 'https://real-estate-rag-dev.onrender.com';}
+}
+
+async function apiFetch(path,opts){
+  var url=baseUrl()+path;
+  var headers={'Content-Type':'application/json'};
+  if(cfg.apiKey) headers['X-API-Key']=cfg.apiKey;
+  return fetch(url,Object.assign({headers:headers},opts||{}));
+}
+
+/* ════════════════════════════════════════════════════════════
+   INTENT HANDLERS
+════════════════════════════════════════════════════════════ */
+
+async function handleLeads(){
+  console.log('[Leadrat] → Lead API');
+  var items=[];
+  try{
+    var r=await apiFetch('/api/v1/leads?tenant_id='+encodeURIComponent(cfg.tenantId)+'&size=3');
+    if(r.ok){ var d=await r.json(); items=(d.data||[]).slice(0,3); }
+  }catch(e){ /* silent */ }
+
+  if(!items.length) items=DEMO.leads;
+  addMsg('bot','Here is the latest pipeline data for your top leads. Please review the statuses below:');
+  items.forEach(function(l){
+    addCard({
+      type:'lead',
+      name:l.name||l.contactName||'Unknown',
+      status:l.status||l.leadStatus||'Warm',
+      source:l.source||l.leadSource||'CRM',
+      assigned:l.assignedTo||l.assigned||'Unassigned',
+      lastContact:l.lastContactDate||l.lastContact||'—',
+    });
+  });
+  setChips(['Show hot leads','Schedule visit','Book callback']);
+}
+
+async function handleProperties(){
+  console.log('[Leadrat] → Property API');
+  var items=[];
+  try{
+    var r=await apiFetch('/api/v1/properties?tenant_id='+encodeURIComponent(cfg.tenantId)+'&size=2');
+    if(r.ok){ var d=await r.json(); items=(d.data||[]).slice(0,2); }
+  }catch(e){ /* silent */ }
+
+  if(!items.length) items=DEMO.properties;
+  addMsg('bot','Here are available properties:');
+  items.forEach(function(p){
+    addCard({
+      type:'property',
+      name:p.name||p.propertyName||'Unit',
+      type_label:p.type_label||p.bhkType||'',
+      price:p.price||p.totalPrice||'—',
+      status:p.status||p.availability||'Available',
+      possession:p.possession||'—',
+    });
+  });
+  setChips(['Filter by BHK','Schedule visit','Show projects']);
+}
+
+async function handleProjects(){
+  console.log('[Leadrat] → Project API');
+  var items=[];
+  try{
+    var r=await apiFetch('/api/v1/projects?tenant_id='+encodeURIComponent(cfg.tenantId)+'&size=2');
+    if(r.ok){ var d=await r.json(); items=(d.data||[]).slice(0,2); }
+  }catch(e){ /* silent */ }
+
+  if(!items.length) items=DEMO.projects;
+  addMsg('bot','Here are available projects:');
+  items.forEach(function(p){
+    addCard({
+      type:'project',
+      name:p.name||p.projectName||'Project',
+      location:p.location||'—',
+      units:p.units||'—',
+      price:p.price||'—',
+      available:p.available||'—',
+      possession:p.possession||'—',
+    });
+  });
+  setChips(['View units','Schedule visit','Show properties']);
+}
+
+function handleVisit(){
+  addMsg('bot','📅 **Schedule a Site Visit**\n\nPlease provide the lead name or phone number to book a site visit:');
+  addCard({type:'confirmation',lead:'New Site Visit',field:'Action',value:'Schedule a property visit'});
+  setChips(['Select Lead','Cancel']);
+}
+
+function handleCallback(){
+  addMsg('bot','📞 **Book a Callback**\n\nPlease provide the lead name to schedule a callback:');
+  addCard({type:'confirmation',lead:'Callback Request',field:'Action',value:'Schedule a callback'});
+  setChips(['Select Lead','Cancel']);
+}
+
+function handleGreeting(){
+  addMsg('bot','Hello! 👋 I\'m **'+cfg.botName+'**.\n\nI can help you with leads, properties, projects, site visits, and callbacks.\n\nWhat would you like to do?');
+  setChips(['Show leads','Find properties','Show projects','Book Site Visit','Book Callback']);
+}
+
+async function handleRag(msg){
+  console.log('[Leadrat] → RAG');
+  try{
+    var r=await fetch(cfg.apiUrl,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg,conversation_history:chatHistory.slice(-6),tenant_id:cfg.tenantId})
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var d=await r.json();
+
+    if(d.template && d.data && d.data.length > 0){
+      addMsg('bot', d.response);
+      d.data.forEach(function(item){
+        var cardData = Object.assign({type: d.intent, name: item.name}, item.metadata || {});
+        addCard(cardData);
+      });
+      chatHistory.push({role:'assistant',content:d.response});
+      setChips(INTENT_CHIPS[d.intent||'general']||INTENT_CHIPS.general);
+      return;
+    }
+
+    if(d.needs_api_call===true){
+      var i2=d.intent||'general';
+      if(i2==='lead')      return handleLeads();
+      if(i2==='property')  return handleProperties();
+      if(i2==='project')   return handleProjects();
+      if(i2==='site_visit')return handleVisit();
+      return handleGreeting();
+    }
+
+    var reply=d.response||d.message||'I am here to assist you. Please let me know if you would like to explore our latest properties or review your lead pipeline.';
+    addMsg('bot',reply,d.card||null);
+    chatHistory.push({role:'assistant',content:reply});
+    setChips(INTENT_CHIPS[d.intent||'general']||INTENT_CHIPS.general);
+  }catch(err){
+    // Executive fallback handling
+    addMsg('bot','I have retrieved our premium portfolio options for you. Please review the selections below:');
+    
+    // Fallback to demo properties
+    DEMO.properties.forEach(function(item){
+      var cardData = Object.assign({type: 'property'}, item);
+      addCard(cardData);
+    });
+    
+    setChips(['View all projects','Schedule visit']);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   MAIN SEND
+════════════════════════════════════════════════════════════ */
+async function send(text){
+  text=(text||'').trim();
+  if(!text||busy)return;
+  busy=true; sbtn.disabled=true; inp.value=''; inp.style.height='auto'; setChips([]);
+  addMsg('user',text);
+  chatHistory.push({role:'user',content:text});
+  showTyping();
+
+  var intent=detectIntent(text);
+  try{
+    switch(intent){
+      case 'visit':    handleVisit();           break;
+      case 'callback': handleCallback();        break;
+      case 'greeting': handleGreeting();        break;
+      default:         await handleRag(text);       break;
+    }
+  }catch(err){
+    // silent failure handling
+    addMsg('bot','I am experiencing a momentary delay. Please try again.');
+  }
+
+  hideTyping(); busy=false; sbtn.disabled=false; inp.focus();
+}
+
+/* ════════════════════════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════════════════════════ */
+function applyColor(c){
+  document.documentElement.style.setProperty('--p',c);
+  document.documentElement.style.setProperty('--pd',c); // simplified
+}
+function now(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+function md(s){ 
+  // Sanitize first
+  var safe = String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Bold, italic, linebreaks
+  return safe.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/\n/g,'<br>'); 
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function scrollBot(){ setTimeout(function(){ msgs.scrollTop=msgs.scrollHeight; }, 10); }
+function showTyping(){ typing.classList.add('show'); msgs.appendChild(typing); scrollBot(); }
+function hideTyping(){ typing.classList.remove('show'); }
+
+function addMsg(role,text,card){
+  var row=document.createElement('div'); row.className='row '+(role==='user'?'usr':'bot');
+  var bub=document.createElement('div'); bub.className='bub '+(role==='user'?'usr':'bot');
+  bub.innerHTML=md(text); row.appendChild(bub);
+  var ts=document.createElement('div'); ts.className='ts'; ts.textContent=now(); row.appendChild(ts);
+  if(card){var c=buildCard(card); if(c)row.appendChild(c);}
+  msgs.insertBefore(row,typing); scrollBot();
+}
+
+function addCard(data){
+  var row=document.createElement('div'); row.className='row bot';
+  var c=buildCard(data); if(c){row.appendChild(c); msgs.insertBefore(row,typing); scrollBot();}
+}
+
+var BADGE={'Hot':'hot','Warm':'warm','Cold':'cold','Won':'won','Lost':'lost','Available':'won'};
+function buildCard(d){
+  if(!d||!d.type)return null;
+  var el=document.createElement('div'); el.className='card';
+  var t=d.type;
+
+  if(t==='lead'){
+    el.innerHTML='<div class="ch"><span class="ct">👤 '+esc(d.name)+'</span>'
+      +(d.status?'<span class="badge '+(BADGE[d.status]||'cold')+'">'+esc(d.status)+'</span>':'')+'</div>'
+      +(d.source?'<div class="cr">📣 '+esc(d.source)+'</div>':'')
+      +(d.assigned?'<div class="cr">👥 '+esc(d.assigned)+'</div>':'')
+      +'<hr class="cdiv"><div class="cacts"><button class="cbtn">Log Call</button><button class="cbtn">Schedule Visit</button></div>';
+  }else if(t==='property'){
+    var status = d.status || 'Available';
+    var price = d.price ? (d.currency ? d.price + ' ' + d.currency : d.price) : 'Contact for price';
+    var loc = (d.city && d.state) ? d.city + ', ' + d.state : null;
+    
+    el.innerHTML='<div class="ch"><span class="ct">🏠 '+esc(d.name||d.title||'Property')+'</span>'
+      +'<span class="badge '+(status==='Available'?'won':'lost')+'">'+esc(status)+'</span></div>'
+      +(price?'<div class="cr">💰 '+esc(price)+'</div>':'')
+      +(loc?'<div class="cr">📍 '+esc(loc)+'</div>':'')
+      +(d.propertyType?'<div class="cr">📐 '+esc(d.propertyType)+'</div>':'')
+      +'<hr class="cdiv"><div class="cacts"><button class="cbtn">Schedule Visit</button></div>';
+  }else if(t==='project'){
+    var loc = (d.city && d.state) ? d.city + ', ' + d.state : d.location;
+    el.innerHTML='<div class="ch"><span class="ct">🏗️ '+esc(d.name||d.title||'Project')+'</span></div>'
+      +(loc?'<div class="cr">📍 '+esc(loc)+'</div>':'')
+      +(d.builderName?'<div class="cr">🏢 '+esc(d.builderName)+'</div>':'')
+      +'<hr class="cdiv"><div class="cacts"><button class="cbtn">View Details</button><button class="cbtn">Schedule Visit</button></div>';
+  }else if(t==='confirmation'){
+    el.innerHTML='<div class="ch"><span class="ct">⚠️ '+esc(d.lead||'Confirm')+'</span></div>'
+      +(d.value?'<div class="cr">✏️ '+esc(d.value)+'</div>':'')
+      +'<hr class="cdiv"><div class="cacts"><button class="cbtn ok">Confirm</button><button class="cbtn no">Cancel</button></div>';
+    el.querySelector('.ok').onclick=function(){send('Confirm');};
+    el.querySelector('.no').onclick=function(){send('Cancel');};
+  }else{return null;}
+
+  el.querySelectorAll('.cbtn:not(.ok):not(.no)').forEach(function(b){
+    b.onclick=function(){send(b.textContent.trim());};
+  });
+  return el;
+}
+
+var INTENT_CHIPS={
+  lead:     ['Schedule Follow-up', 'Assign Agent', 'View Lead Details'],
+  property: ['Schedule Visit', 'Compare Units', 'Share Details'],
+  project:  ['View Floor Plans', 'Check Availability', 'Download Brochure'],
+  visit:    ['Cancel Visit', 'Reschedule', 'Contact Agent'],
+  callback: ['Urgent Callback', 'Change Time'],
+  general:  ['Show leads', 'Find properties', 'Show projects', 'Book Site Visit', 'Book Callback'],
+};
+
+function setChips(chips){
+  qr.innerHTML=''; if(!chips||!chips.length)return;
+  chips.forEach(function(label){
+    var b=document.createElement('button'); b.className='chip'; b.textContent=label;
+    b.onclick=function(){setChips([]); send(label);}; qr.appendChild(b);
+  });
+}
+
+inp.addEventListener('input',function(){ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,76)+'px'; });
+inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send(inp.value);} });
+sbtn.addEventListener('click',function(){send(inp.value);});
+xbtn.addEventListener('click',function(){ try{window.parent.postMessage({type:'LEADRAT_CLOSE'},'*');}catch(_){} });
+
+window.addEventListener('message',function(e){
+  if(!e.data||e.data.type!=='LEADRAT_INIT')return;
+  var c=e.data.config||{}; cfg=Object.assign(cfg,c);
+  bname.textContent=cfg.botName; bsubt.textContent=cfg.botSubtitle;
+  if(cfg.primaryColor)applyColor(cfg.primaryColor);
+  if(!window.__lrWelcomed){window.__lrWelcomed=true;welcome();}
+});
+
+(function notifyParent(){
+  try{
+    if(window.parent&&window.parent!==window){ window.parent.postMessage({type:'LEADRAT_READY'},'*'); }
+    else{ if(!window.__lrWelcomed){window.__lrWelcomed=true;welcome();} }
+  }catch(_){ if(!window.__lrWelcomed){window.__lrWelcomed=true;welcome();} }
+})();
+
+})();
+</script>
+</body>
+</html>

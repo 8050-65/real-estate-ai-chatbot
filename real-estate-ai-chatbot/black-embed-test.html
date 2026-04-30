@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Black Background Test</title>
+    <style>
+        /* Sets the entire page background to black */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: #0b0b0b; /* Very dark background to match your screenshot */
+            overflow: hidden; /* Prevents scrollbars */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Chatbot Embed Script using your vercel production URL -->
+    <script async src="https://chatbot-crm-dev.vercel.app/chatbot-embed.js"
+        data-position="bottom-right"
+        data-theme="dark">
+    </script>
+    
+    <!-- Script to automatically open the chat window when the page loads -->
+    <script>
+        // Wait a brief moment to ensure the script has loaded, then open it
+        setTimeout(() => {
+            if (window.leadratChatbot && typeof window.leadratChatbot.open === 'function') {
+                window.leadratChatbot.open();
+            }
+        }, 1500); // Opens after 1.5 seconds
+    </script>
+    
+</body>
+</html>

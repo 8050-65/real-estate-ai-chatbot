@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leadrat Chatbot Embed Test - LOCALHOST</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #f39c12;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .info-box strong {
+            color: #856404;
+        }
+
+        .code-block {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            color: #333;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .status-item {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .status-item.success {
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .status-item h3 {
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .status-item p {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .console-log {
+            background: #1e1e1e;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 20px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-success {
+            color: #89d185;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #999;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Leadrat Chatbot - LOCALHOST TEST</h1>
+        <p class="subtitle">⚠️  TESTING MODE - Uses localhost:3000</p>
+
+        <div class="info-box">
+            <strong>✅ How to Test:</strong><br>
+            1. Click the buttons below to open/close the chatbot<br>
+            2. Or click the floating "Aria" button in the bottom-right corner<br>
+            3. Type a message and get a response<br>
+            4. Open browser console (F12) to see logs
+        </div>
+
+        <!-- Status -->
+        <div class="status">
+            <div class="status-item success">
+                <h3>✓ Frontend</h3>
+                <p>localhost:3000</p>
+            </div>
+            <div class="status-item success">
+                <h3>✓ APIs</h3>
+                <p>Running</p>
+            </div>
+            <div class="status-item success">
+                <h3>✓ Embed</h3>
+                <p>Ready</p>
+            </div>
+        </div>
+
+        <!-- Quick Test -->
+        <div class="section">
+            <h2>🎯 Quick Test</h2>
+            <div class="buttons">
+                <button class="btn-primary" onclick="window.leadratChatbot.open()">
+                    📂 Open Chat
+                </button>
+                <button class="btn-primary" onclick="window.leadratChatbot.close()">
+                    📁 Close Chat
+                </button>
+                <button class="btn-primary" onclick="window.leadratChatbot.toggle()">
+                    🔄 Toggle Chat
+                </button>
+            </div>
+        </div>
+
+        <!-- Installation Code -->
+        <div class="section">
+            <h2>📦 Installation Code (Localhost)</h2>
+            <p style="margin-bottom: 10px;">For testing, use this code:</p>
+            <div class="code-block">&lt;script async src="http://localhost:3000/chatbot-embed.js"&gt;&lt;/script&gt;</div>
+
+            <p style="margin-top: 20px; margin-bottom: 10px;"><strong>For Production (when deployed):</strong></p>
+            <div class="code-block" style="background: #ffe6e6;">
+                &lt;!-- Change to your production URL --&gt;<br>
+                &lt;script async src="https://your-production-url.com/chatbot-embed.js"&gt;&lt;/script&gt;
+            </div>
+        </div>
+
+        <!-- What's Happening -->
+        <div class="section">
+            <h2>🔍 What's Happening</h2>
+            <ol style="margin-left: 20px; color: #333;">
+                <li>This page loads the embed script from <code style="background: #f5f5f5; padding: 2px 6px;">http://localhost:3000/chatbot-embed.js</code></li>
+                <li>The script creates a floating button in bottom-right corner</li>
+                <li>When you click the button, it opens a chat window</li>
+                <li>The chat window loads the chatbot app via iframe: <code style="background: #f5f5f5; padding: 2px 6px;">http://localhost:3000/ai-assistant?embedded=true</code></li>
+                <li>The <code style="background: #f5f5f5; padding: 2px 6px;">?embedded=true</code> parameter hides the REIA header and status bar</li>
+                <li>You can send messages and the backend responds</li>
+            </ol>
+        </div>
+
+        <!-- Console Logs -->
+        <div class="section">
+            <h2>📋 Console Output</h2>
+            <div class="console-log">
+                <div class="log-success">✅ Leadrat AI Chatbot initialized successfully</div>
+                <div>🌐 Chatbot URL: http://localhost:3000</div>
+                <div>📍 Position: bottom-right</div>
+                <div>🎨 Theme: dark</div>
+                <div>💡 Usage: window.leadratChatbot.open() / .close() / .toggle()</div>
+            </div>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="section">
+            <h2>🔧 Troubleshooting</h2>
+            <ul style="margin-left: 20px; color: #333;">
+                <li><strong>Button not appearing?</strong> → Open F12 console, check for red errors</li>
+                <li><strong>Chat window blank?</strong> → Verify http://localhost:3000 is running</li>
+                <li><strong>No response to messages?</strong> → Check Network tab, look for failed API calls</li>
+                <li><strong>Console errors?</strong> → Check the error message carefully</li>
+            </ul>
+        </div>
+
+        <footer>
+            <p>Leadrat AI Chatbot - Localhost Testing</p>
+            <p>This page is configured to use http://localhost:3000 for development/testing only</p>
+            <p>For production, update the script URL to your deployed domain</p>
+        </footer>
+    </div>
+
+    <!-- ⭐ THE EMBED SCRIPT (LOCALHOST VERSION) ⭐ -->
+    <script async src="http://localhost:3000/chatbot-embed.js"></script>
+
+    <!-- Additional info -->
+    <script>
+        console.log('🧪 Test Page Loaded');
+        console.log('📍 Embed Script: http://localhost:3000/chatbot-embed.js');
+        console.log('🔗 Chatbot URL: http://localhost:3000/ai-assistant?embedded=true');
+    </script>
+</body>
+</html>

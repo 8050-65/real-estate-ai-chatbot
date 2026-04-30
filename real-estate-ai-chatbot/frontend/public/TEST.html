@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leadrat AI Chatbot - Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #111827;
+            margin-bottom: 20px;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+            color: #111827;
+        }
+
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            color: #111827;
+            margin: 15px 0;
+            border: 1px solid #e5e7eb;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        h2 {
+            color: #111827;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        h3 {
+            color: #111827;
+            margin: 15px 0 10px 0;
+            font-size: 14px;
+        }
+
+        p {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        ul {
+            color: #6b7280;
+            margin-left: 20px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .checklist {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .checklist li:before {
+            content: "☐ ";
+            margin-right: 8px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            padding: 15px;
+            border-radius: 8px;
+            color: #065f46;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Leadrat AI Chatbot - Test Page</h1>
+
+        <div class="info-box">
+            <strong>✅ Chatbot is embedded on this page</strong><br>
+            Look for the floating button in the <strong>bottom-right corner</strong>!
+        </div>
+
+        <h2>Test Controls</h2>
+        <p>Use these buttons to control the chatbot:</p>
+        <div class="button-group">
+            <button onclick="window.leadratChatbot.open()">📂 Open Chat</button>
+            <button onclick="window.leadratChatbot.close()">📁 Close Chat</button>
+            <button onclick="window.leadratChatbot.toggle()">🔄 Toggle</button>
+        </div>
+
+        <h2>Installation Code</h2>
+        <p>To add the chatbot to your website, add this single line before &lt;/body&gt;:</p>
+        <div class="code-block">
+&lt;script async src="http://localhost:3000/EMBED.js"&gt;&lt;/script&gt;
+        </div>
+
+        <h2>For Production</h2>
+        <p>When deployed, update the URL to your production domain:</p>
+        <div class="code-block">
+&lt;script async src="https://your-domain.com/EMBED.js"&gt;&lt;/script&gt;
+        </div>
+
+        <h2>Features</h2>
+        <ul>
+            <li>✅ Floating button at bottom-right corner</li>
+            <li>✅ Click button to open/close chat widget</li>
+            <li>✅ Auto-closes when clicking outside</li>
+            <li>✅ Responsive on mobile and desktop</li>
+            <li>✅ Works on any website</li>
+            <li>✅ JavaScript API for programmatic control</li>
+        </ul>
+
+        <h2>JavaScript API</h2>
+        <p>Control the chatbot programmatically:</p>
+        <div class="code-block">
+window.leadratChatbot.open()     // Open chat
+window.leadratChatbot.close()    // Close chat
+window.leadratChatbot.toggle()   // Toggle open/close
+        </div>
+
+        <h2>Verification</h2>
+        <ul class="checklist">
+            <li>Floating button appears in bottom-right corner</li>
+            <li>Button has purple gradient background</li>
+            <li>Click button → widget opens above it</li>
+            <li>Widget shows chat interface</li>
+            <li>Text is readable (dark on light background)</li>
+            <li>Type message → get response</li>
+            <li>Click close button → widget closes</li>
+            <li>Click outside widget → auto-closes</li>
+            <li>Open/Close/Toggle buttons work</li>
+            <li>No console errors (F12)</li>
+        </ul>
+
+        <div class="success">
+            <strong>✅ If ALL checks pass:</strong> Chatbot embed is working perfectly!
+        </div>
+
+        <h2>Troubleshooting</h2>
+        <h3>Button not showing?</h3>
+        <ul>
+            <li>Check dev server is running: npm run dev</li>
+            <li>Press F12 → Console tab, look for initialization message</li>
+            <li>Verify http://localhost:3000 loads</li>
+        </ul>
+
+        <h3>Widget not opening?</h3>
+        <ul>
+            <li>Check F12 console for errors</li>
+            <li>Try clicking the floating button</li>
+            <li>Use window.leadratChatbot.open() in console</li>
+        </ul>
+
+        <h3>Text not readable?</h3>
+        <ul>
+            <li>Widget should have white background</li>
+            <li>Text should be dark gray/black</li>
+            <li>Try clearing browser cache</li>
+        </ul>
+    </div>
+
+    <!-- EMBED SCRIPT - Only one line needed! -->
+    <script async src="http://localhost:3000/EMBED.js"></script>
+</body>
+</html>

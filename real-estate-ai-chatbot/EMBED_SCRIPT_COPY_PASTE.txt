@@ -1,0 +1,208 @@
+================================================================================
+  LEADRAT CHATBOT EMBED SCRIPT - PRODUCTION READY
+  Copy & Paste Solutions
+================================================================================
+
+PRODUCTION URL:
+https://chatbot-leadrat.vercel.app
+
+================================================================================
+SOLUTION 1: COPY THIS ONE LINE (RECOMMENDED)
+================================================================================
+
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"></script>
+
+Where to put it:
+- Add this line in your HTML file
+- Place it just before the closing </body> tag
+- OR anywhere after <body> opening tag
+
+Example:
+  <body>
+    <h1>Welcome</h1>
+    <p>Your content here...</p>
+
+    <!-- Add this line -->
+    <script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"></script>
+  </body>
+
+Result: Floating button appears in bottom-right corner with dark theme
+
+================================================================================
+SOLUTION 2: WITH POSITION & THEME OPTIONS
+================================================================================
+
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-position="bottom-right"
+  data-theme="dark">
+</script>
+
+Position options:
+  - data-position="bottom-right"  (default)
+  - data-position="bottom-left"
+  - data-position="top-right"
+  - data-position="top-left"
+
+Theme options:
+  - data-theme="dark"   (default)
+  - data-theme="light"
+
+================================================================================
+SOLUTION 3: WITH CUSTOM CHATBOT URL
+================================================================================
+
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-chatbot-url="https://your-custom-url.com">
+</script>
+
+Use this if:
+- You want to point to a different chatbot instance
+- You're using a custom domain
+- Default: https://chatbot-leadrat.vercel.app
+
+================================================================================
+SOLUTION 4: ALL OPTIONS (FULL CONFIGURATION)
+================================================================================
+
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-chatbot-url="https://chatbot-leadrat.vercel.app"
+  data-position="bottom-right"
+  data-theme="dark">
+</script>
+
+================================================================================
+SOLUTION 5: OPEN CHAT WITH CUSTOM BUTTON
+================================================================================
+
+<button onclick="window.leadratChatbot.open()">
+  🎯 Click to Chat
+</button>
+
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"></script>
+
+JavaScript API:
+  window.leadratChatbot.open()    // Opens chat
+  window.leadratChatbot.close()   // Closes chat
+  window.leadratChatbot.toggle()  // Toggles open/close
+
+================================================================================
+SOLUTION 6: AUTO-OPEN CHAT ON PAGE LOAD
+================================================================================
+
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"></script>
+
+<script>
+  // Wait 2 seconds then auto-open the chat
+  setTimeout(() => {
+    window.leadratChatbot.open();
+  }, 2000);
+</script>
+
+================================================================================
+SOLUTION 7: BOTTOM-LEFT WITH LIGHT THEME
+================================================================================
+
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-position="bottom-left"
+  data-theme="light">
+</script>
+
+Perfect for websites with light backgrounds
+
+================================================================================
+TESTING
+================================================================================
+
+After adding the script:
+
+1. Refresh your page
+2. Look for floating button in your selected corner
+3. Click the button
+4. Chat window should open with animation
+5. Type a message and get response
+6. Check browser console (F12) for "✅ Leadrat AI Chatbot initialized"
+
+Common issues:
+- Button not showing? Check browser console for errors
+- Chat blank? Verify https://chatbot-leadrat.vercel.app is accessible
+- No response? Check Network tab for failed API calls
+
+================================================================================
+PRODUCTION DEPLOYMENT
+================================================================================
+
+Testing Steps:
+1. Add script to test HTML file
+2. Open in browser
+3. Verify button appears
+4. Test open/close
+5. Send test message
+6. Check console - no red errors?
+7. Deploy to staging
+8. Test on staging for 24+ hours
+9. Deploy to production
+10. Monitor for errors
+
+================================================================================
+NEED HELP?
+================================================================================
+
+Files provided:
+- test-embed-production.html     (Test this first)
+- EMBED_SCRIPT_USAGE.md          (Full documentation)
+- PRODUCTION_EMBED_SCRIPT_READY.md (Complete guide)
+
+Check:
+1. Browser console (F12 → Console) for errors
+2. Network tab (F12 → Network) for failed requests
+3. Verify chatbot URL is accessible
+
+================================================================================
+QUICK REFERENCE
+================================================================================
+
+Chatbot URL:        https://chatbot-leadrat.vercel.app
+Embed Script URL:   https://chatbot-leadrat.vercel.app/chatbot-embed.js
+AI Assistant URL:   https://chatbot-leadrat.vercel.app/ai-assistant
+Embedded Mode URL:  https://chatbot-leadrat.vercel.app/ai-assistant?embedded=true
+
+Default Position:   bottom-right
+Default Theme:      dark
+Default Behavior:   Floating button with popup chat window
+
+================================================================================
+EXAMPLE WEBSITES
+================================================================================
+
+Real Estate Site:
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"></script>
+
+Real Estate + Custom Theme:
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-position="bottom-right"
+  data-theme="dark">
+</script>
+
+Portfolio Site (Light):
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-theme="light">
+</script>
+
+Developer Site (Top-Right):
+<script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-position="top-right">
+</script>
+
+================================================================================
+REMEMBER
+================================================================================
+
+✓ Place script before </body> closing tag
+✓ Use HTTPS in production
+✓ Test locally first with test-embed-production.html
+✓ Check console for errors (F12)
+✓ One line is all you need!
+
+Ready to go! 🚀
+
+================================================================================

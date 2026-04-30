@@ -1,0 +1,204 @@
+================================================================================
+                        CHATBOT EMBED SCRIPT
+                         SETUP & TESTING
+================================================================================
+
+🚀 QUICK START (2 STEPS)
+================================================================================
+
+Step 1: Start dev server
+───────────────────────────────────────────────────────────────────────────
+npm run dev
+
+Step 2: Open test file in browser
+───────────────────────────────────────────────────────────────────────────
+▶️  TEST.html
+
+✅ Done! You should see floating button in bottom-right corner!
+
+================================================================================
+📋 FILES
+================================================================================
+
+EMBED.js     → The embed script (clean, minimal version)
+TEST.html    → Test page (open in browser)
+SETUP.txt    → This file (instructions)
+
+================================================================================
+💻 COPY-PASTE CODE
+================================================================================
+
+For your website (replace URL as needed):
+
+──────────────────────────────────────────────────────────────────────────
+<script async src="http://localhost:3000/EMBED.js"></script>
+──────────────────────────────────────────────────────────────────────────
+
+That's it! Add this line before </body> in your HTML.
+
+================================================================================
+📍 URLS
+================================================================================
+
+Development (localhost):
+  Script:    http://localhost:3000/EMBED.js
+  Chatbot:   http://localhost:3000/ai-assistant
+  Embedded:  http://localhost:3000/ai-assistant?embedded=true
+
+Production (when deployed):
+  Script:    https://your-domain.com/EMBED.js
+  Chatbot:   https://your-domain.com/ai-assistant
+  Embedded:  https://your-domain.com/ai-assistant?embedded=true
+
+================================================================================
+⚙️  CONFIGURATION
+================================================================================
+
+Basic:
+  <script async src="http://localhost:3000/EMBED.js"></script>
+
+With position:
+  <script async src="http://localhost:3000/EMBED.js"
+    data-position="bottom-left">
+  </script>
+
+With theme:
+  <script async src="http://localhost:3000/EMBED.js"
+    data-theme="light">
+  </script>
+
+Full:
+  <script async src="http://localhost:3000/EMBED.js"
+    data-position="bottom-right"
+    data-theme="dark">
+  </script>
+
+Position options:
+  - bottom-right (default)
+  - bottom-left
+  - top-right
+  - top-left
+
+Theme options:
+  - dark (default)
+  - light
+
+================================================================================
+🎮 JAVASCRIPT API
+================================================================================
+
+window.leadratChatbot.open()     → Open chat
+window.leadratChatbot.close()    → Close chat
+window.leadratChatbot.toggle()   → Toggle open/close
+
+Example button:
+  <button onclick="window.leadratChatbot.open()">
+    Open Chat
+  </button>
+
+================================================================================
+✅ VERIFICATION CHECKLIST
+================================================================================
+
+After opening TEST.html:
+
+□ Floating button appears (bottom-right)
+□ Button has chat icon
+□ Button has red "1" badge
+□ Click button → chat window opens
+□ See "Aria - Real Estate Assistant" header
+□ See green "Ready" status indicator
+□ Can type message
+□ Can send message
+□ Get response from chatbot
+□ Press F12 → Console shows "✅ Leadrat AI Chatbot initialized"
+□ No red error messages
+
+If ALL checked → ✅ Working!
+
+================================================================================
+🚨 TROUBLESHOOTING
+================================================================================
+
+Problem: Button not showing
+Solution:
+  1. Check that dev server is running (npm run dev)
+  2. Open F12 console, look for red errors
+  3. Verify localhost:3000 loads the page
+
+Problem: Chat window blank
+Solution:
+  1. Verify http://localhost:3000/ai-assistant works
+  2. Check Network tab for 404 errors
+  3. Refresh the page
+
+Problem: No response to messages
+Solution:
+  1. Check that backend is running
+  2. Verify network tab shows successful API calls
+  3. Check console for JavaScript errors
+
+================================================================================
+📦 PRODUCTION DEPLOYMENT
+================================================================================
+
+When ready to deploy:
+
+1. Deploy your Next.js app to Vercel or your hosting
+2. Get your production URL (e.g., https://example.com)
+3. Update the script src:
+   <script async src="https://your-domain.com/EMBED.js"></script>
+4. Add script to your external websites
+5. Test on production domain
+
+================================================================================
+📊 CURRENT STATUS
+================================================================================
+
+✅ Development:    Working on localhost:3000
+❌ Production:     Not deployed yet (404 error)
+
+To use in production, you need to:
+  1. Deploy the Next.js app
+  2. Get the production URL
+  3. Update the script URL
+
+For now, test with localhost using TEST.html
+
+================================================================================
+🎯 NEXT STEPS
+================================================================================
+
+1. Right now:
+   - npm run dev
+   - Open TEST.html
+   - Verify button works
+
+2. This week:
+   - Test functionality
+   - Review EMBED.js code
+
+3. When ready:
+   - Deploy to production
+   - Update URLs
+   - Deploy to external websites
+
+================================================================================
+📞 QUICK HELP
+================================================================================
+
+Start server:           npm run dev
+Stop server:           Ctrl+C
+Test file:             TEST.html
+Embed script:          EMBED.js
+This file:             SETUP.txt
+
+Browser console:       F12
+Network errors:        F12 → Network tab
+Check URL:             Open localhost:3000 in browser
+
+================================================================================
+
+Ready? Open TEST.html now! 🚀
+
+================================================================================

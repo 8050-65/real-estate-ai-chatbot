@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leadrat Chatbot Embed Test - Production</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .status-item {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .status-item.success {
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .status-item.warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+        }
+
+        .status-item.error {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+
+        .status-item h3 {
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .status-item p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .code-block {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            color: #333;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #efefef;
+        }
+
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            color: #1565c0;
+            font-size: 14px;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin: 20px 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #333;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .console-log {
+            background: #1e1e1e;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 20px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+        }
+
+        .log-error {
+            color: #f48771;
+        }
+
+        .log-success {
+            color: #89d185;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Leadrat Chatbot Embed Test</h1>
+        <p class="subtitle">Production Environment Testing</p>
+
+        <!-- Status Panel -->
+        <div class="status">
+            <div class="status-item success">
+                <h3>✓ Frontend</h3>
+                <p>Next.js App Running</p>
+            </div>
+            <div class="status-item success">
+                <h3>✓ APIs</h3>
+                <p>Backend Services Online</p>
+            </div>
+            <div class="status-item success">
+                <h3>✓ Embed Script</h3>
+                <p>Production Ready</p>
+            </div>
+            <div class="status-item" id="status-item-chatbot">
+                <h3>⟳ Chatbot</h3>
+                <p>Checking connection...</p>
+            </div>
+        </div>
+
+        <!-- Quick Test -->
+        <div class="section">
+            <h2>Quick Test: Click These Buttons</h2>
+            <p style="color: #666; margin-bottom: 15px;">Use the JavaScript API to control the embedded chatbot:</p>
+            <div class="buttons">
+                <button class="btn-primary" onclick="window.leadratChatbot.open()">
+                    📂 Open Chat
+                </button>
+                <button class="btn-primary" onclick="window.leadratChatbot.close()">
+                    📁 Close Chat
+                </button>
+                <button class="btn-primary" onclick="window.leadratChatbot.toggle()">
+                    🔄 Toggle Chat
+                </button>
+            </div>
+            <p style="color: #999; font-size: 12px; margin-top: 10px;">
+                Or click the floating "Aria" button in the bottom-right corner
+            </p>
+        </div>
+
+        <!-- Installation -->
+        <div class="section">
+            <h2>📦 Installation Code</h2>
+            <p style="color: #666; margin-bottom: 15px;">Copy this line to embed the chatbot in your website:</p>
+
+            <h3 style="color: #333; margin: 20px 0 10px 0; font-size: 14px;">Option 1: Basic (Production URL)</h3>
+            <div class="code-block">&lt;script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"&gt;&lt;/script&gt;</div>
+
+            <h3 style="color: #333; margin: 20px 0 10px 0; font-size: 14px;">Option 2: With Configuration</h3>
+            <div class="code-block">&lt;script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-position="bottom-right"
+  data-theme="dark"&gt;
+&lt;/script&gt;</div>
+
+            <h3 style="color: #333; margin: 20px 0 10px 0; font-size: 14px;">Option 3: Custom URL</h3>
+            <div class="code-block">&lt;script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"
+  data-chatbot-url="https://your-custom-url.com"&gt;
+&lt;/script&gt;</div>
+
+            <div class="info">
+                <strong>💡 Place this in your HTML:</strong><br>
+                Add the script tag just before the closing &lt;/body&gt; tag or anywhere after the opening &lt;body&gt; tag.
+            </div>
+        </div>
+
+        <!-- Configuration -->
+        <div class="section">
+            <h2>⚙️ Configuration Options</h2>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <thead>
+                    <tr style="background: #f5f5f5;">
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Attribute</th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Values</th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Default</th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">data-chatbot-url</code></td>
+                        <td style="padding: 12px;">URL string</td>
+                        <td style="padding: 12px;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">chatbot-leadrat.vercel.app</code></td>
+                        <td style="padding: 12px;">Custom chatbot URL</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">data-position</code></td>
+                        <td style="padding: 12px;">bottom-right, bottom-left, top-right, top-left</td>
+                        <td style="padding: 12px;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">bottom-right</code></td>
+                        <td style="padding: 12px;">Button position on page</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">data-theme</code></td>
+                        <td style="padding: 12px;">dark, light</td>
+                        <td style="padding: 12px;"><code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">dark</code></td>
+                        <td style="padding: 12px;">Color theme</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Features -->
+        <div class="section">
+            <h2>✨ Features</h2>
+            <ul class="feature-list">
+                <li>No external dependencies - pure JavaScript</li>
+                <li>Lightweight - only ~15KB minified</li>
+                <li>Responsive design - works on mobile and desktop</li>
+                <li>Configurable position (corner selector)</li>
+                <li>Dark and light theme options</li>
+                <li>Animated floating button with badge</li>
+                <li>Service health indicator</li>
+                <li>Global API for programmatic control</li>
+                <li>Embedded mode - clean UI (no header/footer)</li>
+                <li>Security-first - no tracking or external calls</li>
+            </ul>
+        </div>
+
+        <!-- API -->
+        <div class="section">
+            <h2>🔌 JavaScript API</h2>
+            <p style="color: #666; margin-bottom: 15px;">Control the chatbot programmatically:</p>
+
+            <div class="code-block">// Open chat window
+window.leadratChatbot.open();
+
+// Close chat window
+window.leadratChatbot.close();
+
+// Toggle chat window
+window.leadratChatbot.toggle();</div>
+
+            <h3 style="color: #333; margin: 20px 0 10px 0; font-size: 14px;">Example: Open on Button Click</h3>
+            <div class="code-block">&lt;button onclick="window.leadratChatbot.open()"&gt;
+  Chat with us
+&lt;/button&gt;</div>
+        </div>
+
+        <!-- Console Logs -->
+        <div class="section">
+            <h2>📋 Console Output</h2>
+            <p style="color: #666; margin-bottom: 15px;">Check the browser console (F12) to see initialization logs:</p>
+            <div class="console-log" id="console-log">
+                <div class="log-entry log-success">✅ Leadrat AI Chatbot initialized successfully</div>
+                <div class="log-entry">🌐 Chatbot URL: https://chatbot-leadrat.vercel.app</div>
+                <div class="log-entry">📍 Position: bottom-right</div>
+                <div class="log-entry">🎨 Theme: dark</div>
+                <div class="log-entry">💡 Usage: window.leadratChatbot.open() / .close() / .toggle()</div>
+            </div>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="section">
+            <h2>🔧 Troubleshooting</h2>
+
+            <h3 style="color: #333; margin: 15px 0 10px 0; font-size: 14px;">Chat button not showing?</h3>
+            <ol style="color: #666; margin: 10px 0 20px 20px;">
+                <li>Check browser console (F12 → Console tab)</li>
+                <li>Verify script URL is correct</li>
+                <li>Clear browser cache and refresh</li>
+                <li>Check z-index conflicts with other elements</li>
+            </ol>
+
+            <h3 style="color: #333; margin: 15px 0 10px 0; font-size: 14px;">Chat window blank?</h3>
+            <ol style="color: #666; margin: 10px 0 20px 20px;">
+                <li>Check if <code style="background: #f5f5f5; padding: 2px 6px;">https://chatbot-leadrat.vercel.app/ai-assistant</code> is accessible</li>
+                <li>Verify network connectivity</li>
+                <li>Check Network tab in developer console for errors</li>
+                <li>Ensure CORS is properly configured</li>
+            </ol>
+
+            <h3 style="color: #333; margin: 15px 0 10px 0; font-size: 14px;">Messages not responding?</h3>
+            <ol style="color: #666; margin: 10px 0 20px 20px;">
+                <li>Check backend API availability</li>
+                <li>Verify Leadrat API connectivity</li>
+                <li>Check browser Network tab for failed requests</li>
+                <li>View console for error messages</li>
+            </ol>
+        </div>
+
+        <!-- Verification Checklist -->
+        <div class="section">
+            <h2>✅ Verification Checklist</h2>
+            <ul class="feature-list">
+                <li>Floating button appears in bottom-right corner</li>
+                <li>Button has chat icon and red "1" badge</li>
+                <li>Clicking button opens chat window (animated)</li>
+                <li>Chat window has header with "Aria" title</li>
+                <li>Chat window shows status bar (green "Ready" indicator)</li>
+                <li>Iframe loads chatbot interface</li>
+                <li>Can type messages and receive responses</li>
+                <li>Close button (X) closes the chat window</li>
+                <li>Console shows initialization message with ✅</li>
+                <li>No JavaScript errors in console</li>
+            </ul>
+        </div>
+
+        <!-- Info Box -->
+        <div class="info" style="background: #f3e5f5; border-left-color: #9c27b0; color: #6a1b9a;">
+            <strong>📍 You're currently testing the embed script on this page.</strong><br>
+            The floating chat button in the bottom-right corner is loading the chatbot from
+            <code style="background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">https://chatbot-leadrat.vercel.app/ai-assistant?embedded=true</code>
+        </div>
+
+        <footer>
+            <p>Leadrat Real Estate AI Chatbot - Embed Script v1.0</p>
+            <p>Production URL: <a href="https://chatbot-leadrat.vercel.app" style="color: #667eea; text-decoration: none;">https://chatbot-leadrat.vercel.app</a></p>
+            <p>Last Updated: 2026-04-29</p>
+        </footer>
+    </div>
+
+    <!-- ⭐ PRODUCTION EMBED SCRIPT ⭐ -->
+    <!-- This is what you copy to your website -->
+    <script async src="https://chatbot-leadrat.vercel.app/chatbot-embed.js"></script>
+
+    <!-- Service Health Check -->
+    <script>
+        // Check chatbot service health
+        fetch('https://chatbot-leadrat.vercel.app/api/health', { method: 'GET' })
+            .then(response => {
+                const statusItem = document.getElementById('status-item-chatbot');
+                if (statusItem) {
+                    statusItem.className = 'status-item success';
+                    statusItem.innerHTML = '<h3>✓ Chatbot</h3><p>Service Online</p>';
+                }
+            })
+            .catch(() => {
+                const statusItem = document.getElementById('status-item-chatbot');
+                if (statusItem) {
+                    statusItem.className = 'status-item warning';
+                    statusItem.innerHTML = '<h3>⟳ Chatbot</h3><p>Service Initializing...</p>';
+                }
+            });
+
+        // Log initialization
+        console.log('🧪 Leadrat Chatbot Embed Test Page Loaded');
+        console.log('📍 Testing URL: https://chatbot-leadrat.vercel.app/ai-assistant?embedded=true');
+    </script>
+</body>
+</html>

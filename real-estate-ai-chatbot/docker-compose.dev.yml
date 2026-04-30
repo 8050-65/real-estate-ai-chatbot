@@ -1,0 +1,200 @@
+version: '3.9'
+
+# Docker Compose for DEV environment (local development reference)
+# For actual deployment, use Vercel (frontend), Render (backends), Upstash (Redis/Vector)
+
+services:
+  # ==================== FRONTEND ====================
+  # Deployment: Vercel
+  # Local dev: Next.js dev server
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: realestate_frontend_dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXT_PUBLIC_RAG_URL=http://localhost:8000
+      - NEXT_PUBLIC_APP_NAME=RealEstate AI CRM
+      - NEXT_PUBLIC_ENVIRONMENT=development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==================== JAVA BACKEND ====================
+  # Deployment: Render
+  # Local dev: Spring Boot
+  backend-java:
+    build:
+      context: ./backend-java
+      dockerfile: Dockerfile
+    container_name: realestate_backend_java_dev
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/crm_cbt_db_dev
+      - SPRING_DATASOURCE_USERNAME=devuser
+      - SPRING_DATASOURCE_PASSWORD=DevPassword123!
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SERVER_SERVLET_CONTEXT_PATH=/api/v1
+      - JWT_SECRET=dev-secret-key-change-in-production
+      - LEADRAT_API_KEY=${LEADRAT_API_KEY}
+      - LEADRAT_TENANT=dubaitt11
+      - OLLAMA_HOST=http://ollama:11434
+      - RAG_SERVICE_URL=http://backend-ai:8000
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,https://dev-chatbot.example.in
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==================== FASTAPI / RAG ====================
+  # Deployment: Render
+  # Local dev: FastAPI + Uvicorn
+  backend-ai:
+    build:
+      context: ./backend-ai
+      dockerfile: Dockerfile
+    container_name: realestate_backend_ai_dev
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - OLLAMA_HOST=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/0
+      - VECTOR_DB_URL=${UPSTASH_VECTOR_URL}
+      - VECTOR_DB_TOKEN=${UPSTASH_VECTOR_TOKEN}
+      - LOG_LEVEL=INFO
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8080,https://dev-chatbot.example.in,https://dev-api.example.in
+    depends_on:
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==================== POSTGRESQL ====================
+  # Deployment: Managed PostgreSQL on Render
+  # Local dev: PostgreSQL container
+  postgres:
+    image: postgres:15-alpine
+    container_name: crm_postgres_dev
+    environment:
+      - POSTGRES_DB=crm_cbt_db_dev
+      - POSTGRES_USER=devuser
+      - POSTGRES_PASSWORD=DevPassword123!
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=en_US.UTF-8
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./backend-java/src/main/resources/db/migration:/docker-entrypoint-initdb.d
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d crm_cbt_db_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== REDIS ====================
+  # Deployment: Upstash (managed Redis)
+  # Local dev: Redis container
+  redis:
+    image: redis:7-alpine
+    container_name: realestate_redis_dev
+    command: redis-server --appendonly yes --requirepass RedisPassword123!
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== OLLAMA (LLM) ====================
+  # Deployment: Local or containerized on Render
+  # Model: llama2
+  ollama:
+    image: ollama/ollama:latest
+    container_name: realestate_ollama_dev
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    volumes:
+      - ollama_data_dev:/root/.ollama
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ==================== PGADMIN ====================
+  # Database administration UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin_dev
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@dev.com
+      - PGADMIN_DEFAULT_PASSWORD=AdminPassword123!
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  dev-network:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:
+    driver: local
+  redis_data_dev:
+    driver: local
+  ollama_data_dev:
+    driver: local

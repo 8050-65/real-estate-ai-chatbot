@@ -1,0 +1,26 @@
+# Development Dockerfile for Frontend (Next.js)
+# Used for local Docker development
+# For production on Vercel, use vercel.json configuration
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --prefer-offline --no-audit
+
+# Copy source code
+COPY . .
+
+# Expose dev server port
+EXPOSE 3000
+
+# Environment variables for Next.js
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Run dev server
+CMD ["npm", "run", "dev"]

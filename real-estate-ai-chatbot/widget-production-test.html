@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leadrat Widget — Production Test</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      min-height:100vh;
+      background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);
+      display:flex;align-items:center;justify-content:center;
+      flex-direction:column;gap:20px;padding:40px 20px;
+    }
+    .card{
+      background:rgba(255,255,255,.07);
+      border:1px solid rgba(255,255,255,.12);
+      backdrop-filter:blur(10px);
+      border-radius:16px;padding:28px 32px;
+      max-width:600px;width:100%;color:#fff;
+    }
+    h1{font-size:20px;font-weight:700;margin-bottom:6px}
+    p{font-size:13px;color:rgba(255,255,255,.72);margin-bottom:14px;line-height:1.65}
+    pre{
+      background:rgba(0,0,0,.40);border:1px solid rgba(255,255,255,.10);
+      border-radius:8px;padding:14px 16px;
+      font-size:12px;line-height:1.8;color:#A5F3FC;overflow-x:auto;white-space:pre
+    }
+    .badge{
+      display:inline-block;background:#6C63FF;border-radius:99px;
+      padding:3px 10px;font-size:11px;font-weight:600;color:#fff;margin-bottom:10px
+    }
+    .badge.live{background:#059669}
+    .url-row{
+      display:flex;align-items:center;gap:10px;
+      background:rgba(0,0,0,.3);border-radius:8px;padding:10px 14px;
+      margin-bottom:8px;font-size:12px;
+    }
+    .url-label{color:#9CA3AF;flex-shrink:0;width:32px}
+    .url-val{color:#4ADE80;word-break:break-all}
+    .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+    button{
+      background:#6C63FF;border:none;color:#fff;
+      border-radius:8px;padding:8px 16px;
+      font-size:13px;font-weight:600;cursor:pointer;
+      transition:background .18s;font-family:inherit
+    }
+    button:hover{background:#5A52E0}
+    button.out{background:transparent;border:1.5px solid rgba(255,255,255,.28)}
+    button.out:hover{background:rgba(255,255,255,.08)}
+    .check{color:#4ADE80;margin-right:5px}
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <span class="badge live">🟢 Production CDN</span>
+    <h1>Leadrat AI Chatbot Widget</h1>
+    <p>Loaded from Cloudflare Pages CDN. The floating launcher (↘) is live below.</p>
+
+    <p><strong>CDN URLs:</strong></p>
+    <div class="url-row">
+      <span class="url-label">JS</span>
+      <span class="url-val">https://leadrat-chat-widget.pages.dev/leadrat-chat.js</span>
+    </div>
+    <div class="url-row">
+      <span class="url-label">UI</span>
+      <span class="url-val">https://leadrat-chat-widget.pages.dev/chat-ui.html</span>
+    </div>
+
+    <p style="margin-top:16px"><strong>Embed snippet (copy this to any site):</strong></p>
+    <pre>&lt;script&gt;
+window.LeadratChatConfig = {
+  apiUrl:       "https://real-estate-rag-dev.onrender.com/api/v1/chat",
+  apiKey:       "CLIENT_API_KEY",
+  botName:      "Leadrat Assistant",
+  botSubtitle:  "Real Estate AI",
+  primaryColor: "#6C63FF",
+  tenantId:     "dubait11"
+};
+&lt;/script&gt;
+&lt;script src="https://leadrat-chat-widget.pages.dev/leadrat-chat.js" async&gt;&lt;/script&gt;</pre>
+
+    <p style="margin-top:16px"><strong>Checklist:</strong></p>
+    <p>
+      <span class="check">✓</span> Floating button visible bottom-right<br>
+      <span class="check">✓</span> Widget opens on click (370×580, no full-screen)<br>
+      <span class="check">✓</span> No duplicate icons<br>
+      <span class="check">✓</span> Host page stays visible behind widget<br>
+      <span class="check">✓</span> No console errors<br>
+      <span class="check">✓</span> Graceful fallback if backend is down
+    </p>
+
+    <div class="btns">
+      <button onclick="LeadratChat.open()">Open Widget</button>
+      <button class="out" onclick="LeadratChat.close()">Close</button>
+      <button class="out" onclick="LeadratChat.toggle()">Toggle</button>
+      <button class="out" onclick="LeadratChat.destroy();console.log('destroyed')">Destroy (test cleanup)</button>
+    </div>
+  </div>
+
+  <!-- ═══ PRODUCTION EMBED ═══ -->
+  <script>
+    window.LeadratChatConfig = {
+      apiUrl:       'https://real-estate-rag-dev.onrender.com/api/v1/chat',
+      apiKey:       '',
+      botName:      'Leadrat Assistant',
+      botSubtitle:  'Real Estate AI',
+      primaryColor: '#6C63FF',
+      tenantId:     'dubait11',
+      position:     'bottom-right',
+    };
+  </script>
+  <script src="https://leadrat-chat-widget.pages.dev/leadrat-chat.js" async></script>
+
+</body>
+</html>

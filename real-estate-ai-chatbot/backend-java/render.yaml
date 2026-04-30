@@ -1,0 +1,69 @@
+services:
+  - type: web
+    name: real-estate-api-dev
+    runtime: jvm
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -jar target/app.jar
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: dev
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: crm-postgres-dev
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: crm-postgres-dev
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: crm-postgres-dev
+          property: password
+      - key: SPRING_REDIS_HOST
+        value: ${REDIS_HOST}
+      - key: SPRING_REDIS_PORT
+        value: ${REDIS_PORT}
+      - key: SPRING_REDIS_PASSWORD
+        value: ${REDIS_PASSWORD}
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: validate
+      - key: SERVER_SERVLET_CONTEXT_PATH
+        value: /api/v1
+      - key: JWT_SECRET
+        sync: false
+        value: ${JWT_SECRET}
+      - key: LEADRAT_API_KEY
+        sync: false
+        value: ${LEADRAT_API_KEY}
+      - key: LEADRAT_TENANT
+        value: dubaitt11
+      - key: RAG_SERVICE_URL
+        value: https://dev-rag.example.in
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://dev-chatbot.example.in,https://dev-api.example.in
+      - key: SERVER_PORT
+        value: '8080'
+      - key: JAVA_OPTS
+        value: -Xmx512m -Xms256m
+    healthCheckPath: /actuator/health
+    healthCheckTimeout: 30
+    region: oregon
+    memoryMB: 512
+    cpuCount: 0.5
+    disk:
+      name: app-data
+      mountPath: /data
+      sizeGB: 1
+
+databases:
+  - name: crm-postgres-dev
+    databaseName: crm_cbt_db_dev
+    user: devuser
+    region: oregon
+    plan: free
+
+redis:
+  - name: cache-redis-dev
+    region: oregon
+    plan: free
+    maxmemoryPolicy: allkeys-lru

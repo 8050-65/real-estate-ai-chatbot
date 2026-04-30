@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leadrat Widget — Test Page</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      min-height:100vh;
+      background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);
+      display:flex;align-items:center;justify-content:center;
+      flex-direction:column;gap:20px;padding:40px 20px;
+    }
+    .card{
+      background:rgba(255,255,255,.07);
+      border:1px solid rgba(255,255,255,.12);
+      backdrop-filter:blur(10px);
+      border-radius:16px;padding:28px 32px;
+      max-width:560px;width:100%;color:#fff;
+    }
+    h1{font-size:20px;font-weight:700;margin-bottom:6px}
+    p{font-size:13px;color:rgba(255,255,255,.72);margin-bottom:16px;line-height:1.65}
+    pre{
+      background:rgba(0,0,0,.40);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:8px;padding:14px 16px;
+      font-size:12px;line-height:1.8;
+      color:#A5F3FC;overflow-x:auto;white-space:pre
+    }
+    .badge{
+      display:inline-block;background:#6C63FF;
+      border-radius:99px;padding:3px 10px;
+      font-size:11px;font-weight:600;color:#fff;margin-bottom:10px
+    }
+    .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+    button{
+      background:#6C63FF;border:none;color:#fff;
+      border-radius:8px;padding:8px 16px;
+      font-size:13px;font-weight:600;cursor:pointer;
+      transition:background .18s;font-family:inherit
+    }
+    button:hover{background:#5A52E0}
+    button.out{background:transparent;border:1.5px solid rgba(255,255,255,.28)}
+    button.out:hover{background:rgba(255,255,255,.08)}
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <span class="badge">v2.1 · CDN Widget</span>
+    <h1>Leadrat AI Chatbot — Test Page</h1>
+    <p>
+      The floating launcher (↘ bottom-right) is injected by
+      <strong>widget/dist/leadrat-chat.js</strong>.
+      The iframe loads <strong>widget/dist/chat-ui.html</strong>.
+      Backend: <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;font-size:11px">http://localhost:8000</code>
+    </p>
+
+    <p>Copy-paste embed for any website:</p>
+    <pre>&lt;script&gt;
+window.LeadratChatConfig = {
+  apiUrl:       "https://YOUR-BACKEND/api/v1/chat/message",
+  apiKey:       "",
+  botName:      "AI Assistant",
+  botSubtitle:  "Real Estate AI",
+  primaryColor: "#6C63FF",
+  tenantId:     "dubait11"
+};
+&lt;/script&gt;
+&lt;script src="https://cdn.yourdomain.com/chatbot/leadrat-chat.js" async&gt;&lt;/script&gt;</pre>
+
+    <div class="btns">
+      <button onclick="LeadratChat.open()">Open Widget</button>
+      <button class="out" onclick="LeadratChat.close()">Close Widget</button>
+      <button class="out" onclick="LeadratChat.toggle()">Toggle</button>
+    </div>
+  </div>
+
+  <!-- ═══ EMBED ═══ -->
+  <script>
+    window.LeadratChatConfig = {
+      apiUrl:       'https://real-estate-rag-dev.onrender.com/api/v1/chat',
+      apiKey:       '',
+      botName:      'Leadrat Assistant',
+      botSubtitle:  'Real Estate AI',
+      primaryColor: '#6C63FF',
+      tenantId:     'dubait11',
+      position:     'bottom-right',
+      iframeSrc:    'widget/dist/chat-ui.html',
+    };
+  </script>
+  <script src="widget/dist/leadrat-chat.js"></script>
+
+</body>
+</html>
