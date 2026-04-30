@@ -28,7 +28,7 @@ public class LeadratClient {
     private final ObjectMapper objectMapper;
 
     @Value("${leadrat.base-url:https://connect.leadrat.com/api/v1}")
-    private String baseUrl;
+    private String baseUrlConfig;
 
     @Value("${leadrat.auth-url:https://connect.leadrat.com/api/v1/authentication/token}")
     private String authUrl;
@@ -44,6 +44,15 @@ public class LeadratClient {
 
     @Value("${leadrat.request-timeout:30}")
     private int requestTimeout;
+
+    // Tenant-aware base URL routing
+    private String getBaseUrl() {
+        // Production tenants use .com, QA tenants use .info
+        if (tenant != null && (tenant.equals("dubait11") || tenant.contains("production"))) {
+            return "https://connect.leadrat.com/api/v1";
+        }
+        return baseUrlConfig; // fallback to configured URL
+    }
 
     // Use tenant-specific cache key to support multi-tenancy
     private String getTokenCacheKey() {
@@ -151,10 +160,11 @@ public class LeadratClient {
                 return null;
             }
 
-            String uri = baseUrl + "/lead?PageNumber=1&PageSize=" + pageSize;
+            String uri = getBaseUrl() + "/lead?PageNumber=1&PageSize=" + pageSize;
             if (query != null && !query.isEmpty()) {
                 uri += "&SearchByNameOrNumber=" + query;
             }
+            log.info("[Leadrat] Searching leads: tenant={}, url={}, query={}", tenant, uri, query);
 
             String response = webClient.get()
                     .uri(uri)
@@ -196,7 +206,7 @@ public class LeadratClient {
             log.debug("Lead creation payload: {}", objectMapper.writeValueAsString(payload));
 
             String response = webClient.post()
-                    .uri(baseUrl + "/lead")
+                    .uri(getBaseUrl() + "/lead")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -226,7 +236,7 @@ public class LeadratClient {
             }
 
             String response = webClient.get()
-                    .uri(baseUrl + "/lead/status?PageNumber=1&PageSize=50")
+                    .uri(getBaseUrl() + "/lead/status?PageNumber=1&PageSize=50")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .bodyToMono(String.class)
@@ -316,7 +326,7 @@ public class LeadratClient {
             log.debug("Lead status update payload: {}", objectMapper.writeValueAsString(payload));
 
             String response = webClient.put()
-                    .uri(baseUrl + "/lead/status/" + leadId)
+                    .uri(getBaseUrl() + "/lead/status/" + leadId)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     .bodyValue(payload)
@@ -353,10 +363,11 @@ public class LeadratClient {
                 return null;
             }
 
-            String uri = baseUrl + "/property?PageNumber=1&PageSize=" + pageSize;
+            String uri = getBaseUrl() + "/property?PageNumber=1&PageSize=" + pageSize;
             if (query != null && !query.isEmpty()) {
                 uri += "&Search=" + query;
             }
+            log.info("[Leadrat] Searching properties: tenant={}, url={}", tenant, uri);
 
             String response = webClient.get()
                     .uri(uri)
@@ -382,10 +393,11 @@ public class LeadratClient {
                 return null;
             }
 
-            String uri = baseUrl + "/project/all?PageNumber=1&PageSize=" + pageSize;
+            String uri = getBaseUrl() + "/project/all?PageNumber=1&PageSize=" + pageSize;
             if (query != null && !query.isEmpty()) {
                 uri += "&Search=" + query;
             }
+            log.info("[Leadrat] Searching projects: tenant={}, url={}", tenant, uri);
 
             String response = webClient.get()
                     .uri(uri)
@@ -415,7 +427,7 @@ public class LeadratClient {
             log.debug("Fetching lead details from Leadrat for verification: {}", leadId);
 
             String response = webClient.get()
-                    .uri(baseUrl + "/lead/" + leadId)
+                    .uri(getBaseUrl() + "/lead/" + leadId)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                     .retrieve()
                     .bodyToMono(String.class)

@@ -272,97 +272,126 @@ async function searchPropertiesApi(query: string): Promise<any[]> {
 }
 
 async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en'): Promise<{ content: string; quickReplies: string[] }> {
-  const tenantId = typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || null) : null;
+  const tenantId = typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'dubait11') : 'dubait11';
+  const maxRetries = 2;
+  const apiTimeout = 10000; // 10 seconds
 
-  console.log('[ChatInterface] Processing message:', originalMessage.substring(0, 50) + '...');
+  console.log('[ChatAPI] Processing:', { intent, tenant: tenantId, message: originalMessage.substring(0, 40) });
 
-  try {
-    const historyContext = conversationHistory
-      .filter(m => m.role === 'user' || m.role === 'assistant')
-      .slice(-3)
-      .map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.content.substring(0, 200)
-      }));
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const historyContext = conversationHistory
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-3)
+        .map(m => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content.substring(0, 200)
+        }));
 
-    // Send to backend - DO NOT pass intent, let backend detect it
-    // Only pass tenant_id if explicitly set, otherwise backend uses .env default
-    const requestPayload: any = {
-      message: originalMessage,
-      conversation_history: historyContext,
-      language: language || 'en',
-    };
+      const requestPayload: any = {
+        message: originalMessage,
+        conversation_history: historyContext,
+        language: language || 'en',
+        tenant_id: tenantId,
+      };
 
-    if (tenantId) {
-      requestPayload.tenant_id = tenantId;
-    }
+      console.log(`[ChatAPI] Attempt ${attempt + 1}/${maxRetries + 1} - Posting to /api/v1/chat/message`);
 
-    console.log('[ChatInterface] Sending message with language:', requestPayload.language);
-    const response = await fastApiClient.post('api/v1/chat/message', requestPayload);
+      // Create timeout promise
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), apiTimeout)
+      );
 
-    const routerResponse = response.data?.response || response.data?.content || '';
-    const detectedIntent = response.data?.intent || intent || 'general';
-    const source = response.data?.source || 'Service';
+      const response = await Promise.race([
+        fastApiClient.post('api/v1/chat/message', requestPayload),
+        timeoutPromise
+      ]) as any;
 
-    if (!routerResponse) {
+      const routerResponse = response?.data?.response || response?.data?.content || '';
+      const detectedIntent = response?.data?.intent || intent || 'general';
+      const source = response?.data?.source || 'Leadrat';
+
+      console.log('[ChatAPI] Success:', { intent: detectedIntent, source, hasResponse: !!routerResponse });
+
+      if (!routerResponse) {
+        console.warn('[ChatAPI] Empty response - retrying...');
+        if (attempt < maxRetries) continue;
+        return {
+          content: 'I\'m checking the latest CRM data. Please try again in a moment.',
+          quickReplies: ['Try again', 'Help']
+        };
+      }
+
+      let quickReplies = getQuickReplies(detectedIntent);
+
+      if (detectedIntent === 'property' && routerResponse) {
+        const propertyNames = ['3BHK Apartment', '2BHK Villa', 'Luxury Penthouse'];
+        const interestedButtons = propertyNames.map(p => `Interested: ${p}`);
+        quickReplies = interestedButtons.concat(['Show more', 'Filter by BHK']);
+      }
+
+      if (detectedIntent === 'project' && routerResponse) {
+        const projectNames = ['Tower A', 'Phase 2 Development', 'Premium Complex'];
+        const interestedButtons = projectNames.map(p => `Interested: ${p}`);
+        quickReplies = interestedButtons.concat(['Show more', 'View amenities']);
+      }
+
       return {
-        content: 'Unable to generate response. Please try again.',
-        quickReplies: ['Try again', 'Help']
+        content: routerResponse,
+        quickReplies: quickReplies
+      };
+
+    } catch (error: any) {
+      const status = error.response?.status;
+      const errorCode = error.code || error.message;
+      const isTimeout = errorCode === 'ECONNABORTED' || error.message === 'Request timeout';
+
+      console.warn(`[ChatAPI] Attempt ${attempt + 1} failed:`, {
+        status,
+        timeout: isTimeout,
+        error: error.message,
+        willRetry: attempt < maxRetries
+      });
+
+      // Retry on timeout or 5xx errors
+      if (attempt < maxRetries && (isTimeout || (status && status >= 500))) {
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1))); // exponential backoff
+        continue;
+      }
+
+      // Final error handling
+      let friendlyMessage = 'I\'m checking the latest CRM data. Please try again in a moment.';
+
+      if (status === 401) {
+        friendlyMessage = 'Your session has expired. Please refresh and login again.';
+      } else if (status === 403) {
+        friendlyMessage = 'You do not have permission to access this data.';
+      } else if (status === 404) {
+        friendlyMessage = 'The requested data is not available. Please try a different search.';
+      } else if (isTimeout) {
+        friendlyMessage = 'The request took too long. Please try again or try a simpler search.';
+      } else if (!status) {
+        friendlyMessage = 'Unable to connect to the server. Please check your internet connection.';
+      }
+
+      console.error('[ChatAPI] Final error after retries:', {
+        intent,
+        tenant: tenantId,
+        status,
+        message: friendlyMessage
+      });
+
+      return {
+        content: friendlyMessage,
+        quickReplies: ['Try again', 'Help', 'Search Leads'],
       };
     }
-
-    let quickReplies = getQuickReplies(detectedIntent);
-
-    // Add "Interested" buttons for property responses
-    if (detectedIntent === 'property' && routerResponse) {
-      // Extract property names from response or add generic interested buttons
-      const propertyNames = ['3BHK Apartment', '2BHK Villa', 'Luxury Penthouse'];
-      const interestedButtons = propertyNames.map(p => `Interested: ${p}`);
-      quickReplies = interestedButtons.concat(['Show more', 'Filter by BHK']);
-    }
-
-    // Add "Interested" buttons for project responses
-    if (detectedIntent === 'project' && routerResponse) {
-      const projectNames = ['Tower A', 'Phase 2 Development', 'Premium Complex'];
-      const interestedButtons = projectNames.map(p => `Interested: ${p}`);
-      quickReplies = interestedButtons.concat(['Show more', 'View amenities']);
-    }
-
-    console.log('[ChatInterface] Routed to:', source, '| Intent:', detectedIntent);
-
-    return {
-      content: routerResponse,
-      quickReplies: quickReplies
-    };
-  } catch (error: any) {
-    const status = error.response?.status;
-    const message = error.response?.data?.message || error.message || 'Unknown error';
-
-    console.error('[API Error]', {
-      status,
-      url: error.config?.url,
-      message,
-    });
-
-    let friendlyMessage = 'Sorry, I encountered an error. ';
-
-    if (status === 401) {
-      friendlyMessage += 'Your session has expired. Please refresh and login again.';
-    } else if (status === 403) {
-      friendlyMessage += 'You do not have permission to access this data.';
-    } else if (status === 404) {
-      friendlyMessage += `The ${intent} API endpoint is not available.`;
-    } else if (status === 500) {
-      friendlyMessage += 'The server encountered an error. Please try again in a moment.';
-    } else {
-      friendlyMessage += 'Unable to fetch data right now. Please check your connection.';
-    }
-
-    return {
-      content: friendlyMessage,
-      quickReplies: ['Try again', 'Help'],
-    };
   }
+
+  return {
+    content: 'I\'m having trouble connecting right now. Please try again in a moment.',
+    quickReplies: ['Try again', 'Help'],
+  };
 }
 
 interface ChatInterfaceProps {
