@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test: Widget iframe Fix</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    h1 {
+      color: #111827;
+      margin-bottom: 20px;
+    }
+    .test-box {
+      background: #f9fafb;
+      border-left: 4px solid #6C63FF;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .success { color: #059669; font-weight: bold; }
+    .error { color: #DC2626; font-weight: bold; }
+    .code {
+      background: #1f2937;
+      color: #10b981;
+      padding: 12px;
+      border-radius: 4px;
+      font-family: monospace;
+      overflow-x: auto;
+      margin: 10px 0;
+      font-size: 12px;
+    }
+    .button {
+      background: #6C63FF;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-right: 10px;
+      margin-top: 10px;
+    }
+    .button:hover {
+      background: #5652d4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Widget iframe URL Fix - Test</h1>
+
+    <div class="test-box">
+      <h3>Expected Behavior:</h3>
+      <ul>
+        <li>✅ Purple chat button appears bottom-right</li>
+        <li>✅ Clicking button opens chat window</li>
+        <li>✅ NO "Not Found" errors</li>
+        <li>✅ iframe loads from <code>https://leadrat-chat-widget.pages.dev/chat-ui.html</code></li>
+      </ul>
+    </div>
+
+    <div class="test-box">
+      <h3>How to Test:</h3>
+      <ol>
+        <li>Wait for Cloudflare Pages to rebuild after git push</li>
+        <li>Open this file in a browser</li>
+        <li>Look for purple chat button (💬) in bottom-right</li>
+        <li>Click the button to open chat</li>
+        <li>Check browser DevTools → Network tab</li>
+        <li>Look for request to <code>/chat-ui.html</code> (should be 200 OK)</li>
+        <li>If you see <code>/chat-ui</code> (404), the fix didn't deploy yet</li>
+      </ol>
+    </div>
+
+    <div class="test-box">
+      <h3>Configuration:</h3>
+      <div class="code">
+window.LeadratChatConfig = {
+  apiUrl: "https://real-estate-rag-dev.onrender.com/api/v1/chat",
+  botName: "Leadrat Assistant",
+  botSubtitle: "Real Estate AI",
+  primaryColor: "#6C63FF",
+  position: "bottom-right",
+  tenantId: "dubait11"
+};
+      </div>
+    </div>
+
+    <button class="button" onclick="openDevTools()">F12: Open DevTools</button>
+    <button class="button" onclick="checkNetworkTab()">Network Tab Help</button>
+    <button class="button" onclick="location.reload()">Reload</button>
+
+    <div class="test-box" id="status" style="margin-top: 30px;">
+      <p>Test results will appear here after page loads...</p>
+    </div>
+  </div>
+
+  <!-- Widget Configuration -->
+  <script>
+    window.LeadratChatConfig = {
+      apiUrl: "https://real-estate-rag-dev.onrender.com/api/v1/chat",
+      botName: "Leadrat Assistant",
+      botSubtitle: "Real Estate AI",
+      primaryColor: "#6C63FF",
+      position: "bottom-right",
+      tenantId: "dubait11"
+    };
+    console.log('✓ Config set:', window.LeadratChatConfig);
+  </script>
+
+  <!-- Load Widget from Cloudflare Pages CDN -->
+  <script src="https://leadrat-chat-widget.pages.dev/leadrat-chat.js" async></script>
+
+  <!-- Test Script -->
+  <script>
+    function openDevTools() {
+      alert('Press F12 (or Cmd+Option+I on Mac) to open Developer Tools.\n\nGo to: Network → Reload → Look for chat-ui.html\n\nShould show:\n✓ chat-ui.html (200 OK)\n\nNOT:\n✗ chat-ui (404)');
+    }
+
+    function checkNetworkTab() {
+      alert('In DevTools Network tab:\n\n1. Click the "XHR/Fetch" filter\n2. Reload the page\n3. Open the chat widget (purple button)\n4. Look for request to "chat-ui.html"\n5. Should show Status 200\n\nIf you see 404 on "chat-ui" (without .html), the iframe URL fix hasn\'t deployed yet.');
+    }
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const status = document.getElementById('status');
+        const button = document.getElementById('leadrat-chat-launcher');
+
+        if (button) {
+          status.innerHTML = '<p class="success">✅ Widget injected successfully!</p><p>Click the purple 💬 button to open the chat. Check DevTools → Network tab for iframe requests.</p>';
+          console.log('✅ Widget button found:', button);
+        } else {
+          status.innerHTML = '<p class="error">❌ Widget button not found. Check console for errors.</p>';
+          console.log('❌ Widget button not injected');
+        }
+      }, 1000);
+    });
+
+    window.addEventListener('error', (e) => {
+      console.error('JavaScript Error:', e.error);
+    });
+  </script>
+</body>
+</html>
