@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="9d11a931-a35b-4bb7-bf9c-120ca3362e08" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/real-estate-ai-chatbot/.vscode/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/real-estate-ai-chatbot/.vscode/settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/real-estate-ai-chatbot/backend-ai/chroma_data/chroma.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/real-estate-ai-chatbot/backend-ai/chroma_data/chroma.sqlite3" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/real-estate-ai-chatbot/backend-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/real-estate-ai-chatbot/backend-java/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/real-estate-ai-chatbot/backend-java/src/main/java/com/leadrat/crm/common/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/real-estate-ai-chatbot/backend-java/src/main/java/com/leadrat/crm/common/GlobalExceptionHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/real-estate-ai-chatbot/backend-java/src/main/java/com/leadrat/crm/leadrat/LeadratClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/real-estate-ai-chatbot/backend-java/src/main/java/com/leadrat/crm/leadrat/LeadratClient.java" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="KubernetesApiPersistence"><![CDATA[{}]]></component>
+  <component name="KubernetesApiProvider"><![CDATA[{
+  "isMigrated": true
+}]]></component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 5,
+  "fromUser": false
+}]]></component>
+  <component name="ProjectId" id="3D4rU9henPCsI0S5p08SCIhzplN" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "js.debugger.nextJs.config.created.client": "true",
+    "js.debugger.nextJs.config.created.server": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/vikra/source/repos/Chatbot_Leadrat/real-estate-ai-chatbot",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunManager" selected="npm.Next.js: server-side">
+    <configuration name="Next.js: debug client-side" type="JavascriptDebugType" uri="http://localhost:3000/">
+      <method v="2" />
+    </configuration>
+    <configuration name="Next.js: server-side" type="js.build_tools.npm">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="dev" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="9d11a931-a35b-4bb7-bf9c-120ca3362e08" name="Changes" comment="" />
+      <created>1777552196866</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1777552196866</updated>
+      <workItem from="1777552204927" duration="200000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
