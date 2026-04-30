@@ -124,13 +124,13 @@ function extractSearchTerm(message: string): string {
 
 function getQuickReplies(intent: string): string[] {
   const replies: Record<string, string[]> = {
-    lead: ['Show hot leads', 'Filter by status', 'Assign lead', 'Schedule follow-up'],
+    lead: ['Filter by status', 'Assign lead', 'Schedule follow-up'],
     property: ['Filter by BHK', 'Show price range', 'View on map', 'Schedule visit'],
     project: ['Show units', 'View amenities', 'Check RERA', 'Contact developer'],
     visit: ['Schedule visit', 'View calendar', 'Send reminder', 'Cancel appointment'],
-    status: ['Site visit done', 'Meeting done', 'Callback done', 'Show all leads'],
+    status: ['Site visit done', 'Meeting done', 'Callback done'],
     analytics: ['Daily report', 'Weekly summary', 'Monthly metrics', 'Export report'],
-    general: ['Show leads', 'Find property', 'View projects', 'Schedule visit']
+    general: ['Find property', 'View projects', 'Schedule visit']
   };
   return replies[intent] || replies.general;
 }
@@ -271,12 +271,13 @@ async function searchPropertiesApi(query: string): Promise<any[]> {
   }
 }
 
-async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en'): Promise<{ content: string; quickReplies: string[] }> {
-  const tenantId = typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'dubait11') : 'dubait11';
+async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en', tenantIdOverride?: string, backendUrlOverride?: string): Promise<{ content: string; quickReplies: string[] }> {
+  const tenantId = tenantIdOverride || (typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'dubait11') : 'dubait11');
+  const backendUrl = backendUrlOverride || (typeof window !== 'undefined' ? (localStorage.getItem('backendUrl') || 'https://real-estate-rag-dev.onrender.com') : 'https://real-estate-rag-dev.onrender.com');
   const maxRetries = 2;
   const apiTimeout = 10000; // 10 seconds
 
-  console.log('[ChatAPI] Processing:', { intent, tenant: tenantId, message: originalMessage.substring(0, 40) });
+  console.log('[ChatAPI] Processing:', { intent, tenant: tenantId, backend: backendUrl, message: originalMessage.substring(0, 40) });
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -295,7 +296,8 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
         tenant_id: tenantId,
       };
 
-      console.log(`[ChatAPI] Attempt ${attempt + 1}/${maxRetries + 1} - Posting to /api/v1/chat/message`);
+      const chatEndpoint = `${backendUrl}/api/v1/chat/message`;
+      console.log(`[ChatAPI] Attempt ${attempt + 1}/${maxRetries + 1} - POST ${chatEndpoint}`);
 
       // Create timeout promise
       const timeoutPromise = new Promise((_, reject) =>
@@ -303,7 +305,17 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
       );
 
       const response = await Promise.race([
-        fastApiClient.post('api/v1/chat/message', requestPayload),
+        fetch(chatEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(requestPayload),
+        }).then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        }),
         timeoutPromise
       ]) as any;
 
@@ -383,7 +395,7 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
 
       return {
         content: friendlyMessage,
-        quickReplies: ['Try again', 'Help', 'Search Leads'],
+        quickReplies: ['Try again', 'Help'],
       };
     }
   }
@@ -408,10 +420,28 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
     step: '',
     data: {},
   });
+  const [backendUrl, setBackendUrl] = useState<string>('');
+  const [tenantId, setTenantId] = useState<string>('dubait11');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageCounterRef = useRef<number>(0);
   const { logChatMessage, logLeadCreate, logScheduling, logStatusUpdate } = useActivityLogger();
   const { language } = useLanguage();
+
+  // Initialize tenant and backend URL from query params or localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlTenant = params.get('tenantId') || localStorage.getItem('tenantId') || 'dubait11';
+      const urlBackend = params.get('apiUrl') || localStorage.getItem('backendUrl') || 'https://real-estate-rag-dev.onrender.com';
+
+      setTenantId(urlTenant);
+      setBackendUrl(urlBackend);
+      localStorage.setItem('tenantId', urlTenant);
+      localStorage.setItem('backendUrl', urlBackend);
+
+      console.log('[ChatInterface] Initialized:', { tenant: urlTenant, backend: urlBackend });
+    }
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -425,10 +455,10 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
       content: `${getTranslation(language, 'welcome_title')} 🏠\n\n${getTranslation(language, 'welcome_desc')}\n\n${getTranslation(language, 'ask_ai')}?`,
       timestamp: new Date(),
       quickReplies: [
-        getTranslation(language, 'search_leads'),
-        getTranslation(language, 'find_properties'),
-        getTranslation(language, 'schedule_visit'),
-        getTranslation(language, 'book_callback'),
+        'Find Properties',
+        'View Projects',
+        'Book Site Visit',
+        'Request Callback',
       ],
     };
     setMessages([welcomeMessage]);
@@ -1897,7 +1927,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
 
         try {
           const searchTerm = extractSearchTerm(text_expanded);
-          const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language);
+          const { content, quickReplies } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language, tenantId, backendUrl);
 
           setMessages((prev) =>
             prev.map((msg) =>

@@ -1,14 +1,24 @@
 /**
  * Leadrat Real Estate AI Chatbot - Embed Script
+ * Customer-facing widget for property/project search and lead capture
  *
- * Usage:
- * Add this to any HTML page:
+ * RECOMMENDED: Use window.LeadratChatConfig for configuration
  *
- * <script async src="https://your-domain.com/chatbot-embed.js"></script>
+ * <script>
+ * window.LeadratChatConfig = {
+ *   apiUrl: "https://real-estate-rag-dev.onrender.com",
+ *   tenantId: "dubait11",
+ *   botName: "Aria",
+ *   botSubtitle: "Real Estate AI",
+ *   primaryColor: "#6C63FF"
+ * };
+ * </script>
+ * <script async src="https://leadrat-chat-widget.pages.dev/chatbot-embed.js"></script>
  *
- * Optional configuration:
- * <script async src="https://your-domain.com/chatbot-embed.js"
- *   data-chatbot-url="https://chatbot.your-domain.com"
+ * ALTERNATIVE: Use data attributes
+ * <script async src="https://leadrat-chat-widget.pages.dev/chatbot-embed.js"
+ *   data-tenant-id="dubait11"
+ *   data-api-url="https://real-estate-rag-dev.onrender.com"
  *   data-position="bottom-right"
  *   data-theme="dark">
  * </script>
@@ -17,14 +27,34 @@
 (function() {
   'use strict';
 
-  // Configuration
+  // Configuration - Support both window.LeadratChatConfig and data attributes
+  const windowConfig = window.LeadratChatConfig || {};
+  const scriptEl = document.currentScript;
+
   const config = {
-    chatbotUrl: document.currentScript?.getAttribute('data-chatbot-url') || 'https://real-estate-ai-chatbot-frontend.pages.dev',
-    position: document.currentScript?.getAttribute('data-position') || 'bottom-right',
-    theme: document.currentScript?.getAttribute('data-theme') || 'dark',
-    title: 'Aria - Real Estate Assistant',
-    subtitle: 'Ask about properties, payment plans, RERA & more',
+    // Frontend URL (where the chatbot UI is hosted)
+    chatbotUrl: windowConfig.chatbotUrl || scriptEl?.getAttribute('data-chatbot-url') || 'https://leadrat-chat-widget.pages.dev',
+
+    // Backend API Base URL - PRODUCTION RENDER ENDPOINT
+    apiUrl: windowConfig.apiUrl || scriptEl?.getAttribute('data-api-url') || 'https://real-estate-rag-dev.onrender.com',
+
+    // Tenant ID - Support multiple fallbacks for multitenancy
+    tenantId: windowConfig.tenantId || scriptEl?.getAttribute('data-tenant-id') || getUrlParam('tenantId') || 'dubait11',
+
+    // Custom branding
+    botName: windowConfig.botName || 'Aria',
+    botSubtitle: windowConfig.botSubtitle || 'Real Estate AI',
+    primaryColor: windowConfig.primaryColor || '#6C63FF',
+
+    position: scriptEl?.getAttribute('data-position') || 'bottom-right',
+    theme: scriptEl?.getAttribute('data-theme') || 'dark',
   };
+
+  // Helper to read URL query parameters
+  function getUrlParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+  }
 
   // Prevent multiple initializations
   if (window.__leadratChatbotInitialized) {
@@ -50,8 +80,8 @@
         <!-- Header -->
         <div class="leadrat-chatbot-header">
           <div class="leadrat-chatbot-header-content">
-            <h3>${config.title}</h3>
-            <p>${config.subtitle}</p>
+            <h3>${config.botName}</h3>
+            <p>${config.botSubtitle}</p>
           </div>
           <button id="leadrat-chatbot-close" class="leadrat-chatbot-close">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -76,10 +106,11 @@
         <!-- Chat Frame -->
         <iframe
           id="leadrat-chatbot-iframe"
-          src="${config.chatbotUrl}/ai-assistant?embedded=true"
+          src="${config.chatbotUrl}/ai-assistant?embedded=true&tenantId=${config.tenantId}&apiUrl=${encodeURIComponent(config.apiUrl)}"
           frameborder="0"
           allowfullscreen="true"
-          class="leadrat-chatbot-iframe">
+          class="leadrat-chatbot-iframe"
+          allow="camera;microphone">
         </iframe>
       </div>
     `;
