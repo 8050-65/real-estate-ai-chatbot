@@ -23,16 +23,18 @@ timeout /t 3 /nobreak >nul
 echo FastAPI running on port 8000
 cd ..
 
-REM Start Spring Boot Backend (port 8080)
-echo [3/4] Starting Spring Boot Backend (port 8080)...
+REM Start Spring Boot Backend (port 8080) via Docker
+echo [3/4] Starting Spring Boot Backend (port 8080) via Docker...
 cd backend-java
-where mvn >nul 2>nul
+where docker >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
-    start "Spring Boot Backend" cmd /k "mvnw spring-boot:run -DskipTests"
+    echo Building Docker image...
+    docker build -t leadrat-springboot-backend:latest . >nul 2>&1
+    start "Spring Boot Backend" cmd /k "docker run --rm -p 8080:8080 leadrat-springboot-backend:latest"
     timeout /t 5 /nobreak >nul
-    echo Spring Boot running on port 8080
+    echo Spring Boot running on port 8080 (Docker)
 ) else (
-    echo WARNING: Maven not found. Install with: choco install maven -y
+    echo WARNING: Docker not found or not running. Install Docker Desktop.
 )
 cd ..
 
