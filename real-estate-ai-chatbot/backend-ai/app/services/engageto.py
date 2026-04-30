@@ -1,6 +1,8 @@
 """Engageto WhatsApp Business API integration for sending messages."""
 
 from typing import Optional
+import hmac
+import hashlib
 
 import httpx
 
@@ -9,6 +11,41 @@ from app.utils.logger import get_logger
 from app.utils.exceptions import EngagetoException
 
 logger = get_logger(__name__)
+
+
+def verify_webhook_signature(payload: str, signature: str, secret: str = None) -> bool:
+    """
+    Verify Engageto webhook signature.
+
+    Args:
+        payload: Raw webhook payload string
+        signature: Signature from X-Engageto-Signature header
+        secret: Webhook secret (uses settings.engageto_webhook_secret if not provided)
+
+    Returns:
+        bool: True if signature is valid
+    """
+    if secret is None:
+        secret = getattr(settings, "engageto_webhook_secret", "")
+
+    if not secret:
+        logger.warning("webhook_secret_not_configured")
+        return False
+
+    try:
+        expected_signature = hmac.new(
+            secret.encode(),
+            payload.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        is_valid = hmac.compare_digest(signature, expected_signature)
+        logger.debug("webhook_signature_verified", is_valid=is_valid)
+        return is_valid
+
+    except Exception as e:
+        logger.error("webhook_signature_verification_failed", error=str(e))
+        return False
 
 
 async def send_whatsapp_message(

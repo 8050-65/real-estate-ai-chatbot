@@ -2,24 +2,25 @@
 
 import json
 from langchain_core.language_models import BaseLLM
+from typing import Optional
 
 from app.utils.logger import get_logger
+from app.agents.llm_factory import get_llm
 
 logger = get_logger(__name__)
 
 
-async def classify_intent(llm: BaseLLM, message: str, tenant_id: str) -> dict:
+def llm_classify(message: str) -> dict:
     """
-    Classify message intent using LLM.
+    Classify message intent using LLM (for testing/mocking).
 
     Args:
-        llm: Language model instance from factory
         message: User message to classify
-        tenant_id: Tenant context
 
     Returns:
         dict: Classification result with intent, confidence, entities
     """
+    llm = get_llm()
     prompt = f"""Classify WhatsApp message intent and extract entities.
 Message: {message}
 
@@ -39,3 +40,19 @@ Return JSON: {{"intent": "...", "confidence": 0.0, "entities": {{}}}}"""
     except Exception as e:
         logger.error("intent_classification_failed", error=str(e))
         return {"intent": "out_of_scope", "confidence": 0.0, "entities": {}}
+
+
+async def classify_intent(message: str, llm: Optional[BaseLLM] = None, tenant_id: str = "dubait11") -> dict:
+    """
+    Classify message intent using LLM.
+
+    Args:
+        message: User message to classify
+        llm: Language model instance from factory (optional, will use default)
+        tenant_id: Tenant context
+
+    Returns:
+        dict: Classification result with intent, confidence, entities
+    """
+    # Call the mockable llm_classify function
+    return llm_classify(message)

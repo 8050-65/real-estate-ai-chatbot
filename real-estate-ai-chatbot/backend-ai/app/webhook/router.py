@@ -5,8 +5,6 @@ Handles incoming WhatsApp messages from Engageto Business API
 and routes them through the LangGraph orchestrator.
 """
 
-import hashlib
-import hmac
 from typing import Any
 
 from fastapi import APIRouter, Request, HTTPException, status
@@ -15,29 +13,10 @@ from app.config import settings
 from app.utils.logger import get_logger
 from app.webhook.models import WebhookRequest, WebhookResponse
 from app.agents.orchestrator import get_orchestrator
+from app.services import engageto
 
 logger = get_logger(__name__)
 webhook_router = APIRouter()
-
-
-def verify_webhook_signature(body: bytes, signature: str) -> bool:
-    """
-    Verify Engageto webhook signature for security.
-
-    Args:
-        body: Raw request body
-        signature: X-Hub-Signature header value
-
-    Returns:
-        bool: True if signature is valid
-    """
-    expected_signature = hmac.new(
-        settings.engageto_webhook_secret.encode(),
-        body,
-        hashlib.sha256,
-    ).hexdigest()
-
-    return hmac.compare_digest(signature, expected_signature)
 
 
 @webhook_router.post("/whatsapp")
@@ -59,44 +38,46 @@ async def whatsapp_webhook(request: Request) -> WebhookResponse:
     """
     logger.debug("webhook_received", path="/webhook/whatsapp")
 
-    # Verify webhook signature
-    signature = request.headers.get("X-Hub-Signature")
+    # Parse JSON payload first (validates structure)
+    try:
+        payload = await request.json()
+        webhook_request = WebhookRequest(**payload)
+        logger.debug("webhook_parsed", entries=len(webhook_request.entry or []))
+    except Exception as e:
+        logger.error("webhook_parse_failed", error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid webhook payload structure",
+        )
+
+    # Verify webhook signature after payload validation
+    signature = request.headers.get("X-Hub-Signature") or request.headers.get("X-Engageto-Signature")
     if not signature:
         logger.warning("webhook_missing_signature")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing X-Hub-Signature header",
+            detail="Missing signature header",
         )
 
     # Get raw body for signature verification
     body = await request.body()
+    body_str = body.decode() if isinstance(body, bytes) else body
 
-    if not verify_webhook_signature(body, signature):
+    if not engageto.verify_webhook_signature(body_str, signature):
         logger.warning("webhook_invalid_signature")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid webhook signature",
         )
 
-    # Parse JSON payload
-    try:
-        payload = await request.json()
-        webhook_request = WebhookRequest(**payload)
-        logger.debug("webhook_parsed", entries=len(webhook_request.entry))
-    except Exception as e:
-        logger.error("webhook_parse_failed", error=str(e), exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid webhook payload",
-        )
-
     # Process webhook entries
-    try:
-        await process_webhook_entries(webhook_request.entry)
-    except Exception as e:
-        logger.error("webhook_processing_failed", error=str(e), exc_info=True)
-        # Return 200 OK even on error to prevent Engageto retries
-        # Actual error details logged for investigation
+    if webhook_request.entry:
+        try:
+            await process_webhook_entries(webhook_request.entry)
+        except Exception as e:
+            logger.error("webhook_processing_failed", error=str(e), exc_info=True)
+            # Return 200 OK even on error to prevent Engageto retries
+            # Actual error details logged for investigation
 
     return WebhookResponse(status="received")
 

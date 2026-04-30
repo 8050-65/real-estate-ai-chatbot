@@ -49,13 +49,14 @@ class WebhookStatus(BaseModel):
 class WebhookRequest(BaseModel):
     """Complete Engageto webhook request."""
 
-    entry: list[dict[str, Any]]
+    entry: Optional[list[dict[str, Any]]] = None
     changes: Optional[list[dict[str, Any]]] = None
 
     class Config:
         """Pydantic config."""
 
         populate_by_name = True
+        extra = "allow"  # Allow additional fields for flexibility
 
 
 class WebhookResponse(BaseModel):

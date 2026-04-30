@@ -9,6 +9,7 @@ Uses LLM provider from factory (no direct LLM instantiation).
 """
 
 import json
+import time
 from typing import Any, TypedDict
 
 from langgraph.graph import StateGraph, START, END
@@ -161,7 +162,7 @@ class WhatsAppChatbotOrchestrator:
         )
 
         try:
-            result = self.graph.invoke(state)
+            result = await self.graph.ainvoke(state)
             logger.info(
                 "orchestrator_success",
                 intent=result.get("intent"),
@@ -292,3 +293,72 @@ def get_orchestrator() -> WhatsAppChatbotOrchestrator:
         logger.info("creating_orchestrator")
         _orchestrator = WhatsAppChatbotOrchestrator()
     return _orchestrator
+
+
+async def process_message(whatsapp_number: str, message: str, tenant_id: str) -> dict:
+    """
+    Process a WhatsApp message through the orchestrator.
+
+    Args:
+        whatsapp_number: WhatsApp number of the user
+        message: Incoming message text
+        tenant_id: Tenant context
+
+    Returns:
+        dict: Response with response_type and response_text
+    """
+    logger.info(
+        "process_message_start",
+        whatsapp_number=whatsapp_number,
+        tenant_id=tenant_id,
+        message=message[:50],
+    )
+
+    try:
+        orchestrator = get_orchestrator()
+
+        # Build initial state
+        state: ChatbotState = {
+            "whatsapp_number": whatsapp_number,
+            "tenant_id": tenant_id,
+            "incoming_message": message,
+            "message_type": "text",
+            "message_id": f"{whatsapp_number}_{int(time.time())}",
+            "session": {},
+            "lead_id": None,
+            "intent": "",
+            "confidence": 0.0,
+            "extracted_entities": {},
+            "leadrat_token": "",
+            "property_results": [],
+            "project_results": [],
+            "lead_data": {},
+            "rag_context": "",
+            "response_text": "",
+            "response_type": "text",
+            "quick_replies": [],
+            "media_to_send": {},
+            "should_handoff": False,
+            "handoff_reason": "",
+            "conversation_summary": "",
+            "error": None,
+        }
+
+        # Invoke orchestrator
+        result = await orchestrator.invoke(state)
+
+        return {
+            "response_type": result.get("response_type", "text"),
+            "response_text": result.get("response_text", "Thank you for your message."),
+            "intent": result.get("intent", ""),
+            "should_handoff": result.get("should_handoff", False),
+        }
+
+    except Exception as e:
+        logger.error("process_message_failed", error=str(e), exc_info=True)
+        return {
+            "response_type": "text",
+            "response_text": "Sorry, I encountered an error. Please try again.",
+            "intent": "error",
+            "should_handoff": True,
+        }
