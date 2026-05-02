@@ -82,51 +82,55 @@
   function createChatbotHTML() {
     const container = document.createElement('div');
     container.id = 'leadrat-chatbot-container';
-    container.innerHTML = `
-      <!-- Floating Button -->
-      <div id="leadrat-chatbot-button" class="leadrat-chatbot-button">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <span class="leadrat-chatbot-badge">1</span>
-      </div>
 
-      <!-- Chat Window (Hidden by default) -->
-      <div id="leadrat-chatbot-window" class="leadrat-chatbot-window" style="display: none;">
-        <!-- Header -->
-        <div class="leadrat-chatbot-header">
-          <div class="leadrat-chatbot-header-content">
-            <h3>${config.botName}</h3>
-            <p>${config.botSubtitle}</p>
-          </div>
-          <button id="leadrat-chatbot-close" class="leadrat-chatbot-close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Status Bar -->
-        <div class="leadrat-chatbot-status">
-          <span class="leadrat-status-item">
-            <span class="leadrat-status-indicator connected"></span>
-            <span class="leadrat-status-text">Backend Connected</span>
-          </span>
-        </div>
-
-        <!-- Chat Frame -->
-        <iframe
-          id="leadrat-chatbot-iframe"
-          src="${config.chatbotUrl}/embedded?tenantId=${config.tenantId}&apiUrl=${encodeURIComponent(config.apiUrl)}"
-          frameborder="0"
-          allowfullscreen="true"
-          class="leadrat-chatbot-iframe"
-          allow="camera;microphone">
-        </iframe>
-      </div>
+    // Create button
+    const button = document.createElement('button');
+    button.id = 'leadrat-chatbot-button';
+    button.className = 'leadrat-chatbot-button';
+    button.setAttribute('aria-label', 'Open chat');
+    button.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span class="leadrat-chatbot-badge">1</span>
     `;
 
+    // Create chat window
+    const window_ = document.createElement('div');
+    window_.id = 'leadrat-chatbot-window';
+    window_.className = 'leadrat-chatbot-window';
+    window_.style.display = 'none';
+    window_.innerHTML = `
+      <div class="leadrat-chatbot-header">
+        <div class="leadrat-chatbot-header-content">
+          <h3>${config.botName}</h3>
+          <p>${config.botSubtitle}</p>
+        </div>
+        <button id="leadrat-chatbot-close" class="leadrat-chatbot-close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="leadrat-chatbot-status">
+        <span class="leadrat-status-item">
+          <span class="leadrat-status-indicator connected"></span>
+          <span class="leadrat-status-text">Backend Connected</span>
+        </span>
+      </div>
+      <iframe
+        id="leadrat-chatbot-iframe"
+        src="${config.chatbotUrl}/embedded?tenantId=${config.tenantId}&apiUrl=${encodeURIComponent(config.apiUrl)}"
+        frameborder="0"
+        allowfullscreen="true"
+        class="leadrat-chatbot-iframe"
+        allow="camera;microphone">
+      </iframe>
+    `;
+
+    container.appendChild(button);
+    container.appendChild(window_);
     return container;
   }
 
@@ -142,10 +146,10 @@
     else if (config.position === 'top-left') positionCSS = 'top: 20px; left: 20px;';
 
     let windowPositionCSS = '';
-    if (config.position === 'bottom-right') windowPositionCSS = 'bottom: 80px; right: 0;';
-    else if (config.position === 'bottom-left') windowPositionCSS = 'bottom: 80px; left: 0;';
-    else if (config.position === 'top-right') windowPositionCSS = 'top: 80px; right: 0;';
-    else if (config.position === 'top-left') windowPositionCSS = 'top: 80px; left: 0;';
+    if (config.position === 'bottom-right') windowPositionCSS = 'bottom: 90px; right: 20px;';
+    else if (config.position === 'bottom-left') windowPositionCSS = 'bottom: 90px; left: 20px;';
+    else if (config.position === 'top-right') windowPositionCSS = 'top: 90px; right: 20px;';
+    else if (config.position === 'top-left') windowPositionCSS = 'top: 90px; left: 20px;';
 
     style.textContent = `
       * {

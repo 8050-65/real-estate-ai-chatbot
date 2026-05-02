@@ -419,9 +419,10 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
 interface ChatInterfaceProps {
   isFloating?: boolean
   fullPage?: boolean
+  embeddedMode?: boolean
 }
 
-export default function ChatInterface({ isFloating = true, fullPage = false }: ChatInterfaceProps = {}) {
+export default function ChatInterface({ isFloating = true, fullPage = false, embeddedMode = false }: ChatInterfaceProps = {}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -1983,11 +1984,11 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: 'hsl(220 25% 12%)',
-        borderRadius: '1.5rem',
-        border: '1px solid hsl(195 85% 55% / 0.2)',
+        background: embeddedMode ? '#ffffff' : 'hsl(220 25% 12%)',
+        borderRadius: embeddedMode ? '0' : '1.5rem',
+        border: embeddedMode ? 'none' : '1px solid hsl(195 85% 55% / 0.2)',
         overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.1)',
+        boxShadow: embeddedMode ? 'none' : '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.1)',
       }}
     >
       {/* Premium Header */}

@@ -18,7 +18,10 @@
       "Bash(find c:\\\\\\\\Users\\\\\\\\vikra\\\\\\\\source\\\\\\\\repos\\\\\\\\Chatbot_Leadrat\\\\\\\\real-estate-ai-chatbot\\\\\\\\backend-ai -name \"leadrat*\" -type f)",
       "Bash(python -c \"from app.api.chat import router; print\\('✓ Chat router loaded successfully'\\)\")",
       "Bash(python -c \"from app.api.chat import router; print\\('Chat router loaded OK'\\)\")",
-      "Bash(git commit -m 'FIX: Implement lead creation flow and property/project search in chat endpoint *)"
+      "Bash(git commit -m 'FIX: Implement lead creation flow and property/project search in chat endpoint *)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{\"message\":\"hello\",\"tenant_id\":\"dubait11\",\"conversation_history\":[]}')",
+      "Bash(git commit -m 'FIX: Clean embedded UI layout and correct widget positioning *)"
     ]
   }
 }
