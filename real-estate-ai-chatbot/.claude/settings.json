@@ -27,7 +27,9 @@
       "Bash(curl -s http://localhost:3000)",
       "Bash(curl -s http://localhost:3000/embedded)",
       "Bash(curl -s http://localhost:3000/chatbot-embed.js)",
-      "Bash(git commit -m 'FIX: Update embedded mode text colors for white background visibility *)"
+      "Bash(git commit -m 'FIX: Update embedded mode text colors for white background visibility *)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{\"message\":\"show properties\",\"tenant_id\":\"dubait11\",\"conversation_history\":[]}')",
+      "Bash(git commit -m 'FIX: Resolve hydration mismatch error in embedded layout *)"
     ]
   }
 }

@@ -16,16 +16,19 @@ export default function EmbeddedLayout({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style dangerouslySetInnerHTML={{__html: `
+          html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #ffffff;
+            width: 100vw;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          }
+        `}} />
       </head>
-      <body style={{
-        margin: 0,
-        padding: 0,
-        overflow: 'hidden',
-        background: '#ffffff',
-        width: '100vw',
-        height: '100vh',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      }}>
+      <body suppressHydrationWarning>
         {children}
       </body>
     </html>
