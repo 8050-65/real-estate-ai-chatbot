@@ -57,13 +57,11 @@ interface ConversationState {
   };
 }
 
-// CRM Agent Intent Classification (8 intents + fallback)
+// CRM Agent Intent Classification (property/project focused - no leads)
 const INTENT_PATTERNS = {
   project_discovery: ['project', 'projects', 'tower', 'phase', 'development', 'what projects', 'which projects', 'available projects', 'show projects'],
   unit_availability: ['property', 'properties', 'flat', 'unit', 'apartment', 'available', 'inventory', '2bhk', '3bhk', 'bhk', 'villa', 'house', 'show properties', 'what properties', 'available units'],
   pricing_inquiry: ['price', 'cost', 'budget', 'rate', 'per sqft', 'payment', 'price range', 'how much', 'what is the cost'],
-  lead_creation: ['create', 'add', 'new customer', 'new inquiry', 'new lead', 'add customer', 'i am interested', 'interested'],
-  status_followup: ['update', 'status', 'followed up', 'any update', 'what is status', 'check status', 'lead status', 'progress'],
   site_visit_booking: ['schedule', 'book', 'site visit', 'site see', 'tour', 'walkthrough', 'show property', 'visit property', 'schedule visit', 'book visit'],
   callback_booking: ['callback', 'call back', 'call me', 'call later', 'schedule callback', 'book callback'],
   meeting_booking: ['meeting', 'meet', 'schedule meeting', 'book meeting', 'online call', 'video call'],
@@ -76,7 +74,6 @@ function detectIntent(message: string): string {
   // Priority matching: check most specific intents first
   const intentPriority = [
     'site_visit_booking', 'callback_booking', 'meeting_booking', // booking intents (most specific)
-    'lead_creation', 'status_followup', // lead management
     'project_discovery', 'unit_availability', 'pricing_inquiry', // property inquiry
     'human_handoff_request', // escalation
   ];
@@ -146,40 +143,22 @@ interface SearchParams {
 
 // Map quick replies to search parameters
 const QUICK_REPLY_PARAMS: Record<string, Partial<SearchParams & { message: string }>> = {
-  'Available properties': { message: 'Show me available properties' },
-  'Filter by BHK': { message: 'Properties with different BHKs', bhk: 'all' },
-  'Show price range': { message: 'Properties by price', priceMin: 0, priceMax: 10000000 },
-  'View on map': { message: 'Properties near me on map' },
+  '🏠 Available Properties': { message: 'Show available properties' },
+  '🏗️ Show Projects': { message: 'Show available projects' },
+  '📅 Schedule Site Visit': { message: 'Schedule a site visit' },
+  '📞 Schedule Callback': { message: 'Schedule a callback' },
+  '🤝 Schedule Meeting': { message: 'Schedule a meeting' },
+  '✅ Update Lead Status': { message: 'Update lead status' },
+  '🏠 2BHK Properties': { message: 'Show 2BHK properties' },
+  '🏠 3BHK Properties': { message: 'Show 3BHK properties' },
+  '💰 Under 80 Lakhs': { message: 'Show properties under 80 lakhs' },
+  '📋 Project Details': { message: 'Show project details' },
+  '🏠 Available Units': { message: 'Show available units' },
+  '💰 Price List': { message: 'Show price list' },
+  '🔄 Try Again': { message: 'Try again' },
+  '🏠 Show Properties': { message: 'Show properties' },
   'Schedule visit': { message: 'Schedule a property visit' },
-  'Show hot leads': { message: 'Show me hot leads' },
-  'Filter by status': { message: 'Filter leads by status' },
-  'Assign lead': { message: 'Assign a lead to me' },
-  'Schedule follow-up': { message: 'Schedule follow-up for a lead' },
-  'Show units': { message: 'Show available units' },
-  'View amenities': { message: 'View project amenities' },
-  'Check RERA': { message: 'Check RERA status' },
-  'Contact developer': { message: 'Contact the developer' },
-  'View calendar': { message: 'View visit calendar' },
-  'Send reminder': { message: 'Send appointment reminder' },
-  'Cancel appointment': { message: 'Cancel an appointment' },
-  'Site visit done': { message: 'Mark site visit as done' },
-  'Meeting done': { message: 'Mark meeting as done' },
-  'Callback done': { message: 'Mark callback as done' },
-  'Daily report': { message: 'Show daily analytics report' },
-  'Weekly summary': { message: 'Show weekly summary' },
-  'Monthly metrics': { message: 'Show monthly metrics' },
-  'Export report': { message: 'Export analytics report' },
-  'Show leads': { message: 'Show all leads' },
-  'Show all leads': { message: 'Show all leads' },
-  'Find property': { message: 'Find properties' },
   'View projects': { message: 'View all projects' },
-  'Update Another Lead': { message: 'Update another lead status' },
-  'Show All Leads': { message: 'Show all leads' },
-  'Schedule Site Visit': { message: 'Schedule a site visit' },
-  'View All Leads': { message: 'Show all leads' },
-  'Create Another Lead': { message: 'Create a new lead' },
-  'Schedule Another': { message: 'Schedule another appointment' },
-  'Create Lead': { message: 'Create a new lead' },
 };
 
 // Status ID constants for child status mapping
@@ -274,11 +253,30 @@ async function searchPropertiesApi(query: string): Promise<any[]> {
 
 async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en', tenantIdOverride?: string, backendUrlOverride?: string): Promise<{ content: string; quickReplies: string[]; template?: string; data?: any[] }> {
   const tenantId = tenantIdOverride || (typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'dubait11') : 'dubait11');
-  const backendUrl = backendUrlOverride || (typeof window !== 'undefined' ? (localStorage.getItem('backendUrl') || 'https://real-estate-rag-dev.onrender.com') : 'https://real-estate-rag-dev.onrender.com');
-  const maxRetries = 2;
-  const apiTimeout = 10000; // 10 seconds
 
-  console.log('[ChatAPI] Processing:', { intent, tenant: tenantId, backend: backendUrl, message: originalMessage.substring(0, 40) });
+  // Backend URL resolution with environment variable support
+  let backendUrl = backendUrlOverride;
+  if (!backendUrl && typeof window !== 'undefined') {
+    backendUrl = localStorage.getItem('backendUrl');
+  }
+  if (!backendUrl) {
+    backendUrl = process.env.NEXT_PUBLIC_CHAT_API_URL;
+  }
+  if (!backendUrl) {
+    // Fallback to auto-detect
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    backendUrl = isLocalhost ? 'http://localhost:8000/api/v1/chat/message' : 'https://real-estate-rag-dev.onrender.com/api/v1/chat/message';
+  }
+
+  const maxRetries = 2;
+  const apiTimeout = 30000; // 30 seconds (increased for debugging backend)
+
+  console.log('[ChatAPI] Processing:', {
+    intent,
+    tenant: tenantId,
+    backendUrl,
+    message: originalMessage.substring(0, 40)
+  });
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -297,7 +295,8 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
         tenant_id: tenantId,
       };
 
-      const chatEndpoint = `${backendUrl}/api/v1/chat/message`;
+      // Use the backend URL directly (should already have full path)
+      const chatEndpoint = backendUrl;
       console.log(`[ChatAPI] Attempt ${attempt + 1}/${maxRetries + 1} - POST ${chatEndpoint}`);
 
       // Create timeout promise
@@ -395,7 +394,13 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
         intent,
         tenant: tenantId,
         status,
-        message: friendlyMessage
+        friendlyMessage,
+        originalError: {
+          message: error?.message,
+          code: error?.code,
+          type: error?.constructor?.name
+        },
+        url: backendUrl
       });
 
       return {
@@ -436,15 +441,34 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const urlTenant = params.get('tenantId') || localStorage.getItem('tenantId') || 'dubait11';
-      const urlBackend = params.get('apiUrl') || localStorage.getItem('backendUrl') || 'https://real-estate-rag-dev.onrender.com';
+      const urlTenant = params.get('tenantId') || localStorage.getItem('tenantId') || process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || 'dubait11';
 
-      setTenantId(urlTenant);
-      setBackendUrl(urlBackend);
-      localStorage.setItem('tenantId', urlTenant);
-      localStorage.setItem('backendUrl', urlBackend);
+      // Detect environment and use appropriate URLs
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-      console.log('[ChatInterface] Initialized:', { tenant: urlTenant, backend: urlBackend });
+      // Default backend URL (FULL PATH including /api/v1/chat/message)
+      const defaultBackend = isLocalhost
+        ? 'http://localhost:8000/api/v1/chat/message'
+        : 'https://real-estate-rag-dev.onrender.com/api/v1/chat/message';
+
+      // Priority: URL param > localStorage > env variable > auto-detect
+      const urlBackend = params.get('apiUrl')
+        || localStorage.getItem('backendUrl')
+        || process.env.NEXT_PUBLIC_CHAT_API_URL
+        || defaultBackend;
+
+      setTenantId(urlTenant || 'dubait11');
+      setBackendUrl(urlBackend || defaultBackend);
+      localStorage.setItem('tenantId', urlTenant || 'dubait11');
+      localStorage.setItem('backendUrl', urlBackend || defaultBackend);
+
+      console.log('[ChatInterface] Initialized:', {
+        tenant: urlTenant,
+        chatApiUrl: urlBackend,
+        isLocalhost,
+        envChatApiUrl: process.env.NEXT_PUBLIC_CHAT_API_URL,
+        envDefaultTenant: process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID
+      });
     }
   }, []);
 
@@ -1017,7 +1041,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
         }
         if (text.includes('Back to Main')) {
           setConvState({ flow: 'none', step: '', data: {} });
-          appendBotMessage('Back to main menu. What would you like to do?', ['🏠 Schedule Site Visit', '📞 Schedule Callback', '🤝 Schedule Meeting', '📊 View Leads']);
+          appendBotMessage('Back to main menu. What would you like to do?', ['🏠 Available Properties', '🏗️ Show Projects', '📅 Schedule Site Visit', '📞 Schedule Callback']);
           return;
         }
 
@@ -1883,22 +1907,6 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
         }
         return;
 
-      // === LEAD MANAGEMENT ===
-      case 'lead_creation':
-        setConvState({ flow: 'create_lead', step: 'get_name', data: {} });
-        appendBotMessage(
-          `${getTranslation(language, 'create_new_lead')} 👤\n\n${getTranslation(language, 'customer_name_prompt')}`,
-          ['❌ Cancel']
-        );
-        return;
-
-      case 'status_followup':
-        setConvState({ flow: 'update_status', step: 'get_lead', data: {} });
-        appendBotMessage(
-          'Let me check the lead status! 📋\n\nEnter the lead name or phone number:',
-          ['❌ Cancel']
-        );
-        return;
 
       // === ESCALATION ===
       case 'human_handoff_request':
@@ -1906,7 +1914,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
           '🤝 **Connecting you with our team!**\n\n' +
           'A relationship manager will contact you shortly.\n' +
           'You can also reach our team directly.',
-          ['📞 Call Sales Team', 'Show Leads', 'Back to Main']
+          ['📞 Call Sales Team', '🏠 Show Properties', '❌ Cancel']
         );
         return;
 
@@ -2111,10 +2119,10 @@ export default function ChatInterface({ isFloating = true, fullPage = false }: C
               maxWidth: '320px',
             }}>
               {[
-                getTranslation(language, 'search_leads'),
-                getTranslation(language, 'find_properties'),
-                getTranslation(language, 'schedule_visit'),
-                getTranslation(language, 'book_callback'),
+                '🏠 Available Properties',
+                '🏗️ Show Projects',
+                '📅 Schedule Site Visit',
+                '📞 Schedule Callback',
               ].map((action, idx) => (
                 <button
                   key={idx}

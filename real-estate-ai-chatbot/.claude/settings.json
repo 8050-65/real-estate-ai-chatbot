@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/vikra/source/repos/Chatbot_Leadrat/real-estate-ai-chatbot/**)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H \"Content-Type: application/json\" -d '{\"message\":\"show projects\",\"tenant_id\":\"dubait11\"}')",
+      "Bash(Get-Job -Name \"FastAPI_Debug3\")",
+      "Bash(Receive-Job)",
+      "Bash(Select-String \"DEBUG_EMBEDDED_CHECK|RETURNING_EMBEDDED|show projects\" -A 2)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H \"Content-Type: application/json\" -d '{\"message\":\"find properties\",\"tenant_id\":\"dubait11\"}')",
+      "PowerShell(Get-Job -Name \"FastAPI_Fresh_v2\")",
+      "PowerShell(Test-NetConnection localhost -Port 8000)",
+      "PowerShell(Get-Job)",
+      "Bash(curl -v -X POST http://localhost:8000/api/v1/chat/message -H \"Content-Type: application/json\" -d '{\"message\":\"find properties\",\"tenant_id\":\"dubait11\"}')",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue | Select-Object OwningProcess, State | ForEach-Object { Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue | Select-Object Name, Id })",
+      "PowerShell(docker run --rm -p 8081:8080 leadrat-springboot-backend:latest)",
+      "Bash(python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(curl -s http://localhost:8000/api/v1/chat/status)",
+      "Bash(find c:\\\\\\\\Users\\\\\\\\vikra\\\\\\\\source\\\\\\\\repos\\\\\\\\Chatbot_Leadrat\\\\\\\\real-estate-ai-chatbot\\\\\\\\backend-ai -name \"leadrat*\" -type f)",
+      "Bash(python -c \"from app.api.chat import router; print\\('✓ Chat router loaded successfully'\\)\")",
+      "Bash(python -c \"from app.api.chat import router; print\\('Chat router loaded OK'\\)\")",
+      "Bash(git commit -m 'FIX: Implement lead creation flow and property/project search in chat endpoint *)"
+    ]
+  }
+}

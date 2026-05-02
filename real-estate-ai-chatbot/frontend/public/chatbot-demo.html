@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Estate AI Chatbot - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .features {
+            text-align: left;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .features h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .features ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .features li {
+            padding: 8px 0;
+            color: #555;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .features li:last-child {
+            border-bottom: none;
+        }
+
+        .features li:before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .instruction {
+            background: #e3f2fd;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+            border-radius: 4px;
+            color: #1565c0;
+            font-size: 14px;
+        }
+
+        .cta-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: 600;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #999;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 Real Estate AI Assistant</h1>
+        <p class="subtitle">Find properties, explore projects & schedule visits</p>
+
+        <div class="instruction">
+            💬 Click the floating chatbot button in the bottom-right corner to start chatting. You can search for available properties, explore projects, and schedule site visits or request callbacks directly.
+        </div>
+
+        <div class="features">
+            <h3>What you can do:</h3>
+            <ul>
+                <li>Find available properties & projects instantly</li>
+                <li>View property details (price, location, specs, availability)</li>
+                <li>Schedule site visits for properties you're interested in</li>
+                <li>Request callback from our sales team</li>
+                <li>Share your details to book consultations</li>
+            </ul>
+        </div>
+
+        <button class="cta-button" onclick="leadratChatbot?.open?.()">
+            💬 Open Chat Now
+        </button>
+
+        <div class="footer">
+            <p>Powered by Leadrat AI • Real Estate CRM Assistant</p>
+        </div>
+    </div>
+
+    <!-- Chatbot Embed Script - Environment Aware Configuration -->
+    <script>
+        // Auto-detect environment and resolve URLs dynamically
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        const chatbotUrl = isLocalhost
+            ? 'http://localhost:3000'
+            : 'https://leadrat-chat-widget.pages.dev';
+
+        const apiUrl = isLocalhost
+            ? 'http://localhost:8000/api/v1/chat/message'
+            : 'https://real-estate-rag-dev.onrender.com/api/v1/chat/message';
+
+        const embedScriptUrl = isLocalhost
+            ? 'http://localhost:3000/chatbot-embed.js'
+            : 'https://leadrat-chat-widget.pages.dev/chatbot-embed.js';
+
+        // Log resolved environment
+        console.log('[Demo Page] Resolved environment:', {
+            isLocalhost,
+            chatbotUrl,
+            apiUrl,
+            embedScriptUrl
+        });
+
+        window.LeadratChatConfig = {
+            chatbotUrl: chatbotUrl,      // Frontend URL for embedded widget
+            apiUrl: apiUrl,               // FastAPI base URL
+            tenantId: "dubait11",
+            botName: "REIA",
+            botSubtitle: "Real Estate AI",
+            primaryColor: "#667eea"
+        };
+
+        // Dynamically inject embed script
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = embedScriptUrl;
+        document.body.appendChild(script);
+    </script>
+</body>
+</html>

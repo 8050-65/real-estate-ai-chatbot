@@ -302,6 +302,94 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
             tenant=request.tenant_id
         )
 
+        # FAST PATH: For embedded widget, use keyword-based intent detection (no LLM call)
+        msg_lower = message.lower()
+        fast_intent = None
+
+        # Check for lead creation steps
+        # Step 1: User clicking "interested" button (format: "Interested: PropertyName")
+        if msg_lower.startswith('interested:'):
+            property_name = message.replace('Interested:', '').replace('interested:', '').strip()
+            return ChatResponse(
+                response="Great! To help you better, could you please share your name?",
+                intent="lead_creation_name",
+                source="embedded_mode_fast",
+                rag_used=False,
+                needs_api_call=False,
+                data=[{"propertyName": property_name}] if property_name else [],
+                metadata={"latency_ms": round((time.time() - start_time) * 1000)}
+            )
+
+        # Step 2: User provided name, ask for phone
+        # Check if previous step was name collection (by checking message length and content)
+        if any(kw in msg_lower for kw in ['phone', 'mobile', 'whatsapp', 'contact', 'number']):
+            # This is likely a phone number being provided
+            pass  # Will be handled by the conversation flow
+        elif len(message) < 50 and not any(char.isdigit() for char in message) and len(message.split()) <= 3:
+            # Likely a name (short, no numbers, few words)
+            # If coming from lead_creation_name intent, ask for phone
+            if request.conversation_history and len(request.conversation_history) > 0:
+                last_intent = request.conversation_history[-1].get('intent') if isinstance(request.conversation_history[-1], dict) else None
+                if last_intent == 'lead_creation_name':
+                    return ChatResponse(
+                        response=f"Nice to meet you, {message}! 👋\n\nCould you please share your contact number so we can reach out to you?",
+                        intent="lead_creation_phone",
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        needs_api_call=False,
+                        data=[{"name": message}],
+                        metadata={"latency_ms": round((time.time() - start_time) * 1000)}
+                    )
+
+        if any(kw in msg_lower for kw in ['property', 'properties', 'flat', 'apartment', 'find', 'search']):
+            fast_intent = 'property'
+        elif any(kw in msg_lower for kw in ['project', 'projects', 'tower', 'tower', 'phase']):
+            fast_intent = 'project'
+
+        # If fast intent detected, use fast data retrieval without LLM semantic parsing
+        if fast_intent:
+            logger.debug("fast_path_activated", intent=fast_intent, message=message[:50])
+            try:
+                data_items = []
+                if fast_intent == 'property':
+                    api_res = await list_properties(tenant_id=request.tenant_id)
+                    items = api_res.get('data', [])
+                    for it in items:
+                        data_items.append({
+                            "name": it.get('title') or it.get('name') or "Property",
+                            "price": str(it.get('price', 'N/A')),
+                            "location": it.get('address', {}).get('city', 'Dubai') if isinstance(it.get('address'), dict) else it.get('address', 'Dubai'),
+                            "propertyType": it.get('bhkType', ''),
+                            "status": it.get('status', 'Available'),
+                            "id": it.get('id')
+                        })
+                elif fast_intent == 'project':
+                    api_res = await list_projects(tenant_id=request.tenant_id)
+                    items = api_res.get('data', [])
+                    for it in items:
+                        data_items.append({
+                            "name": it.get('name') or "Project",
+                            "location": it.get('location') or it.get('city', 'Dubai'),
+                            "builderName": it.get('builderName', 'Leadrat'),
+                            "id": it.get('id')
+                        })
+
+                if data_items:
+                    logger.info("fast_path_success", intent=fast_intent, items=len(data_items), latency_ms=round((time.time() - start_time) * 1000))
+                    return ChatResponse(
+                        response=f"Found {len(data_items)} {fast_intent}(s) for you.",
+                        intent=fast_intent,
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        needs_api_call=False,
+                        template=f"{fast_intent}_list",
+                        data=data_items,
+                        metadata={"latency_ms": round((time.time() - start_time) * 1000)}
+                    )
+            except Exception as e:
+                logger.warning("fast_path_failed", intent=fast_intent, error=str(e))
+                # Fall through to normal processing
+
         # DEMO SAFE MODE INTERCEPT - Instant response for demo reliability
         if getattr(settings, "force_demo_safe_mode", False):
             logger.info("force_demo_safe_mode_active", query=message[:50])
@@ -413,6 +501,23 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
                     })
         except Exception as api_err:
             logger.warning("direct_api_retrieval_failed", error=str(api_err))
+
+        # EMBEDDED WIDGET MODE: Skip Ollama if we have data and it's a data-retrieval intent
+        logger.info("DEBUG_EMBEDDED_CHECK", data_items_count=len(data_items), intent=intent, intent_in_list=intent in ['property', 'project'])
+        if data_items and intent in ['property', 'project']:
+            logger.info("RETURNING_EMBEDDED_MODE", intent=intent, items=len(data_items))
+            duration_ms = round((time.time() - start_time) * 1000)
+            template = f"{intent}_list"
+            return ChatResponse(
+                response=f"Found {len(data_items)} {intent}(s) for you.",
+                intent=intent,
+                source="embedded_mode",
+                rag_used=False,
+                needs_api_call=False,
+                template=template,
+                data=data_items,
+                metadata={"latency_ms": duration_ms}
+            )
 
         # 3b. RAG Retrieval for context
         filter_str = " ".join([f"{k}:{v}" for k,v in filters.items()])

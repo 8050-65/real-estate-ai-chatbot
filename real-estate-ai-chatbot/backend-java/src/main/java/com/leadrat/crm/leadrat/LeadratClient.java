@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leadrat.crm.lead.dto.LeadDto;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpHeaders;
@@ -17,10 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class LeadratClient {
 
     private final WebClient webClient;
@@ -178,7 +178,7 @@ public class LeadratClient {
                 return objectMapper.readTree(response);
             }
         } catch (Exception e) {
-            log.error("Failed to search leads in Leadrat API", e);
+            // log.error("Failed to search leads in Leadrat API", e);
         }
         return null;
     }
@@ -187,11 +187,11 @@ public class LeadratClient {
         try {
             String token = getAccessToken();
             if (token == null) {
-                log.error("Failed to get access token for lead creation");
+                // log.error("Failed to get access token for lead creation");
                 return null;
             }
 
-            log.info("Creating lead with name: {}, phone: {}", leadDto.getName(), leadDto.getPhone());
+            // log.info("Creating lead with name: {}, phone: {}", leadDto.getName(), leadDto.getPhone());
 
             Map<String, Object> payload = new HashMap<>();
             payload.put("name", leadDto.getName());

@@ -18,6 +18,8 @@ import structlog
 from app.rag.retriever import get_retriever
 from app.agents.llm_factory import get_llm
 from app.config import settings
+from app.services.leadrat_property import search_properties
+from app.services.leadrat_project import get_projects
 from langchain.schema import HumanMessage, SystemMessage
 
 logger = structlog.get_logger()
@@ -40,6 +42,7 @@ class ChatResponse(BaseModel):
     rag_used: bool = False
     needs_api_call: bool = False
     metadata: Dict = {}
+    data: Optional[List[Dict]] = None  # Properties/projects data for frontend
 
 
 # Keywords that indicate need for live Leadrat API data
@@ -190,66 +193,115 @@ please check with the sales team."""
 
 @router.post("/message", response_model=ChatResponse)
 async def chat_message(request: ChatRequest) -> ChatResponse:
-    """
-    Main chat endpoint - handles both structured and general queries.
-
-    Decision tree:
-    1. If query needs live data → tell frontend which API to call
-    2. If general question → use RAG + Ollama
-    """
+    """Chat message endpoint with fast-path property search and lead creation."""
     try:
-        message = request.message
-        logger.info(
-            "chat_message_received",
-            message=message[:100],
-            session=request.session_id,
-            tenant=request.tenant_id
-        )
+        message = request.message.lower()
+        tenant_id = request.tenant_id or "dubait11"
 
-        # Step 1: Check if needs live data from Leadrat
-        if needs_live_data(message):
-            intent = detect_intent(message)
-            logger.debug("needs_live_data", intent=intent, message=message[:50])
-
+        # Check if user is expressing interest in a property
+        if message.startswith('interested:'):
+            property_name = message.replace('interested:', '', 1).strip()
             return ChatResponse(
-                response=None,
-                intent=intent,
-                source="leadrat_api",
-                needs_api_call=True,
+                response=f"Great! I'm interested in helping you with {property_name}. To proceed, could you please share your name?",
+                intent="lead_creation_name",
+                source="embedded_mode_fast",
+                needs_api_call=False,
                 rag_used=False,
+                metadata={"property_name": property_name}
             )
 
-        # Step 2: General question → RAG + Ollama
-        intent = detect_intent(message)
-        logger.debug("general_question", intent=intent, message=message[:50])
+        # Check if user wants to find/search for properties
+        property_keywords = ['property', 'properties', 'flat', 'apartment', 'flat', 'unit', 'bhk', 'house', 'home']
+        is_property_search = any(kw in message for kw in property_keywords) and any(kw in message for kw in ['find', 'search', 'show', 'list', 'available'])
 
-        # Search RAG for context
-        rag_results = await search_rag(
-            query=message,
-            tenant_id=request.tenant_id,
-            top_k=3
-        )
-        rag_used = len(rag_results) > 0
+        if is_property_search:
+            try:
+                properties = await search_properties(tenant_id)
+                # Return top 5 properties with minimal data
+                properties_data = [
+                    {"name": p.get("name") or p.get("title", "Property"), "id": p.get("id"), "bhk": p.get("bhk"), "price": p.get("price")}
+                    for p in (properties or [])[:5]
+                ]
 
-        # Call Ollama with context
-        answer = await call_ollama(
-            message=message,
-            rag_context=rag_results,
-            conversation_history=request.conversation_history,
-        )
+                if properties_data:
+                    response_text = f"Found {len(properties_data)} available properties. Here are the top ones:"
+                    return ChatResponse(
+                        response=response_text,
+                        intent="property",
+                        source="embedded_mode_fast",
+                        needs_api_call=False,
+                        rag_used=False,
+                        metadata={"search_term": message},
+                        data=properties_data
+                    )
+                else:
+                    return ChatResponse(
+                        response="Sorry, no properties are currently available. Please try again later.",
+                        intent="general",
+                        source="embedded_mode_fast",
+                        needs_api_call=False,
+                        rag_used=False
+                    )
+            except Exception as e:
+                logger.warning("property_search_failed", error=str(e), tenant_id=tenant_id)
+                return ChatResponse(
+                    response="I'm having trouble accessing the property database. Please try again in a moment.",
+                    intent="error",
+                    source="embedded_mode_fast",
+                    needs_api_call=False,
+                    rag_used=False
+                )
 
+        # Check if user wants to find/search for projects
+        project_keywords = ['project', 'projects', 'development', 'tower', 'phase', 'complex']
+        is_project_search = any(kw in message for kw in project_keywords) and any(kw in message for kw in ['find', 'search', 'show', 'list'])
+
+        if is_project_search:
+            try:
+                projects = await get_projects(tenant_id)
+                # Return top 5 projects with minimal data
+                projects_data = [
+                    {"name": p.get("name") or p.get("title", "Project"), "id": p.get("id"), "location": p.get("location")}
+                    for p in (projects or [])[:5]
+                ]
+
+                if projects_data:
+                    response_text = f"Found {len(projects_data)} projects. Here are the top ones:"
+                    return ChatResponse(
+                        response=response_text,
+                        intent="project",
+                        source="embedded_mode_fast",
+                        needs_api_call=False,
+                        rag_used=False,
+                        metadata={"search_term": message},
+                        data=projects_data
+                    )
+                else:
+                    return ChatResponse(
+                        response="Sorry, no projects are currently available. Please try again later.",
+                        intent="general",
+                        source="embedded_mode_fast",
+                        needs_api_call=False,
+                        rag_used=False
+                    )
+            except Exception as e:
+                logger.warning("project_search_failed", error=str(e), tenant_id=tenant_id)
+                return ChatResponse(
+                    response="I'm having trouble accessing the project database. Please try again in a moment.",
+                    intent="error",
+                    source="embedded_mode_fast",
+                    needs_api_call=False,
+                    rag_used=False
+                )
+
+        # Default: general conversation
         return ChatResponse(
-            response=answer,
-            intent=intent,
-            source="ollama_rag" if rag_used else "ollama",
-            rag_used=rag_used,
+            response="Hello! I'm Aria, your real estate assistant. I can help you find properties, projects, or create a lead. What would you like to do?",
+            intent="general",
+            source="embedded_mode",
             needs_api_call=False,
-            metadata={
-                "rag_results": len(rag_results),
-                "top_relevance": round(rag_results[0]['score'], 3) if rag_results else 0,
-            }
+            rag_used=False,
         )
-
     except Exception as e:
         logger.error("chat_error", error=str(e), message=request.message[:50], exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

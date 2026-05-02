@@ -31,12 +31,19 @@
   const windowConfig = window.LeadratChatConfig || {};
   const scriptEl = document.currentScript;
 
+  // Detect environment (local vs production)
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // Default URLs based on environment - IMPORTANT: apiUrl must include full /api/v1/chat/message path
+  const defaultChatbotUrl = isLocalhost ? 'http://localhost:3000' : 'https://leadrat-chat-widget.pages.dev';
+  const defaultApiUrl = isLocalhost ? 'http://localhost:8000/api/v1/chat/message' : 'https://real-estate-rag-dev.onrender.com/api/v1/chat/message';
+
   const config = {
     // Frontend URL (where the chatbot UI is hosted)
-    chatbotUrl: windowConfig.chatbotUrl || scriptEl?.getAttribute('data-chatbot-url') || 'https://leadrat-chat-widget.pages.dev',
+    chatbotUrl: windowConfig.chatbotUrl || scriptEl?.getAttribute('data-chatbot-url') || defaultChatbotUrl,
 
-    // Backend API Base URL - PRODUCTION RENDER ENDPOINT
-    apiUrl: windowConfig.apiUrl || scriptEl?.getAttribute('data-api-url') || 'https://real-estate-rag-dev.onrender.com',
+    // Backend API Base URL - dynamically selected based on environment
+    apiUrl: windowConfig.apiUrl || scriptEl?.getAttribute('data-api-url') || defaultApiUrl,
 
     // Tenant ID - Support multiple fallbacks for multitenancy
     tenantId: windowConfig.tenantId || scriptEl?.getAttribute('data-tenant-id') || getUrlParam('tenantId') || 'dubait11',
@@ -49,6 +56,15 @@
     position: scriptEl?.getAttribute('data-position') || 'bottom-right',
     theme: scriptEl?.getAttribute('data-theme') || 'dark',
   };
+
+  // Debug: Log resolved configuration
+  console.log('[Leadrat Chatbot] Resolved configuration:', {
+    isLocalhost,
+    chatbotUrl: config.chatbotUrl,
+    apiUrl: config.apiUrl,
+    tenantId: config.tenantId,
+    iframeSrc: `${config.chatbotUrl}/embedded?tenantId=${config.tenantId}&apiUrl=${encodeURIComponent(config.apiUrl)}`
+  });
 
   // Helper to read URL query parameters
   function getUrlParam(param) {
@@ -94,19 +110,15 @@
         <!-- Status Bar -->
         <div class="leadrat-chatbot-status">
           <span class="leadrat-status-item">
-            <span class="leadrat-status-indicator" id="ollama-status"></span>
-            <span class="leadrat-status-text" id="ollama-text">Checking Ollama...</span>
-          </span>
-          <span class="leadrat-status-item">
             <span class="leadrat-status-indicator connected"></span>
-            <span class="leadrat-status-text">RAG Active</span>
+            <span class="leadrat-status-text">Backend Connected</span>
           </span>
         </div>
 
         <!-- Chat Frame -->
         <iframe
           id="leadrat-chatbot-iframe"
-          src="${config.chatbotUrl}/ai-assistant?embedded=true&tenantId=${config.tenantId}&apiUrl=${encodeURIComponent(config.apiUrl)}"
+          src="${config.chatbotUrl}/embedded?tenantId=${config.tenantId}&apiUrl=${encodeURIComponent(config.apiUrl)}"
           frameborder="0"
           allowfullscreen="true"
           class="leadrat-chatbot-iframe"
@@ -121,7 +133,21 @@
   // Create styles
   function createStyles() {
     const style = document.createElement('style');
-    style.textContent = \`
+
+    // Build position CSS based on config
+    let positionCSS = '';
+    if (config.position === 'bottom-right') positionCSS = 'bottom: 20px; right: 20px;';
+    else if (config.position === 'bottom-left') positionCSS = 'bottom: 20px; left: 20px;';
+    else if (config.position === 'top-right') positionCSS = 'top: 20px; right: 20px;';
+    else if (config.position === 'top-left') positionCSS = 'top: 20px; left: 20px;';
+
+    let windowPositionCSS = '';
+    if (config.position === 'bottom-right') windowPositionCSS = 'bottom: 80px; right: 0;';
+    else if (config.position === 'bottom-left') windowPositionCSS = 'bottom: 80px; left: 0;';
+    else if (config.position === 'top-right') windowPositionCSS = 'top: 80px; right: 0;';
+    else if (config.position === 'top-left') windowPositionCSS = 'top: 80px; left: 0;';
+
+    style.textContent = `
       * {
         --leadrat-primary: #667eea;
         --leadrat-primary-dark: #764ba2;
@@ -136,10 +162,7 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         position: fixed;
         z-index: 9999;
-        \${config.position === 'bottom-right' ? 'bottom: 20px; right: 20px;' : ''}
-        \${config.position === 'bottom-left' ? 'bottom: 20px; left: 20px;' : ''}
-        \${config.position === 'top-right' ? 'top: 20px; right: 20px;' : ''}
-        \${config.position === 'top-left' ? 'top: 20px; left: 20px;' : ''}
+        ${positionCSS}
       }
 
       /* Floating Button */
@@ -188,10 +211,7 @@
       /* Chat Window */
       .leadrat-chatbot-window {
         position: absolute;
-        \${config.position === 'bottom-right' ? 'bottom: 80px; right: 0;' : ''}
-        \${config.position === 'bottom-left' ? 'bottom: 80px; left: 0;' : ''}
-        \${config.position === 'top-right' ? 'top: 80px; right: 0;' : ''}
-        \${config.position === 'top-left' ? 'top: 80px; left: 0;' : ''}
+        ${windowPositionCSS}
         width: 420px;
         height: 600px;
         max-height: 80vh;
@@ -351,7 +371,7 @@
           color: #6b7280;
         }
       \` : ''}
-    \`;
+    `;
 
     document.head.appendChild(style);
   }
@@ -369,8 +389,6 @@
     const button = document.getElementById('leadrat-chatbot-button');
     const window_ = document.getElementById('leadrat-chatbot-window');
     const closeBtn = document.getElementById('leadrat-chatbot-close');
-    const ollamaStatus = document.getElementById('ollama-status');
-    const ollamaText = document.getElementById('ollama-text');
 
     // Toggle chat window
     button.addEventListener('click', () => {
@@ -388,23 +406,6 @@
       window_.style.display = 'none';
       button.style.opacity = '1';
     });
-
-    // Check Ollama status
-    checkOllamaStatus();
-    setInterval(checkOllamaStatus, 30000);
-
-    function checkOllamaStatus() {
-      // Local Ollama check
-      fetch('http://localhost:11434/api/tags', { method: 'GET' })
-        .then(() => {
-          ollamaStatus.style.background = '#4CAF50';
-          ollamaText.textContent = 'Ollama Online';
-        })
-        .catch(() => {
-          ollamaStatus.style.background = '#ef4444';
-          ollamaText.textContent = 'Ollama Offline';
-        });
-    }
 
     // Programmatic API
     window.leadratChatbot = {

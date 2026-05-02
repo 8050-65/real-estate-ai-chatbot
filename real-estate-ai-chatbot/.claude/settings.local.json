@@ -1,7 +1,31 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker exec *)"
+      "Bash(docker exec *)",
+      "Bash(git push *)",
+      "Bash(docker run *)",
+      "Bash(rm -rf target)",
+      "Bash(./mvnw.cmd clean *)",
+      "Bash(git commit --no-verify -m 'FIX: Lombok Java 17 compiler configuration *)",
+      "Bash(./START_SERVICES.bat)",
+      "Bash(git commit --no-verify -m 'FIX: Use Docker for Spring Boot startup instead of local Maven *)",
+      "Bash(git rm *)",
+      "Bash(git commit --no-verify -m 'FEAT: Widget multitenancy config + customer-facing chatbot *)",
+      "Bash(docker system *)",
+      "Bash(NODE_DEBUG=* npm run build)",
+      "Bash(git commit -m 'FEAT: Display real property/project data from Leadrat API in chat UI *)",
+      "Bash(git checkout *)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force })",
+      "Bash(curl -s -w \"\\\\nStatus: %{http_code}\\\\nTime: %{time_total}s\\\\n\" http://localhost:8000/api/v1/chat/health)",
+      "Bash(curl -v http://localhost:8000/api/v1/chat/status)",
+      "Bash(curl -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{\"message\":\"find properties\",\"tenant_id\":\"dubait11\"}')",
+      "Bash(curl -s -w '\\\\n\\\\nStatus: %{http_code}\\\\nTime taken: %{time_total}s\\\\n' -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{\"message\":\"find properties\",\"tenant_id\":\"dubait11\"}')",
+      "Bash(tasklist)",
+      "Bash(netstat -ano)",
+      "Bash(kill 6636)",
+      "PowerShell(cd \"c:\\\\Users\\\\vikra\\\\source\\\\repos\\\\Chatbot_Leadrat\\\\real-estate-ai-chatbot\\\\backend-ai\"; Start-Job -ScriptBlock { cd \"c:\\\\Users\\\\vikra\\\\source\\\\repos\\\\Chatbot_Leadrat\\\\real-estate-ai-chatbot\\\\backend-ai\"; python -m uvicorn app.main:app --reload --port 8000 } -Name \"FastAPI\" | Out-Null; Start-Sleep -Seconds 3; \"FastAPI started\"; Get-Job -Name \"FastAPI\" | Select-Object State)",
+      "Bash(curl -X POST http://localhost:8000/api/v1/chat/message -H \"Content-Type: application/json\" -d '{\"message\":\"find properties\",\"tenant_id\":\"dubait11\"}')",
+      "PowerShell(cd \"c:\\\\Users\\\\vikra\\\\source\\\\repos\\\\Chatbot_Leadrat\\\\real-estate-ai-chatbot\\\\backend-ai\"; Start-Job -ScriptBlock { cd \"c:\\\\Users\\\\vikra\\\\source\\\\repos\\\\Chatbot_Leadrat\\\\real-estate-ai-chatbot\\\\backend-ai\"; $env:PYTHONDONTWRITEBYTECODE=1; python -m uvicorn app.main:app --reload --port 8000 } -Name \"FastAPI_Fresh\" | Out-Null; Start-Sleep -Seconds 5; \"FastAPI restarted \\(cache cleared\\)\")"
     ]
   }
 }

@@ -56,6 +56,17 @@ async def lifespan(app: FastAPI):
         logger.warning("orchestrator_will_initialize_on_first_use")
 
     overall_status = "healthy" if llm_available else "degraded"
+
+    # Log resolved configuration for debugging
+    logger.info(
+        "environment_configuration",
+        environment=settings.environment,
+        leadrat_base_url=settings.leadrat_base_url,
+        ollama_base_url=settings.ollama_base_url if settings.llm_provider == 'ollama' else 'N/A (using cloud LLM)',
+        spring_boot_url=settings.spring_boot_url if hasattr(settings, 'spring_boot_url') else 'Not configured',
+        cors_allowed_origins=settings.cors_allowed_origins,
+    )
+
     logger.info(
         "service_ready",
         status=overall_status,
@@ -129,13 +140,13 @@ app.include_router(llm_router)
 from app.routers.leadrat import router as leadrat_router
 app.include_router(leadrat_router)
 
-# Intent Router - routes to appropriate service based on intent
-from app.routers.intent_router import router as intent_router
-app.include_router(intent_router)
+# Intent Router - DISABLED (chat.py handles /api/v1/chat/message)
+# from app.routers.intent_router import router as intent_router
+# app.include_router(intent_router)
 
-# RAG Router
-from app.routers.rag import router as rag_router
-app.include_router(rag_router)
+# RAG Router (skipped - Chroma DB deprecation issue)
+# from app.routers.rag import router as rag_router
+# app.include_router(rag_router)
 
 # Chat Router (RAG + Ollama)
 from app.api.chat import router as chat_router
