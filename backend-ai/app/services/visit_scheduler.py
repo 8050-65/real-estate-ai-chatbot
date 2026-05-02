@@ -55,7 +55,7 @@ async def schedule_visit(
 
         async with httpx.AsyncClient(timeout=settings.spring_boot_timeout_seconds) as client:
             response = await client.post(
-                f"{settings.spring_boot_url}/api/v1/visits",
+                f"{settings.spring_boot_url}/api/v1/site-visits",
                 json=payload,
                 headers={"Authorization": "Bearer"},  # Add JWT token here
             )

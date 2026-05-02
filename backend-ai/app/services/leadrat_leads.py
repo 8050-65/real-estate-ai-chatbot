@@ -132,9 +132,11 @@ async def list_leads(
         response.raise_for_status()
         data = response.json()
 
-        count = len(data.get("data") or [])
-        logger.info("leadrat_leads_retrieved", tenant_id=tenant_id, count=count)
-        return data
+        # Leadrat API sometimes returns 'items' and sometimes 'data'
+        items = data.get("items") or data.get("data") or []
+        
+        logger.info("leadrat_leads_retrieved", tenant_id=tenant_id, count=len(items))
+        return {"data": items, "totalCount": data.get("totalCount", len(items))}
 
     except Exception as e:
         logger.error("leadrat_leads_list_error", tenant_id=tenant_id, error=str(e), exc_info=True)
@@ -177,9 +179,10 @@ async def list_properties(
         response.raise_for_status()
         data = response.json()
 
-        count = len(data.get("data") or [])
-        logger.info("leadrat_properties_retrieved", tenant_id=tenant_id, count=count)
-        return data
+        items = data.get("items") or data.get("data") or []
+        
+        logger.info("leadrat_properties_retrieved", tenant_id=tenant_id, count=len(items))
+        return {"data": items, "totalCount": data.get("totalCount", len(items))}
 
     except Exception as e:
         logger.error("leadrat_properties_list_error", tenant_id=tenant_id, error=str(e), exc_info=True)
@@ -222,9 +225,10 @@ async def list_projects(
         response.raise_for_status()
         data = response.json()
 
-        count = len(data.get("data") or [])
-        logger.info("leadrat_projects_retrieved", tenant_id=tenant_id, count=count)
-        return data
+        items = data.get("items") or data.get("data") or []
+        
+        logger.info("leadrat_projects_retrieved", tenant_id=tenant_id, count=len(items))
+        return {"data": items, "totalCount": data.get("totalCount", len(items))}
 
     except Exception as e:
         logger.error("leadrat_projects_list_error", tenant_id=tenant_id, error=str(e), exc_info=True)
