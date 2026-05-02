@@ -21,7 +21,13 @@
       "Bash(git commit -m 'FIX: Implement lead creation flow and property/project search in chat endpoint *)",
       "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{ *)",
       "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{\"message\":\"hello\",\"tenant_id\":\"dubait11\",\"conversation_history\":[]}')",
-      "Bash(git commit -m 'FIX: Clean embedded UI layout and correct widget positioning *)"
+      "Bash(git commit -m 'FIX: Clean embedded UI layout and correct widget positioning *)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{\"message\":\"find properties\",\"tenant_id\":\"dubait11\",\"conversation_history\":[]}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/chat/message -H 'Content-Type: application/json' -d '{\"message\":\"interested: Magan10001\",\"tenant_id\":\"dubait11\",\"conversation_history\":[]}')",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/embedded)",
+      "Bash(curl -s http://localhost:3000/chatbot-embed.js)",
+      "Bash(git commit -m 'FIX: Update embedded mode text colors for white background visibility *)"
     ]
   }
 }

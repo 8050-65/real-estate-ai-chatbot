@@ -2080,6 +2080,8 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
+          background: embeddedMode ? '#ffffff' : undefined,
+          color: embeddedMode ? '#1f2937' : undefined,
         }}
       >
         {messages.length === 0 && (
@@ -2105,7 +2107,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
               {getTranslation(language, 'welcome_title')}
             </div>
             <p style={{
-              color: 'hsl(220 10% 65%)',
+              color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)',
               fontSize: '14px',
               margin: '0',
               maxWidth: '280px',
@@ -2131,14 +2133,14 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
                   style={{
                     padding: '12px 16px',
                     borderRadius: '1rem',
-                    border: '1px solid hsl(195 85% 55% / 0.4)',
-                    background: 'rgba(195, 100, 255, 0.08)',
-                    color: 'hsl(195 85% 55%)',
+                    border: embeddedMode ? '1px solid #3b82f6' : '1px solid hsl(195 85% 55% / 0.4)',
+                    background: embeddedMode ? '#dbeafe' : 'rgba(195, 100, 255, 0.08)',
+                    color: embeddedMode ? '#0369a1' : 'hsl(195 85% 55%)',
                     fontSize: '13px',
                     fontWeight: '500',
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
-                    backdropFilter: 'blur(10px)',
+                    backdropFilter: embeddedMode ? 'none' : 'blur(10px)',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'rgba(195, 100, 255, 0.15)';
@@ -2190,23 +2192,29 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
               <div
                 style={{
                   maxWidth: '70%',
-                  backgroundColor: msg.role === 'user'
-                    ? 'rgba(195, 100, 255, 0.15)'
-                    : 'rgba(220, 40, 12%, 0.5)',
-                  border: `1px solid ${msg.role === 'user'
-                    ? 'hsl(270 60% 55% / 0.4)'
-                    : 'hsl(195 85% 55% / 0.3)'}`,
-                  backdropFilter: 'blur(10px)',
+                  backgroundColor: embeddedMode
+                    ? (msg.role === 'user' ? '#e9d5ff' : '#dbeafe')
+                    : (msg.role === 'user'
+                      ? 'rgba(195, 100, 255, 0.15)'
+                      : 'rgba(220, 40, 12%, 0.5)'),
+                  border: `1px solid ${embeddedMode
+                    ? (msg.role === 'user' ? '#c084fc' : '#7dd3fc')
+                    : (msg.role === 'user'
+                      ? 'hsl(270 60% 55% / 0.4)'
+                      : 'hsl(195 85% 55% / 0.3)')}`,
+                  backdropFilter: embeddedMode ? 'none' : 'blur(10px)',
                   borderRadius: '1rem',
                   padding: '12px 16px',
-                  color: 'hsl(40 30% 95%)',
+                  color: embeddedMode ? '#1f2937' : 'hsl(40 30% 95%)',
                   fontSize: '13px',
                   lineHeight: '1.5',
                   wordBreak: 'break-word',
                   whiteSpace: 'pre-wrap',
-                  boxShadow: msg.role === 'user'
-                    ? 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 15px hsl(270 60% 55% / 0.15)'
-                    : 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 20px hsl(195 85% 55% / 0.2)',
+                  boxShadow: embeddedMode
+                    ? (msg.role === 'user' ? '0 2px 8px rgba(168, 85, 247, 0.1)' : '0 2px 8px rgba(59, 130, 246, 0.1)')
+                    : (msg.role === 'user'
+                      ? 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 15px hsl(270 60% 55% / 0.15)'
+                      : 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 20px hsl(195 85% 55% / 0.2)'),
                   transition: 'all 0.3s ease',
                 }}
               >
@@ -2242,37 +2250,47 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
                     <div
                       key={idx}
                       style={{
-                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
-                        border: '1px solid rgba(6, 182, 212, 0.3)',
+                        backgroundColor: embeddedMode ? '#ecf0f1' : 'rgba(6, 182, 212, 0.1)',
+                        border: embeddedMode ? '1px solid #cbd5e0' : '1px solid rgba(6, 182, 212, 0.3)',
                         borderRadius: '0.75rem',
                         padding: '12px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.15)';
-                        e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                        if (embeddedMode) {
+                          e.currentTarget.style.backgroundColor = '#e2e8f0';
+                          e.currentTarget.style.borderColor = '#94a3b8';
+                        } else {
+                          e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.15)';
+                          e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
-                        e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
+                        if (embeddedMode) {
+                          e.currentTarget.style.backgroundColor = '#ecf0f1';
+                          e.currentTarget.style.borderColor = '#cbd5e0';
+                        } else {
+                          e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
+                          e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
+                        }
                       }}
                     >
-                      <div style={{ fontWeight: '600', color: 'hsl(195 85% 55%)', marginBottom: '4px' }}>
+                      <div style={{ fontWeight: '600', color: embeddedMode ? '#1f2937' : 'hsl(195 85% 55%)', marginBottom: '4px' }}>
                         {item.name || item.title || 'Item'}
                       </div>
                       {item.price && (
-                        <div style={{ fontSize: '12px', color: 'hsl(40 100% 60%)', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '12px', color: embeddedMode ? '#059669' : 'hsl(40 100% 60%)', marginBottom: '4px' }}>
                           💰 {item.price}
                         </div>
                       )}
                       {item.location && (
-                        <div style={{ fontSize: '12px', color: 'hsl(220 10% 65%)', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
                           📍 {item.location}
                         </div>
                       )}
                       {item.propertyType && (
-                        <div style={{ fontSize: '12px', color: 'hsl(220 10% 65%)', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
                           🏠 {item.propertyType}
                         </div>
                       )}
@@ -2318,26 +2336,36 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
                       fontSize: '12px',
                       padding: '8px 14px',
                       borderRadius: '999px',
-                      border: '1px solid hsl(195 85% 55% / 0.4)',
-                      color: 'hsl(195 85% 55%)',
-                      backgroundColor: 'rgba(195, 100, 255, 0.08)',
+                      border: embeddedMode ? '1px solid #3b82f6' : '1px solid hsl(195 85% 55% / 0.4)',
+                      color: embeddedMode ? '#0369a1' : 'hsl(195 85% 55%)',
+                      backgroundColor: embeddedMode ? '#dbeafe' : 'rgba(195, 100, 255, 0.08)',
                       cursor: isLoading ? 'not-allowed' : 'pointer',
                       opacity: isLoading ? 0.5 : 1,
                       transition: 'all 0.3s ease',
                       fontWeight: '500',
-                      backdropFilter: 'blur(10px)',
+                      backdropFilter: embeddedMode ? 'none' : 'blur(10px)',
                     }}
                     onMouseEnter={(e) => {
                       if (!isLoading) {
-                        e.currentTarget.style.backgroundColor = 'rgba(195, 100, 255, 0.15)';
-                        e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.6)';
+                        if (embeddedMode) {
+                          e.currentTarget.style.backgroundColor = '#bfdbfe';
+                          e.currentTarget.style.borderColor = '#0284c7';
+                        } else {
+                          e.currentTarget.style.backgroundColor = 'rgba(195, 100, 255, 0.15)';
+                          e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.6)';
+                        }
                         e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px hsl(195 85% 55% / 0.2)';
+                        e.currentTarget.style.boxShadow = embeddedMode ? '0 4px 12px rgba(59, 130, 246, 0.2)' : '0 4px 12px hsl(195 85% 55% / 0.2)';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(195, 100, 255, 0.08)';
-                      e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.4)';
+                      if (embeddedMode) {
+                        e.currentTarget.style.backgroundColor = '#dbeafe';
+                        e.currentTarget.style.borderColor = '#3b82f6';
+                      } else {
+                        e.currentTarget.style.backgroundColor = 'rgba(195, 100, 255, 0.08)';
+                        e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.4)';
+                      }
                       e.currentTarget.style.transform = 'translateY(0)';
                       e.currentTarget.style.boxShadow = 'none';
                     }}
@@ -2356,9 +2384,9 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
       <div
         style={{
           padding: '16px 24px',
-          borderTop: '1px solid hsl(195 85% 55% / 0.15)',
-          background: 'rgba(220, 30% 6%, 0.7)',
-          backdropFilter: 'blur(10px)',
+          borderTop: embeddedMode ? '1px solid #e5e7eb' : '1px solid hsl(195 85% 55% / 0.15)',
+          background: embeddedMode ? '#ffffff' : 'rgba(220, 30% 6%, 0.7)',
+          backdropFilter: embeddedMode ? 'none' : 'blur(10px)',
           display: 'flex',
           gap: '12px',
         }}
@@ -2372,9 +2400,9 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
           disabled={isLoading}
           style={{
             flex: 1,
-            backgroundColor: 'rgba(220, 40, 12%, 0.4)',
-            border: '1px solid hsl(195 85% 55% / 0.3)',
-            backdropFilter: 'blur(10px)',
+            backgroundColor: embeddedMode ? '#f3f4f6' : 'rgba(220, 40, 12%, 0.4)',
+            border: embeddedMode ? '1px solid #d1d5db' : '1px solid hsl(195 85% 55% / 0.3)',
+            backdropFilter: embeddedMode ? 'none' : 'blur(10px)',
             borderRadius: '1rem',
             padding: '12px 16px',
             color: '#000000',
@@ -2382,7 +2410,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
             outline: 'none',
             transition: 'all 0.3s ease',
             opacity: isLoading ? 0.6 : 1,
-            boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.1)',
+            boxShadow: embeddedMode ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'inset 0 1px 2px rgba(255, 255, 255, 0.1)',
           }}
           onFocus={(e) => {
             e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.6)';
