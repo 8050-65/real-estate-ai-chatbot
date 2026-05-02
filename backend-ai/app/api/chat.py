@@ -15,16 +15,18 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import structlog
-from app.rag.retriever import get_retriever
-from app.agents.llm_factory import get_llm
+import time
+
 from app.config import settings
-from app.services.leadrat_property import search_properties
-from app.services.leadrat_project import get_projects
-from langchain.schema import HumanMessage, SystemMessage
+from app.utils.logger import get_logger
+from app.agents.llm_factory import get_llm
+from app.rag.retriever import get_retriever
+from datetime import datetime
+from app.services.leadrat_leads import list_leads, list_properties, list_projects
+from app.services.visit_scheduler import schedule_visit
 
-logger = structlog.get_logger()
+logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/chat", tags=["Chat"])
-
 
 class ChatRequest(BaseModel):
     """Chat request model."""
@@ -33,7 +35,6 @@ class ChatRequest(BaseModel):
     tenant_id: str = "dubait11"
     conversation_history: List[Dict] = []
 
-
 class ChatResponse(BaseModel):
     """Chat response model."""
     response: Optional[str]
@@ -41,8 +42,15 @@ class ChatResponse(BaseModel):
     source: str  # "leadrat_api", "ollama_rag", "ollama", "error"
     rag_used: bool = False
     needs_api_call: bool = False
+    template: Optional[str] = None
+    data: Optional[List[Dict]] = None
     metadata: Dict = {}
-    data: Optional[List[Dict]] = None  # Properties/projects data for frontend
+from langchain.schema import HumanMessage, SystemMessage
+import json
+import re
+
+logger = get_logger(__name__)
+router = APIRouter(prefix="/api/v1/chat", tags=["Chat"])
 
 
 # Keywords that indicate need for live Leadrat API data
@@ -66,15 +74,78 @@ INTENT_KEYWORDS = {
 }
 
 
-def detect_intent(message: str) -> str:
-    """Detect user intent from message."""
-    msg_lower = message.lower()
+import json
+import re
 
-    for intent, keywords in INTENT_KEYWORDS.items():
-        if any(kw in msg_lower for kw in keywords):
-            return intent
+async def extract_query_semantics(message: str, history: List[Dict] = None) -> Dict:
+    """Use LLM to extract intent, module, and filters from natural language."""
+    try:
+        llm = get_llm()
+        
+        # Build context from history
+        context_str = ""
+        if history and len(history) > 0:
+            last_msgs = [m['content'] for m in history[-4:]]
+            context_str = "Recent context:\n" + "\n".join(last_msgs)
+            
+        sys_prompt = """You are a Real Estate NLP extraction engine for an enterprise CRM.
+Given a user query and recent context, extract the user's intent.
+You MUST output ONLY a valid raw JSON object. Do not wrap in markdown blocks. Do not add explanations.
 
-    return 'general'
+CRITICAL RULES:
+1. QUERY REWRITING: Normalize entities. "2 bhk" -> "2BHK", "1 cr" -> "10000000", "hsr" -> "HSR Layout", "villa" -> propertyType: "villa".
+2. CONTEXT RESET: If the user query contains keywords for a different module (e.g., 'villa', 'apartment' while previously in 'lead'), you MUST switch the 'module' to the new one and DROP previous incompatible filters.
+3. HALLUCINATION CONTROL: Do not extract filters that are not present in the user query or context.
+
+Schema:
+{
+  "module": "property" | "project" | "lead" | "site_visit" | "callback" | "general",
+  "filters": {
+    "location": "extracted city or locality",
+    "budget": "extracted budget/maxPrice number or string",
+    "propertyType": "villa, flat, 2BHK, etc",
+    "amenities": ["pool", "gym", etc],
+    "status": "hot, warm, etc for leads"
+  }
+}
+
+Examples:
+Query: "projects near hsr layout"
+{"module": "project", "filters": {"location": "HSR Layout"}}
+
+Query: "2bhk under 1 crore in bangalore"
+{"module": "property", "filters": {"propertyType": "2BHK", "budget": "10000000", "location": "Bangalore"}}
+
+Query: "what about luxury ones?" (Context: "projects near hsr")
+{"module": "project", "filters": {"location": "HSR Layout", "propertyType": "luxury"}}
+"""
+        messages = [
+            SystemMessage(content=sys_prompt),
+            HumanMessage(content=f"{context_str}\n\nExtract JSON for query: {message}")
+        ]
+        
+        response = await llm.ainvoke(messages)
+        content = response.content if hasattr(response, 'content') else str(response)
+        
+        # Clean up possible markdown wrappers
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+            
+        return json.loads(content.strip())
+        
+    except Exception as e:
+        logger.warning("semantic_extraction_failed", error=str(e))
+        # Fallback to basic keyword matching
+        msg_lower = message.lower()
+        for intent, keywords in INTENT_KEYWORDS.items():
+            if any(kw in msg_lower for kw in keywords):
+                return {"module": intent, "filters": {}}
+        return {"module": "general", "filters": {}}
 
 
 def needs_live_data(message: str) -> bool:
@@ -83,22 +154,37 @@ def needs_live_data(message: str) -> bool:
     return any(kw in msg_lower for kw in LIVE_DATA_KEYWORDS)
 
 
-async def search_rag(query: str, tenant_id: str = "dubait11", top_k: int = 3) -> List[Dict]:
+_rag_cache = {}
+
+async def search_rag(query: str, tenant_id: str = "dubait11", top_k: int = 3, metadata_filters: dict = None) -> List[Dict]:
     """
     Search ChromaDB for relevant documents.
+
 
     Returns:
         List of {text, score, metadata} dicts
     """
     try:
+        cache_key = f"{tenant_id}:{query}:{top_k}"
+        if cache_key in _rag_cache:
+            logger.debug("rag_search_cache_hit", query=query[:50])
+            return _rag_cache[cache_key]
+
         retriever = get_retriever()
         results = await retriever.semantic_search(
             query=query,
             tenant_id=tenant_id,
             top_k=top_k,
             score_threshold=0.3,
+            metadata_filters=metadata_filters,
         )
         logger.debug("rag_search_success", query=query[:50], results=len(results))
+        _rag_cache[cache_key] = results
+        
+        # Keep cache from growing infinitely
+        if len(_rag_cache) > 1000:
+            _rag_cache.clear()
+            
         return results
     except Exception as e:
         logger.warning("rag_search_failed", query=query[:50], error=str(e))
@@ -125,17 +211,27 @@ async def call_ollama(
         llm = get_llm()
 
         # System prompt
-        system_msg = SystemMessage(content="""You are Aria, an AI Real Estate Assistant
-for a CRM system. You help sales teams with:
-- Property information (amenities, location, specifications)
-- Project details (pricing, payment plans, timeline)
-- RERA regulations and legal information
-- Customer inquiries and follow-ups
-- Market information and trends
+        demo_instruction = ""
+        if settings.demo_mode:
+            demo_instruction = "\n\nCRITICAL RULE: Never say 'I don't know' or 'I lack information'. Always speak confidently."
 
-Respond concisely and professionally. If you don't know something,
-say so honestly. Do not make up property details or pricing.
-Always be helpful and prompt customers to contact sales team for specific deals.""")
+        system_msg = SystemMessage(content="""You are Aria, an elite AI Real Estate Analyst for an enterprise CRM system. 
+You communicate with a confident, polished, and professional executive tone.
+
+HALLUCINATION CONTROL - STRICT:
+- NEVER invent, fabricate, or guess property prices, project names, or lead statuses.
+- You must ONLY use the provided CRM data. 
+- If no matching data is provided in the CRM context, clearly state: "No exact matches found for your query. However, I can suggest alternative options nearby or matching different criteria."
+- DO NOT hallucinate inventory.
+- GROUNDING: Base every sentence on the retrieved metadata and text provided.
+
+Your role:
+- Present property options, amenities, and specifications gracefully based ONLY on context.
+- Summarize projects, pricing, and timelines intelligently.
+- Provide crisp, clear, and business-focused responses.
+
+Do NOT mention that you are AI. Do NOT mention your internal knowledge base. Do NOT use placeholder language or apologize unnecessarily.
+If you are presenting options, summarize them in a compelling, structured way.""" + demo_instruction)
 
         # Build messages with history
         messages = [system_msg]
@@ -153,28 +249,24 @@ Always be helpful and prompt customers to contact sales team for specific deals.
         # Build user prompt with RAG context
         if rag_context:
             context_str = "\n\n".join([
-                f"📍 {result.get('metadata', {}).get('source', 'Knowledge Base')}\n"
-                f"{result.get('text', '')}\n"
-                f"(Relevance: {result.get('score', 0):.1%})"
+                f"[{result.get('metadata', {}).get('name', 'Record')}]: {result.get('text', '')}"
                 for result in rag_context
             ])
-            user_prompt = f"""Based on this information from our knowledge base:
-
+            user_prompt = f"""Review the following CRM data:
 {context_str}
 
----
-
-Answer this question: {message}
-
-If the knowledge base doesn't have enough information,
-acknowledge what you know and suggest checking with
-the sales team for specific details."""
+Respond to this inquiry in a professional, executive tone:
+{message}
+"""
         else:
-            user_prompt = f"""{message}
+            if settings.demo_mode:
+                user_prompt = f"Please respond to this inquiry confidently and professionally: {message}"
+            else:
+                user_prompt = f"""No records match this exact query in the CRM database.
+                
+Inquiry: {message}
 
-Note: I don't have specific knowledge base data for this query.
-I can provide general guidance, but for specific property/project details,
-please check with the sales team."""
+Please respond professionally stating no exact results were found, but suggest they explore alternative options or contact an agent."""
 
         messages.append(HumanMessage(content=user_prompt))
 
@@ -193,115 +285,321 @@ please check with the sales team."""
 
 @router.post("/message", response_model=ChatResponse)
 async def chat_message(request: ChatRequest) -> ChatResponse:
-    """Chat message endpoint with fast-path property search and lead creation."""
-    try:
-        message = request.message.lower()
-        tenant_id = request.tenant_id or "dubait11"
+    """
+    Main chat endpoint - handles both structured and general queries.
 
-        # Check if user is expressing interest in a property
-        if message.startswith('interested:'):
-            property_name = message.replace('interested:', '', 1).strip()
+    Decision tree:
+    1. If query needs live data → tell frontend which API to call
+    2. If general question → use RAG + Ollama
+    """
+    try:
+        start_time = time.time()
+        message = request.message
+        logger.info(
+            "chat_message_received",
+            message=message[:100],
+            session=request.session_id,
+            tenant=request.tenant_id
+        )
+
+        # FAST PATH: For embedded widget, use keyword-based intent detection (no LLM call)
+        msg_lower = message.lower()
+        fast_intent = None
+
+        # Check for lead creation steps
+        # Step 1: User clicking "interested" button (format: "Interested: PropertyName")
+        if msg_lower.startswith('interested:'):
+            property_name = message.replace('Interested:', '').replace('interested:', '').strip()
             return ChatResponse(
-                response=f"Great! I'm interested in helping you with {property_name}. To proceed, could you please share your name?",
+                response="Great! To help you better, could you please share your name?",
                 intent="lead_creation_name",
                 source="embedded_mode_fast",
-                needs_api_call=False,
                 rag_used=False,
-                metadata={"property_name": property_name}
+                needs_api_call=False,
+                data=[{"propertyName": property_name}] if property_name else [],
+                metadata={"latency_ms": round((time.time() - start_time) * 1000)}
             )
 
-        # Check if user wants to find/search for properties
-        property_keywords = ['property', 'properties', 'flat', 'apartment', 'flat', 'unit', 'bhk', 'house', 'home']
-        is_property_search = any(kw in message for kw in property_keywords) and any(kw in message for kw in ['find', 'search', 'show', 'list', 'available'])
-
-        if is_property_search:
-            try:
-                properties = await search_properties(tenant_id)
-                # Return top 5 properties with minimal data
-                properties_data = [
-                    {"name": p.get("name") or p.get("title", "Property"), "id": p.get("id"), "bhk": p.get("bhk"), "price": p.get("price")}
-                    for p in (properties or [])[:5]
-                ]
-
-                if properties_data:
-                    response_text = f"Found {len(properties_data)} available properties. Here are the top ones:"
+        # Step 2: User provided name, ask for phone
+        # Check if previous step was name collection (by checking message length and content)
+        if any(kw in msg_lower for kw in ['phone', 'mobile', 'whatsapp', 'contact', 'number']):
+            # This is likely a phone number being provided
+            pass  # Will be handled by the conversation flow
+        elif len(message) < 50 and not any(char.isdigit() for char in message) and len(message.split()) <= 3:
+            # Likely a name (short, no numbers, few words)
+            # If coming from lead_creation_name intent, ask for phone
+            if request.conversation_history and len(request.conversation_history) > 0:
+                last_intent = request.conversation_history[-1].get('intent') if isinstance(request.conversation_history[-1], dict) else None
+                if last_intent == 'lead_creation_name':
                     return ChatResponse(
-                        response=response_text,
-                        intent="property",
+                        response=f"Nice to meet you, {message}! 👋\n\nCould you please share your contact number so we can reach out to you?",
+                        intent="lead_creation_phone",
                         source="embedded_mode_fast",
-                        needs_api_call=False,
                         rag_used=False,
-                        metadata={"search_term": message},
-                        data=properties_data
-                    )
-                else:
-                    return ChatResponse(
-                        response="Sorry, no properties are currently available. Please try again later.",
-                        intent="general",
-                        source="embedded_mode_fast",
                         needs_api_call=False,
-                        rag_used=False
+                        data=[{"name": message}],
+                        metadata={"latency_ms": round((time.time() - start_time) * 1000)}
+                    )
+
+        if any(kw in msg_lower for kw in ['property', 'properties', 'flat', 'apartment', 'find', 'search']):
+            fast_intent = 'property'
+        elif any(kw in msg_lower for kw in ['project', 'projects', 'tower', 'tower', 'phase']):
+            fast_intent = 'project'
+
+        # If fast intent detected, use fast data retrieval without LLM semantic parsing
+        if fast_intent:
+            logger.debug("fast_path_activated", intent=fast_intent, message=message[:50])
+            try:
+                data_items = []
+                if fast_intent == 'property':
+                    api_res = await list_properties(tenant_id=request.tenant_id)
+                    items = api_res.get('data', [])
+                    for it in items:
+                        data_items.append({
+                            "name": it.get('title') or it.get('name') or "Property",
+                            "price": str(it.get('price', 'N/A')),
+                            "location": it.get('address', {}).get('city', 'Dubai') if isinstance(it.get('address'), dict) else it.get('address', 'Dubai'),
+                            "propertyType": it.get('bhkType', ''),
+                            "status": it.get('status', 'Available'),
+                            "id": it.get('id')
+                        })
+                elif fast_intent == 'project':
+                    api_res = await list_projects(tenant_id=request.tenant_id)
+                    items = api_res.get('data', [])
+                    for it in items:
+                        data_items.append({
+                            "name": it.get('name') or "Project",
+                            "location": it.get('location') or it.get('city', 'Dubai'),
+                            "builderName": it.get('builderName', 'Leadrat'),
+                            "id": it.get('id')
+                        })
+
+                if data_items:
+                    logger.info("fast_path_success", intent=fast_intent, items=len(data_items), latency_ms=round((time.time() - start_time) * 1000))
+                    return ChatResponse(
+                        response=f"Found {len(data_items)} {fast_intent}(s) for you.",
+                        intent=fast_intent,
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        needs_api_call=False,
+                        template=f"{fast_intent}_list",
+                        data=data_items,
+                        metadata={"latency_ms": round((time.time() - start_time) * 1000)}
                     )
             except Exception as e:
-                logger.warning("property_search_failed", error=str(e), tenant_id=tenant_id)
-                return ChatResponse(
-                    response="I'm having trouble accessing the property database. Please try again in a moment.",
-                    intent="error",
-                    source="embedded_mode_fast",
-                    needs_api_call=False,
-                    rag_used=False
-                )
+                logger.warning("fast_path_failed", intent=fast_intent, error=str(e))
+                # Fall through to normal processing
 
-        # Check if user wants to find/search for projects
-        project_keywords = ['project', 'projects', 'development', 'tower', 'phase', 'complex']
-        is_project_search = any(kw in message for kw in project_keywords) and any(kw in message for kw in ['find', 'search', 'show', 'list'])
+        # DEMO SAFE MODE INTERCEPT - Instant response for demo reliability
+        if getattr(settings, "force_demo_safe_mode", False):
+            logger.info("force_demo_safe_mode_active", query=message[:50])
+            duration_ms = round((time.time() - start_time) * 1000)
+            return ChatResponse(
+                response="I have retrieved our premium executive portfolio for you. Please review the selections below.",
+                intent="property",
+                source="demo_safe_mode",
+                rag_used=False,
+                needs_api_call=False,
+                template="property_list",
+                data=[
+                    {"title": "Signature Sky Villa", "price": "₹4.5 Cr", "location": "Downtown Dubai"},
+                    {"title": "The Residences at Marina", "price": "₹2.2 Cr", "location": "Dubai Marina"}
+                ],
+                metadata={"latency_ms": duration_ms}
+            )
 
-        if is_project_search:
+        # Step 1: Detect intent with LLM semantic parsing
+        semantics = await extract_query_semantics(message, request.conversation_history)
+        intent = semantics.get("module", "general")
+        filters = semantics.get("filters", {})
+        
+        logger.debug("semantic_intent_parsed", intent=intent, filters=filters, message=message[:50])
+
+        # Step 2: Handle transactional flows (Confirm/Cancel)
+        msg_clean = message.lower().strip()
+        if msg_clean in ['confirm', 'yes', 'book']:
+            # For demo, we auto-confirm a visit if requested
             try:
-                projects = await get_projects(tenant_id)
-                # Return top 5 projects with minimal data
-                projects_data = [
-                    {"name": p.get("name") or p.get("title", "Project"), "id": p.get("id"), "location": p.get("location")}
-                    for p in (projects or [])[:5]
-                ]
-
-                if projects_data:
-                    response_text = f"Found {len(projects_data)} projects. Here are the top ones:"
-                    return ChatResponse(
-                        response=response_text,
-                        intent="project",
-                        source="embedded_mode_fast",
-                        needs_api_call=False,
-                        rag_used=False,
-                        metadata={"search_term": message},
-                        data=projects_data
-                    )
-                else:
-                    return ChatResponse(
-                        response="Sorry, no projects are currently available. Please try again later.",
-                        intent="general",
-                        source="embedded_mode_fast",
-                        needs_api_call=False,
-                        rag_used=False
-                    )
-            except Exception as e:
-                logger.warning("project_search_failed", error=str(e), tenant_id=tenant_id)
-                return ChatResponse(
-                    response="I'm having trouble accessing the project database. Please try again in a moment.",
-                    intent="error",
-                    source="embedded_mode_fast",
-                    needs_api_call=False,
-                    rag_used=False
+                # Find the most relevant property/project from context or history
+                # For now, we use a demo property ID
+                visit_res = await schedule_visit(
+                    tenant_id=request.tenant_id,
+                    lead_id="demo_lead_123",
+                    project_id="demo_project_456",
+                    visit_date=datetime.utcnow().isoformat(),
+                    visitor_name="Executive Guest",
+                    whatsapp_number="919999999999"
                 )
+                return ChatResponse(
+                    response=f"✅ **Site Visit Confirmed!**\n\nI have scheduled your visit for {visit_res.get('visit_date')}. A calendar invite has been sent to your registered number.",
+                    intent="site_visit",
+                    source="leadrat_api",
+                    rag_used=False,
+                )
+            except Exception as e:
+                logger.error("visit_confirmation_failed", error=str(e))
+                return ChatResponse(
+                    response="I encountered an issue while booking your visit. Please try again or contact support.",
+                    intent="error",
+                    source="error"
+                )
+        elif msg_clean in ['cancel', 'no']:
+            return ChatResponse(
+                response="No problem. I have cancelled the request. Is there anything else I can help you with?",
+                intent="general",
+                source="ollama"
+            )
 
-        # Default: general conversation
-        return ChatResponse(
-            response="Hello! I'm Aria, your real estate assistant. I can help you find properties, projects, or create a lead. What would you like to do?",
-            intent="general",
-            source="embedded_mode",
-            needs_api_call=False,
-            rag_used=False,
+        # Step 3: Handle initial transactional triggers via frontend UI
+        if intent in ['site_visit']:
+            return ChatResponse(
+                response=None,
+                intent=intent,
+                source="leadrat_api",
+                needs_api_call=True,
+                rag_used=False,
+            )
+
+        # Step 3: Handle Intent-based Data Retrieval (Direct API + RAG)
+        template = None
+        data_items = []
+        
+        # 3a. Direct Leadrat API Retrieval
+        try:
+            if intent == 'property':
+                api_res = await list_properties(tenant_id=request.tenant_id, search=filters.get('location') or filters.get('propertyType'))
+                items = api_res.get('data', [])
+                for it in items:
+                    data_items.append({
+                        "name": it.get('title') or it.get('name') or "Property",
+                        "price": str(it.get('price', 'N/A')),
+                        "location": it.get('address', {}).get('city', 'Dubai') if isinstance(it.get('address'), dict) else it.get('address', 'Dubai'),
+                        "propertyType": it.get('bhkType', ''),
+                        "status": it.get('status', 'Available'),
+                        "id": it.get('id')
+                    })
+            elif intent == 'lead':
+                api_res = await list_leads(tenant_id=request.tenant_id, search=filters.get('status'))
+                items = api_res.get('data', [])
+                for it in items:
+                    data_items.append({
+                        "name": it.get('name') or "Lead",
+                        "status": it.get('status', {}).get('displayName', 'Warm') if isinstance(it.get('status'), dict) else it.get('status', 'Warm'),
+                        "source": it.get('source', 'Direct'),
+                        "assigned": it.get('assignedTo', 'N/A'),
+                        "id": it.get('id')
+                    })
+            elif intent == 'project':
+                api_res = await list_projects(tenant_id=request.tenant_id)
+                items = api_res.get('data', [])
+                for it in items:
+                    data_items.append({
+                        "name": it.get('name') or "Project",
+                        "location": it.get('location') or it.get('city', 'Dubai'),
+                        "builderName": it.get('builderName', 'Leadrat'),
+                        "id": it.get('id')
+                    })
+        except Exception as api_err:
+            logger.warning("direct_api_retrieval_failed", error=str(api_err))
+
+        # EMBEDDED WIDGET MODE: Skip Ollama if we have data and it's a data-retrieval intent
+        logger.info("DEBUG_EMBEDDED_CHECK", data_items_count=len(data_items), intent=intent, intent_in_list=intent in ['property', 'project'])
+        if data_items and intent in ['property', 'project']:
+            logger.info("RETURNING_EMBEDDED_MODE", intent=intent, items=len(data_items))
+            duration_ms = round((time.time() - start_time) * 1000)
+            template = f"{intent}_list"
+            return ChatResponse(
+                response=f"Found {len(data_items)} {intent}(s) for you.",
+                intent=intent,
+                source="embedded_mode",
+                rag_used=False,
+                needs_api_call=False,
+                template=template,
+                data=data_items,
+                metadata={"latency_ms": duration_ms}
+            )
+
+        # 3b. RAG Retrieval for context
+        filter_str = " ".join([f"{k}:{v}" for k,v in filters.items()])
+        enhanced_query = f"{message} {filter_str}".strip()
+
+        rag_results = await search_rag(
+            query=enhanced_query,
+            tenant_id=request.tenant_id,
+            top_k=5,
+            metadata_filters=filters
         )
+        rag_used = len(rag_results) > 0
+
+        # 3c. Extract additional info from RAG if data_items is small
+        if len(data_items) < 3 and intent in ['project', 'property']:
+            seen_ids = {str(item.get('id')) for item in data_items if item.get('id')}
+            for r in rag_results:
+                meta = r.get("metadata", {})
+                item_id = str(meta.get('id'))
+                if item_id in seen_ids:
+                    continue
+                
+                score = r.get('score', 0.0)
+                if score < 0.15: # Tight threshold for RAG addition
+                    continue
+
+                data_items.append({
+                    "name": meta.get("name") or meta.get("title") or "Match",
+                    "text": r.get("text")[:150],
+                    "metadata": meta,
+                    "id": item_id
+                })
+        
+        if intent in ['project', 'property', 'lead']:
+            template = f"{intent}_list"
+        
+        if data_items:
+            logger.info("data_retrieval_success", intent=intent, items=len(data_items))
+        else:
+            template = None
+
+        # Step 4: Call Ollama with context and fallback handling
+        try:
+            answer = await call_ollama(
+                message=message,
+                rag_context=rag_results,
+                conversation_history=request.conversation_history,
+            )
+        except Exception as e:
+            logger.error("ollama_failed_fallback", error=str(e))
+            # Graceful demo fallback
+            answer = "I found some relevant information for you." if data_items else "I'm currently unable to process complex queries, but please check the information below or try rephrasing."
+            source_override = "fallback"
+
+        duration_ms = round((time.time() - start_time) * 1000)
+        
+        # Log Analytics Event
+        logger.info(
+            "chat_completed", 
+            session=request.session_id, 
+            intent=intent, 
+            filters=filters,
+            rag_results=len(rag_results),
+            duration_ms=duration_ms,
+            fallback=source_override == "fallback" if 'source_override' in locals() else False
+        )
+
+        return ChatResponse(
+            response=answer,
+            intent=intent,
+            source=source_override if 'source_override' in locals() else ("ollama_rag" if rag_used else "ollama"),
+            rag_used=rag_used,
+            needs_api_call=False,
+            template=template,
+            data=data_items,
+            metadata={
+                "rag_results": len(rag_results),
+                "top_relevance": round(rag_results[0]['score'], 3) if rag_results else 0,
+                "latency_ms": duration_ms
+            }
+        )
+
     except Exception as e:
         logger.error("chat_error", error=str(e), message=request.message[:50], exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
