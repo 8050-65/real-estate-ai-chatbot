@@ -1,32 +1,29 @@
 """
-RAG + Ollama powered chat endpoint for real estate CRM.
-
-Decision tree:
-1. Detect if query needs live data (leads/properties/projects/status)
-   → Return intent + tell frontend to call Leadrat API
-2. Otherwise: Use RAG + Ollama to generate answer
-   - Search ChromaDB for relevant context
-   - Build prompt with RAG context
-   - Call Ollama llama3.2 for response
-3. Return AI-generated answer
+Chat endpoint with Ollama semantic extraction, RAG retrieval, and Leadrat API integration.
+Supports lead creation flow, property/project search, and conversational queries.
 """
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import structlog
-import time
-
 from app.config import settings
-from app.utils.logger import get_logger
-from app.agents.llm_factory import get_llm
-from app.rag.retriever import get_retriever
-from datetime import datetime
-from app.services.leadrat_leads import list_leads, list_properties, list_projects
-from app.services.visit_scheduler import schedule_visit
+from app.services.ollama_service import extract_semantics, generate_response
+from app.services.rag_service import hybrid_search
+from app.services.leadrat_api import (
+    create_lead, update_lead, get_leads,
+    get_projects, get_properties
+)
+from app.flows.lead_creation_flow import (
+    get_next_step,
+    build_confirmation_message,
+    build_leadrat_payload,
+    LEAD_CREATION_STEPS
+)
 
-logger = get_logger(__name__)
+logger = structlog.get_logger()
 router = APIRouter(prefix="/api/v1/chat", tags=["Chat"])
+
 
 class ChatRequest(BaseModel):
     """Chat request model."""
@@ -34,609 +31,540 @@ class ChatRequest(BaseModel):
     session_id: str = "default"
     tenant_id: str = "dubait11"
     conversation_history: List[Dict] = []
+    flow_state: Optional[Dict] = {}
+
 
 class ChatResponse(BaseModel):
     """Chat response model."""
     response: Optional[str]
     intent: str
-    source: str  # "leadrat_api", "ollama_rag", "ollama", "error"
+    source: str
     rag_used: bool = False
     needs_api_call: bool = False
     template: Optional[str] = None
     data: Optional[List[Dict]] = None
     metadata: Dict = {}
-from langchain.schema import HumanMessage, SystemMessage
-import json
-import re
-
-logger = get_logger(__name__)
-router = APIRouter(prefix="/api/v1/chat", tags=["Chat"])
-
-
-# Keywords that indicate need for live Leadrat API data
-LIVE_DATA_KEYWORDS = [
-    'lead', 'leads', 'enquiry', 'enquiries', 'customer', 'customer',
-    'property', 'properties', 'flat', 'flat', 'apartment', 'apartment',
-    'project', 'projects', 'tower', 'tower', 'phase', 'phase',
-    'schedule', 'visit', 'meeting', 'callback', 'booking', 'appointment',
-    'status', 'progress', 'update',
-    'show', 'list', 'find', 'search', 'display',
-    'create', 'add', 'new',
-]
-
-# Intent detection keywords
-INTENT_KEYWORDS = {
-    'lead': ['lead', 'enquiry', 'customer', 'contact', 'person', 'individual'],
-    'property': ['property', 'properties', 'flat', 'apartment', 'unit', 'bhk', 'villa', 'house', 'home'],
-    'project': ['project', 'projects', 'development', 'tower', 'phase', 'complex'],
-    'site_visit': ['schedule', 'visit', 'meeting', 'site', 'appointment', 'demo', 'show'],
-    'status': ['status', 'progress', 'update', 'check', 'current'],
-}
-
-
-import json
-import re
-
-async def extract_query_semantics(message: str, history: List[Dict] = None) -> Dict:
-    """Use LLM to extract intent, module, and filters from natural language."""
-    try:
-        llm = get_llm()
-        
-        # Build context from history
-        context_str = ""
-        if history and len(history) > 0:
-            last_msgs = [m['content'] for m in history[-4:]]
-            context_str = "Recent context:\n" + "\n".join(last_msgs)
-            
-        sys_prompt = """You are a Real Estate NLP extraction engine for an enterprise CRM.
-Given a user query and recent context, extract the user's intent.
-You MUST output ONLY a valid raw JSON object. Do not wrap in markdown blocks. Do not add explanations.
-
-CRITICAL RULES:
-1. QUERY REWRITING: Normalize entities. "2 bhk" -> "2BHK", "1 cr" -> "10000000", "hsr" -> "HSR Layout", "villa" -> propertyType: "villa".
-2. CONTEXT RESET: If the user query contains keywords for a different module (e.g., 'villa', 'apartment' while previously in 'lead'), you MUST switch the 'module' to the new one and DROP previous incompatible filters.
-3. HALLUCINATION CONTROL: Do not extract filters that are not present in the user query or context.
-
-Schema:
-{
-  "module": "property" | "project" | "lead" | "site_visit" | "callback" | "general",
-  "filters": {
-    "location": "extracted city or locality",
-    "budget": "extracted budget/maxPrice number or string",
-    "propertyType": "villa, flat, 2BHK, etc",
-    "amenities": ["pool", "gym", etc],
-    "status": "hot, warm, etc for leads"
-  }
-}
-
-Examples:
-Query: "projects near hsr layout"
-{"module": "project", "filters": {"location": "HSR Layout"}}
-
-Query: "2bhk under 1 crore in bangalore"
-{"module": "property", "filters": {"propertyType": "2BHK", "budget": "10000000", "location": "Bangalore"}}
-
-Query: "what about luxury ones?" (Context: "projects near hsr")
-{"module": "project", "filters": {"location": "HSR Layout", "propertyType": "luxury"}}
-"""
-        messages = [
-            SystemMessage(content=sys_prompt),
-            HumanMessage(content=f"{context_str}\n\nExtract JSON for query: {message}")
-        ]
-        
-        response = await llm.ainvoke(messages)
-        content = response.content if hasattr(response, 'content') else str(response)
-        
-        # Clean up possible markdown wrappers
-        content = content.strip()
-        if content.startswith("```json"):
-            content = content[7:]
-        if content.startswith("```"):
-            content = content[3:]
-        if content.endswith("```"):
-            content = content[:-3]
-            
-        return json.loads(content.strip())
-        
-    except Exception as e:
-        logger.warning("semantic_extraction_failed", error=str(e))
-        # Fallback to basic keyword matching
-        msg_lower = message.lower()
-        for intent, keywords in INTENT_KEYWORDS.items():
-            if any(kw in msg_lower for kw in keywords):
-                return {"module": intent, "filters": {}}
-        return {"module": "general", "filters": {}}
-
-
-def needs_live_data(message: str) -> bool:
-    """Check if query needs live data from Leadrat."""
-    msg_lower = message.lower()
-    return any(kw in msg_lower for kw in LIVE_DATA_KEYWORDS)
-
-
-_rag_cache = {}
-
-async def search_rag(query: str, tenant_id: str = "dubait11", top_k: int = 3, metadata_filters: dict = None) -> List[Dict]:
-    """
-    Search ChromaDB for relevant documents.
-
-
-    Returns:
-        List of {text, score, metadata} dicts
-    """
-    try:
-        cache_key = f"{tenant_id}:{query}:{top_k}"
-        if cache_key in _rag_cache:
-            logger.debug("rag_search_cache_hit", query=query[:50])
-            return _rag_cache[cache_key]
-
-        retriever = get_retriever()
-        results = await retriever.semantic_search(
-            query=query,
-            tenant_id=tenant_id,
-            top_k=top_k,
-            score_threshold=0.3,
-            metadata_filters=metadata_filters,
-        )
-        logger.debug("rag_search_success", query=query[:50], results=len(results))
-        _rag_cache[cache_key] = results
-        
-        # Keep cache from growing infinitely
-        if len(_rag_cache) > 1000:
-            _rag_cache.clear()
-            
-        return results
-    except Exception as e:
-        logger.warning("rag_search_failed", query=query[:50], error=str(e))
-        return []
-
-
-async def call_ollama(
-    message: str,
-    rag_context: Optional[List[Dict]] = None,
-    conversation_history: Optional[List[Dict]] = None,
-) -> str:
-    """
-    Call Ollama llama3.2 with optional RAG context.
-
-    Args:
-        message: User message
-        rag_context: List of RAG search results
-        conversation_history: Recent chat history for context
-
-    Returns:
-        Generated response from Ollama
-    """
-    try:
-        llm = get_llm()
-
-        # System prompt
-        demo_instruction = ""
-        if settings.demo_mode:
-            demo_instruction = "\n\nCRITICAL RULE: Never say 'I don't know' or 'I lack information'. Always speak confidently."
-
-        system_msg = SystemMessage(content="""You are Aria, an elite AI Real Estate Analyst for an enterprise CRM system. 
-You communicate with a confident, polished, and professional executive tone.
-
-HALLUCINATION CONTROL - STRICT:
-- NEVER invent, fabricate, or guess property prices, project names, or lead statuses.
-- You must ONLY use the provided CRM data. 
-- If no matching data is provided in the CRM context, clearly state: "No exact matches found for your query. However, I can suggest alternative options nearby or matching different criteria."
-- DO NOT hallucinate inventory.
-- GROUNDING: Base every sentence on the retrieved metadata and text provided.
-
-Your role:
-- Present property options, amenities, and specifications gracefully based ONLY on context.
-- Summarize projects, pricing, and timelines intelligently.
-- Provide crisp, clear, and business-focused responses.
-
-Do NOT mention that you are AI. Do NOT mention your internal knowledge base. Do NOT use placeholder language or apologize unnecessarily.
-If you are presenting options, summarize them in a compelling, structured way.""" + demo_instruction)
-
-        # Build messages with history
-        messages = [system_msg]
-
-        # Add conversation history (last 6 turns = 3 back-and-forths)
-        if conversation_history:
-            for turn in conversation_history[-6:]:
-                role = turn.get("role", "user")
-                content = turn.get("content", "")
-                if role == "user":
-                    messages.append(HumanMessage(content=content))
-                else:
-                    messages.append(HumanMessage(content=f"Assistant: {content}"))
-
-        # Build user prompt with RAG context
-        if rag_context:
-            context_str = "\n\n".join([
-                f"[{result.get('metadata', {}).get('name', 'Record')}]: {result.get('text', '')}"
-                for result in rag_context
-            ])
-            user_prompt = f"""Review the following CRM data:
-{context_str}
-
-Respond to this inquiry in a professional, executive tone:
-{message}
-"""
-        else:
-            if settings.demo_mode:
-                user_prompt = f"Please respond to this inquiry confidently and professionally: {message}"
-            else:
-                user_prompt = f"""No records match this exact query in the CRM database.
-                
-Inquiry: {message}
-
-Please respond professionally stating no exact results were found, but suggest they explore alternative options or contact an agent."""
-
-        messages.append(HumanMessage(content=user_prompt))
-
-        # Call Ollama
-        logger.debug("ollama_call_start", message=message[:50], rag_used=bool(rag_context))
-        response = llm.invoke(messages)
-        answer = response.content if hasattr(response, 'content') else str(response)
-
-        logger.debug("ollama_call_complete", message=message[:50], response_len=len(answer))
-        return answer
-
-    except Exception as e:
-        logger.error("ollama_call_failed", error=str(e), message=message[:50], exc_info=True)
-        raise
+    flow_state: Optional[Dict] = {}
 
 
 @router.post("/message", response_model=ChatResponse)
 async def chat_message(request: ChatRequest) -> ChatResponse:
     """
-    Main chat endpoint - handles both structured and general queries.
-
-    Decision tree:
-    1. If query needs live data → tell frontend which API to call
-    2. If general question → use RAG + Ollama
+    Main chat endpoint with Ollama + RAG + Leadrat APIs.
+    Handles lead creation flow, property/project search, and general queries.
     """
     try:
-        start_time = time.time()
-        message = request.message
-        logger.info(
-            "chat_message_received",
-            message=message[:100],
-            session=request.session_id,
-            tenant=request.tenant_id
-        )
+        message = request.message.strip()
+        tenant_id = request.tenant_id or "dubait11"
+        flow_state = request.flow_state or {}
+        history = request.conversation_history or []
 
-        # FAST PATH: For embedded widget, use keyword-based intent detection (no LLM call)
+        # ── ACTIVE LEAD CREATION FLOW ──────────────────────
+        if flow_state.get("active_flow") == "create_lead":
+            collected = flow_state.get("collected", {})
+            current_step = flow_state.get("current_step")
+
+            # If project was already selected via button, confirm we have the required flow step
+            if not current_step and collected.get("project_interest"):
+                # Start from the first step (name) if not specified
+                current_step = "name"
+
+            # Handle confirmation step
+            if current_step == "confirm":
+                if message.lower() in ["yes", "y", "confirm", "ok"]:
+                    payload = build_leadrat_payload(collected, tenant_id)
+                    try:
+                        result = await create_lead(payload, tenant_id)
+                        return ChatResponse(
+                            response=(
+                                f"✅ Lead created successfully!\n\n"
+                                f"👤 {collected['name']} has been added to Leadrat CRM.\n"
+                                f"Lead ID: {result.get('id','N/A')}"
+                            ),
+                            intent="lead_creation_complete",
+                            source="embedded_mode_fast",
+                            rag_used=False,
+                            metadata={
+                                "lead_created": True,
+                                "name": collected['name'],
+                                "phone": collected['phone'],
+                                "property": collected.get('project_interest', '')
+                            },
+                            flow_state={}
+                        )
+                    except Exception as e:
+                        logger.error("lead_creation_failed", error=str(e))
+                        return ChatResponse(
+                            response=(
+                                f"❌ Failed to create lead: {str(e)}\n"
+                                "Please try again."
+                            ),
+                            intent="error",
+                            source="embedded_mode_fast",
+                            rag_used=False,
+                            flow_state={}
+                        )
+                else:
+                    # User said No — cancel flow
+                    return ChatResponse(
+                        response="Lead creation cancelled. What else can I help you with?",
+                        intent="general",
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        flow_state={}
+                    )
+
+            # Handle collecting a field
+            step_def = next(
+                (s for s in LEAD_CREATION_STEPS if s["field"] == current_step),
+                None
+            )
+
+            if step_def:
+                # Map number input to option
+                if step_def.get("map_number"):
+                    try:
+                        idx = int(message.strip()) - 1
+                        options = step_def.get("options", [])
+                        if 0 <= idx < len(options):
+                            message = options[idx]
+                    except:
+                        pass
+
+                # Validate input
+                if not step_def["validation"](message):
+                    return ChatResponse(
+                        response=step_def.get("error", "Invalid input. Please try again."),
+                        intent="lead_creation_error",
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        flow_state=flow_state
+                    )
+
+                # Save field
+                value = message.strip()
+                collected[current_step] = value
+
+                # Get next step
+                next_step = get_next_step(collected)
+
+                if next_step["step"] == "confirm":
+                    return ChatResponse(
+                        response=build_confirmation_message(collected),
+                        intent="lead_creation_confirm",
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        flow_state={
+                            "active_flow": "create_lead",
+                            "current_step": "confirm",
+                            "collected": collected
+                        }
+                    )
+                else:
+                    return ChatResponse(
+                        response=next_step["question"],
+                        intent="lead_creation_step",
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        flow_state={
+                            "active_flow": "create_lead",
+                            "current_step": next_step["field"],
+                            "collected": collected
+                        }
+                    )
+            else:
+                # Error: step_def not found but we're in lead creation flow
+                logger.error("lead_creation_step_not_found", current_step=current_step)
+                return ChatResponse(
+                    response="Something went wrong with the form. Let's start over.",
+                    intent="error",
+                    source="embedded_mode_fast",
+                    rag_used=False,
+                    flow_state={}
+                )
+
+        # ── FAST PATH: KEYWORD DETECTION (no LLM) ─────────
         msg_lower = message.lower()
-        fast_intent = None
 
-        # Check for lead creation steps
-        # Step 1: User clicking "interested" button (format: "Interested: PropertyName")
-        if msg_lower.startswith('interested:'):
-            property_name = message.replace('Interested:', '').replace('interested:', '').strip()
+        # Detect interested property button (format: "interested: PropertyName")
+        if msg_lower.startswith("interested:"):
+            property_name = message.replace("interested:", "", 1).replace("Interested:", "", 1).strip()
+            first_step = get_next_step({})
             return ChatResponse(
-                response="Great! To help you better, could you please share your name?",
-                intent="lead_creation_name",
+                response=first_step["question"],
+                intent="lead_creation_step",
                 source="embedded_mode_fast",
                 rag_used=False,
-                needs_api_call=False,
-                data=[{"propertyName": property_name}] if property_name else [],
-                metadata={"latency_ms": round((time.time() - start_time) * 1000)}
+                flow_state={
+                    "active_flow": "create_lead",
+                    "current_step": first_step["field"],
+                    "collected": {"project_interest": property_name}
+                },
+                metadata={"property_name": property_name}
             )
 
-        # Step 2: User provided name, ask for phone
-        # Check if previous step was name collection (by checking message length and content)
-        if any(kw in msg_lower for kw in ['phone', 'mobile', 'whatsapp', 'contact', 'number']):
-            # This is likely a phone number being provided
-            pass  # Will be handled by the conversation flow
-        elif len(message) < 50 and not any(char.isdigit() for char in message) and len(message.split()) <= 3:
-            # Likely a name (short, no numbers, few words)
-            # If coming from lead_creation_name intent, ask for phone
-            if request.conversation_history and len(request.conversation_history) > 0:
-                last_intent = request.conversation_history[-1].get('intent') if isinstance(request.conversation_history[-1], dict) else None
-                if last_intent == 'lead_creation_name':
-                    return ChatResponse(
-                        response=f"Nice to meet you, {message}! 👋\n\nCould you please share your contact number so we can reach out to you?",
-                        intent="lead_creation_phone",
-                        source="embedded_mode_fast",
-                        rag_used=False,
-                        needs_api_call=False,
-                        data=[{"name": message}],
-                        metadata={"latency_ms": round((time.time() - start_time) * 1000)}
-                    )
-
-        if any(kw in msg_lower for kw in ['property', 'properties', 'flat', 'apartment', 'find', 'search']):
-            fast_intent = 'property'
-        elif any(kw in msg_lower for kw in ['project', 'projects', 'tower', 'tower', 'phase']):
-            fast_intent = 'project'
-
-        # If fast intent detected, use fast data retrieval without LLM semantic parsing
-        if fast_intent:
-            logger.debug("fast_path_activated", intent=fast_intent, message=message[:50])
-            try:
-                data_items = []
-                if fast_intent == 'property':
-                    api_res = await list_properties(tenant_id=request.tenant_id)
-                    items = api_res.get('data', [])
-                    for it in items:
-                        data_items.append({
-                            "name": it.get('title') or it.get('name') or "Property",
-                            "price": str(it.get('price', 'N/A')),
-                            "location": it.get('address', {}).get('city', 'Dubai') if isinstance(it.get('address'), dict) else it.get('address', 'Dubai'),
-                            "propertyType": it.get('bhkType', ''),
-                            "status": it.get('status', 'Available'),
-                            "id": it.get('id')
-                        })
-                elif fast_intent == 'project':
-                    api_res = await list_projects(tenant_id=request.tenant_id)
-                    items = api_res.get('data', [])
-                    for it in items:
-                        data_items.append({
-                            "name": it.get('name') or "Project",
-                            "location": it.get('location') or it.get('city', 'Dubai'),
-                            "builderName": it.get('builderName', 'Leadrat'),
-                            "id": it.get('id')
-                        })
-
-                if data_items:
-                    logger.info("fast_path_success", intent=fast_intent, items=len(data_items), latency_ms=round((time.time() - start_time) * 1000))
-                    return ChatResponse(
-                        response=f"Found {len(data_items)} {fast_intent}(s) for you.",
-                        intent=fast_intent,
-                        source="embedded_mode_fast",
-                        rag_used=False,
-                        needs_api_call=False,
-                        template=f"{fast_intent}_list",
-                        data=data_items,
-                        metadata={"latency_ms": round((time.time() - start_time) * 1000)}
-                    )
-            except Exception as e:
-                logger.warning("fast_path_failed", intent=fast_intent, error=str(e))
-                # Fall through to normal processing
-
-        # DEMO SAFE MODE INTERCEPT - Instant response for demo reliability
-        if getattr(settings, "force_demo_safe_mode", False):
-            logger.info("force_demo_safe_mode_active", query=message[:50])
-            duration_ms = round((time.time() - start_time) * 1000)
+        # Detect lead creation (text version)
+        if "create" in msg_lower and "lead" in msg_lower:
+            first_step = get_next_step({})
             return ChatResponse(
-                response="I have retrieved our premium executive portfolio for you. Please review the selections below.",
-                intent="property",
-                source="demo_safe_mode",
+                response=first_step["question"],
+                intent="lead_creation_step",
+                source="embedded_mode_fast",
                 rag_used=False,
-                needs_api_call=False,
-                template="property_list",
-                data=[
-                    {"title": "Signature Sky Villa", "price": "₹4.5 Cr", "location": "Downtown Dubai"},
-                    {"title": "The Residences at Marina", "price": "₹2.2 Cr", "location": "Dubai Marina"}
-                ],
-                metadata={"latency_ms": duration_ms}
+                flow_state={
+                    "active_flow": "create_lead",
+                    "current_step": first_step["field"],
+                    "collected": {}
+                }
             )
 
-        # Step 1: Detect intent with LLM semantic parsing
-        semantics = await extract_query_semantics(message, request.conversation_history)
-        intent = semantics.get("module", "general")
-        filters = semantics.get("filters", {})
-        
-        logger.debug("semantic_intent_parsed", intent=intent, filters=filters, message=message[:50])
-
-        # Step 2: Handle transactional flows (Confirm/Cancel)
-        msg_clean = message.lower().strip()
-        if msg_clean in ['confirm', 'yes', 'book']:
-            # For demo, we auto-confirm a visit if requested
+        # Detect property search
+        if any(kw in msg_lower for kw in ["find property", "search property", "properties", "find flat", "apartment"]):
             try:
-                # Find the most relevant property/project from context or history
-                # For now, we use a demo property ID
-                visit_res = await schedule_visit(
-                    tenant_id=request.tenant_id,
-                    lead_id="demo_lead_123",
-                    project_id="demo_project_456",
-                    visit_date=datetime.utcnow().isoformat(),
-                    visitor_name="Executive Guest",
-                    whatsapp_number="919999999999"
-                )
-                return ChatResponse(
-                    response=f"✅ **Site Visit Confirmed!**\n\nI have scheduled your visit for {visit_res.get('visit_date')}. A calendar invite has been sent to your registered number.",
-                    intent="site_visit",
-                    source="leadrat_api",
-                    rag_used=False,
-                )
+                live_data = await get_properties({}, tenant_id)
+                properties = live_data.get("data", live_data if isinstance(live_data, list) else [])
+
+                if properties:
+                    return ChatResponse(
+                        response=f"Found {len(properties)} properties for you. Here are the top options:",
+                        intent="property",
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        template="property_list",
+                        data=properties[:5],
+                        metadata={"properties_found": len(properties)}
+                    )
+                else:
+                    return ChatResponse(
+                        response="No properties available right now. Please check back later.",
+                        intent="property",
+                        source="embedded_mode_fast",
+                        rag_used=False
+                    )
             except Exception as e:
-                logger.error("visit_confirmation_failed", error=str(e))
+                logger.warning("fast_property_search_failed", error=str(e))
                 return ChatResponse(
-                    response="I encountered an issue while booking your visit. Please try again or contact support.",
+                    response="I'm having trouble accessing properties. Please try again.",
                     intent="error",
-                    source="error"
+                    source="embedded_mode_fast",
+                    rag_used=False
                 )
-        elif msg_clean in ['cancel', 'no']:
-            return ChatResponse(
-                response="No problem. I have cancelled the request. Is there anything else I can help you with?",
-                intent="general",
-                source="ollama"
-            )
 
-        # Step 3: Handle initial transactional triggers via frontend UI
-        if intent in ['site_visit']:
-            return ChatResponse(
-                response=None,
-                intent=intent,
-                source="leadrat_api",
-                needs_api_call=True,
-                rag_used=False,
-            )
+        # Detect project search
+        if any(kw in msg_lower for kw in ["find project", "show project", "projects", "view project"]):
+            try:
+                live_data = await get_projects({}, tenant_id)
+                projects = live_data.get("data", live_data if isinstance(live_data, list) else [])
 
-        # Step 3: Handle Intent-based Data Retrieval (Direct API + RAG)
-        template = None
-        data_items = []
-        
-        # 3a. Direct Leadrat API Retrieval
+                if projects:
+                    return ChatResponse(
+                        response=f"Found {len(projects)} projects for you. Here are the top options:",
+                        intent="project",
+                        source="embedded_mode_fast",
+                        rag_used=False,
+                        template="project_list",
+                        data=projects[:5],
+                        metadata={"projects_found": len(projects)}
+                    )
+                else:
+                    return ChatResponse(
+                        response="No projects available right now. Please check back later.",
+                        intent="project",
+                        source="embedded_mode_fast",
+                        rag_used=False
+                    )
+            except Exception as e:
+                logger.warning("fast_project_search_failed", error=str(e))
+                return ChatResponse(
+                    response="I'm having trouble accessing projects. Please try again.",
+                    intent="error",
+                    source="embedded_mode_fast",
+                    rag_used=False
+                )
+
+        # ── INTENT DETECTION WITH OLLAMA ──────────────────
         try:
-            if intent == 'property':
-                api_res = await list_properties(tenant_id=request.tenant_id, search=filters.get('location') or filters.get('propertyType'))
-                items = api_res.get('data', [])
-                for it in items:
-                    data_items.append({
-                        "name": it.get('title') or it.get('name') or "Property",
-                        "price": str(it.get('price', 'N/A')),
-                        "location": it.get('address', {}).get('city', 'Dubai') if isinstance(it.get('address'), dict) else it.get('address', 'Dubai'),
-                        "propertyType": it.get('bhkType', ''),
-                        "status": it.get('status', 'Available'),
-                        "id": it.get('id')
-                    })
-            elif intent == 'lead':
-                api_res = await list_leads(tenant_id=request.tenant_id, search=filters.get('status'))
-                items = api_res.get('data', [])
-                for it in items:
-                    data_items.append({
-                        "name": it.get('name') or "Lead",
-                        "status": it.get('status', {}).get('displayName', 'Warm') if isinstance(it.get('status'), dict) else it.get('status', 'Warm'),
-                        "source": it.get('source', 'Direct'),
-                        "assigned": it.get('assignedTo', 'N/A'),
-                        "id": it.get('id')
-                    })
-            elif intent == 'project':
-                api_res = await list_projects(tenant_id=request.tenant_id)
-                items = api_res.get('data', [])
-                for it in items:
-                    data_items.append({
-                        "name": it.get('name') or "Project",
-                        "location": it.get('location') or it.get('city', 'Dubai'),
-                        "builderName": it.get('builderName', 'Leadrat'),
-                        "id": it.get('id')
-                    })
-        except Exception as api_err:
-            logger.warning("direct_api_retrieval_failed", error=str(api_err))
-
-        # EMBEDDED WIDGET MODE: Skip Ollama if we have data and it's a data-retrieval intent
-        logger.info("DEBUG_EMBEDDED_CHECK", data_items_count=len(data_items), intent=intent, intent_in_list=intent in ['property', 'project'])
-        if data_items and intent in ['property', 'project']:
-            logger.info("RETURNING_EMBEDDED_MODE", intent=intent, items=len(data_items))
-            duration_ms = round((time.time() - start_time) * 1000)
-            template = f"{intent}_list"
-            return ChatResponse(
-                response=f"Found {len(data_items)} {intent}(s) for you.",
-                intent=intent,
-                source="embedded_mode",
-                rag_used=False,
-                needs_api_call=False,
-                template=template,
-                data=data_items,
-                metadata={"latency_ms": duration_ms}
-            )
-
-        # 3b. RAG Retrieval for context
-        filter_str = " ".join([f"{k}:{v}" for k,v in filters.items()])
-        enhanced_query = f"{message} {filter_str}".strip()
-
-        rag_results = await search_rag(
-            query=enhanced_query,
-            tenant_id=request.tenant_id,
-            top_k=5,
-            metadata_filters=filters
-        )
-        rag_used = len(rag_results) > 0
-
-        # 3c. Extract additional info from RAG if data_items is small
-        if len(data_items) < 3 and intent in ['project', 'property']:
-            seen_ids = {str(item.get('id')) for item in data_items if item.get('id')}
-            for r in rag_results:
-                meta = r.get("metadata", {})
-                item_id = str(meta.get('id'))
-                if item_id in seen_ids:
-                    continue
-                
-                score = r.get('score', 0.0)
-                if score < 0.15: # Tight threshold for RAG addition
-                    continue
-
-                data_items.append({
-                    "name": meta.get("name") or meta.get("title") or "Match",
-                    "text": r.get("text")[:150],
-                    "metadata": meta,
-                    "id": item_id
-                })
-        
-        if intent in ['project', 'property', 'lead']:
-            template = f"{intent}_list"
-        
-        if data_items:
-            logger.info("data_retrieval_success", intent=intent, items=len(data_items))
-        else:
-            template = None
-
-        # Step 4: Call Ollama with context and fallback handling
-        try:
-            answer = await call_ollama(
-                message=message,
-                rag_context=rag_results,
-                conversation_history=request.conversation_history,
-            )
+            semantics = await extract_semantics(message, history)
+            module = semantics.get("module", "general")
+            intent = semantics.get("intent", "query")
+            filters = semantics.get("filters", {})
         except Exception as e:
-            logger.error("ollama_failed_fallback", error=str(e))
-            # Graceful demo fallback
-            answer = "I found some relevant information for you." if data_items else "I'm currently unable to process complex queries, but please check the information below or try rephrasing."
-            source_override = "fallback"
+            logger.warning("ollama_extraction_failed", error=str(e))
+            # Fallback: keyword-based intent detection
+            module = "general"
+            intent = "query"
+            filters = {}
 
-        duration_ms = round((time.time() - start_time) * 1000)
-        
-        # Log Analytics Event
-        logger.info(
-            "chat_completed", 
-            session=request.session_id, 
-            intent=intent, 
-            filters=filters,
-            rag_results=len(rag_results),
-            duration_ms=duration_ms,
-            fallback=source_override == "fallback" if 'source_override' in locals() else False
-        )
+        logger.info("chat_intent_extracted", module=module, intent=intent, filters=filters)
 
-        return ChatResponse(
-            response=answer,
-            intent=intent,
-            source=source_override if 'source_override' in locals() else ("ollama_rag" if rag_used else "ollama"),
-            rag_used=rag_used,
-            needs_api_call=False,
-            template=template,
-            data=data_items,
-            metadata={
-                "rag_results": len(rag_results),
-                "top_relevance": round(rag_results[0]['score'], 3) if rag_results else 0,
-                "latency_ms": duration_ms
-            }
-        )
+        # ── CREATE LEAD INTENT ─────────────────────────────
+        if module == "lead" and intent == "create":
+            first_step = get_next_step({})
+            return ChatResponse(
+                response=first_step["question"],
+                intent="lead_creation_step",
+                source="embedded_mode_fast",
+                rag_used=False,
+                flow_state={
+                    "active_flow": "create_lead",
+                    "current_step": first_step["field"],
+                    "collected": {}
+                }
+            )
+
+        # ── QUERY LEADS WITH RAG + LIVE API ───────────────
+        elif module == "lead" and intent == "query":
+            try:
+                # Get live data from Leadrat
+                live_data = await get_leads(filters, tenant_id)
+                leads = live_data.get("data", live_data if isinstance(live_data, list) else [])
+
+                # Also search RAG for context
+                rag_context = await hybrid_search(message, "lead", filters)
+
+                # Build combined context
+                live_context = "\n".join([
+                    f"Lead: {l.get('name')} | Status: {l.get('status')} | Phone: {l.get('phone')}"
+                    for l in leads[:5]
+                ])
+                combined_context = (
+                    f"LIVE DATA:\n{live_context}\n\n"
+                    f"ADDITIONAL CONTEXT:\n{rag_context}" if rag_context else live_context
+                )
+
+                # Generate response with Ollama
+                response_text = await generate_response(
+                    message, combined_context, module, history
+                )
+
+                return ChatResponse(
+                    response=response_text,
+                    intent="lead",
+                    source="ollama_rag",
+                    rag_used=bool(rag_context),
+                    template="lead_list" if leads else None,
+                    data=leads[:5] if leads else None,
+                    metadata={"leads_found": len(leads)}
+                )
+            except Exception as e:
+                logger.error("lead_query_failed", error=str(e))
+                return ChatResponse(
+                    response="I'm having trouble accessing leads. Please try again.",
+                    intent="error",
+                    source="fallback",
+                    rag_used=False
+                )
+
+        # ── QUERY PROJECTS WITH RAG ───────────────────────
+        elif module == "project" and intent == "query":
+            try:
+                # Search RAG first
+                rag_context = await hybrid_search(message, "project", filters)
+
+                # If no RAG results, try live API
+                if not rag_context:
+                    live_data = await get_projects(filters, tenant_id)
+                    projects = live_data.get("data", live_data if isinstance(live_data, list) else [])
+                    live_context = "\n".join([
+                        f"Project: {p.get('name')} | Location: {p.get('city')} | Possession: {p.get('possession')}"
+                        for p in projects[:5]
+                    ])
+                    rag_context = live_context
+                else:
+                    projects = []
+
+                # Generate response
+                response_text = await generate_response(
+                    message, rag_context, module, history
+                )
+
+                return ChatResponse(
+                    response=response_text,
+                    intent="project",
+                    source="ollama_rag",
+                    rag_used=True,
+                    metadata={"projects_found": len(projects) if projects else 0}
+                )
+            except Exception as e:
+                logger.error("project_query_failed", error=str(e))
+                return ChatResponse(
+                    response="I'm having trouble accessing projects. Please try again.",
+                    intent="error",
+                    source="fallback",
+                    rag_used=False
+                )
+
+        # ── QUERY PROPERTIES WITH RAG ──────────────────────
+        elif module == "property" and intent == "query":
+            try:
+                # Search RAG first
+                rag_context = await hybrid_search(message, "property", filters)
+
+                # If no RAG results, try live API
+                if not rag_context:
+                    live_data = await get_properties(filters, tenant_id)
+                    properties = live_data.get("data", live_data if isinstance(live_data, list) else [])
+                    live_context = "\n".join([
+                        f"Property: {p.get('unitNumber')} | BHK: {p.get('bhk')} | Price: {p.get('price')} | City: {p.get('city')}"
+                        for p in properties[:5]
+                    ])
+                    rag_context = live_context
+                else:
+                    properties = []
+
+                # Generate response
+                response_text = await generate_response(
+                    message, rag_context, module, history
+                )
+
+                return ChatResponse(
+                    response=response_text,
+                    intent="property",
+                    source="ollama_rag",
+                    rag_used=True,
+                    metadata={"properties_found": len(properties) if properties else 0}
+                )
+            except Exception as e:
+                logger.error("property_query_failed", error=str(e))
+                return ChatResponse(
+                    response="I'm having trouble accessing properties. Please try again.",
+                    intent="error",
+                    source="fallback",
+                    rag_used=False
+                )
+
+        # ── GENERAL QUERY WITH OLLAMA ──────────────────────
+        else:
+            try:
+                # Try RAG context if available
+                try:
+                    rag_context = await hybrid_search(message, "general", filters)
+                except:
+                    rag_context = ""
+
+                # Try to generate response with Ollama
+                try:
+                    response_text = await generate_response(
+                        message, rag_context, "general", history
+                    )
+                except:
+                    response_text = None
+
+                # If Ollama fails, use fallback response
+                if not response_text:
+                    response_text = "Hello! I'm Aria, your real estate assistant. I can help you find properties, projects, or create a lead. What would you like to do?"
+
+                return ChatResponse(
+                    response=response_text,
+                    intent="general",
+                    source="ollama_rag" if rag_context else ("ollama" if response_text else "fallback"),
+                    rag_used=bool(rag_context)
+                )
+            except Exception as e:
+                logger.error("general_query_failed", error=str(e))
+                return ChatResponse(
+                    response="Hello! I'm Aria, your real estate assistant. I can help you find properties, projects, or create a lead. What would you like to do?",
+                    intent="general",
+                    source="fallback",
+                    rag_used=False
+                )
 
     except Exception as e:
         logger.error("chat_error", error=str(e), message=request.message[:50], exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/search")
-async def search_documents(q: str, n: int = 3, tenant_id: str = "dubait11"):
-    """
-    Test RAG search endpoint.
+@router.get("/test-token")
+async def test_jwt_token():
+    """Test JWT token generation from Leadrat."""
+    from app.services.leadrat_api import get_jwt_token
 
-    Query: ?q=payment+plan&n=3
-    """
+    results = {
+        "timestamp": str(__import__('datetime').datetime.now()),
+        "test": "JWT Token Generation"
+    }
+
     try:
-        results = await search_rag(q, tenant_id=tenant_id, top_k=n)
-        return {
-            "query": q,
-            "results": results,
-            "count": len(results),
-        }
+        token = await get_jwt_token()
+        results["status"] = "✅ SUCCESS"
+        results["token_generated"] = True
+        results["token_preview"] = token[:50] + "..." if token else "Empty token"
+        results["token_length"] = len(token) if token else 0
     except Exception as e:
-        logger.error("search_failed", query=q, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        results["status"] = "❌ FAILED"
+        results["error"] = str(e)
+        results["error_type"] = type(e).__name__
+
+    return results
+
+
+@router.get("/test-apis")
+async def test_leadrat_apis(tenant_id: str = "dubait11"):
+    """Test all Leadrat API endpoints."""
+    from app.services.leadrat_api import get_jwt_token
+
+    results = {
+        "timestamp": str(__import__('datetime').datetime.now()),
+        "leadrat_url": settings.leadrat_api_url if hasattr(settings, 'leadrat_api_url') else "https://connect.leadrat.com",
+        "tests": {}
+    }
+
+    # Test JWT token first
+    try:
+        token = await get_jwt_token()
+        results["tests"]["jwt_token"] = {"status": "✅ SUCCESS", "token_preview": token[:50] + "..."}
+    except Exception as e:
+        results["tests"]["jwt_token"] = {"status": "❌ FAILED", "error": str(e)}
+
+    # Test lead creation
+    try:
+        lead_result = await create_lead({
+            "name": "Test Lead",
+            "phone": "+971501234567",
+            "email": "test@example.com",
+            "source": "test",
+            "projectInterest": "Test Project",
+            "status": "New",
+            "tenantId": tenant_id
+        }, tenant_id)
+        results["tests"]["create_lead"] = {"status": "✅ SUCCESS", "data": lead_result}
+    except Exception as e:
+        results["tests"]["create_lead"] = {"status": "❌ FAILED", "error": str(e)}
+
+    # Test get leads
+    try:
+        leads_result = await get_leads({}, tenant_id)
+        results["tests"]["get_leads"] = {"status": "✅ SUCCESS", "count": len(leads_result.get("data", []))}
+    except Exception as e:
+        results["tests"]["get_leads"] = {"status": "❌ FAILED", "error": str(e)}
+
+    # Test get properties
+    try:
+        props_result = await get_properties({}, tenant_id)
+        results["tests"]["get_properties"] = {"status": "✅ SUCCESS", "count": len(props_result.get("data", []))}
+    except Exception as e:
+        results["tests"]["get_properties"] = {"status": "❌ FAILED", "error": str(e)}
+
+    # Test get projects
+    try:
+        projects_result = await get_projects({}, tenant_id)
+        results["tests"]["get_projects"] = {"status": "✅ SUCCESS", "count": len(projects_result.get("data", []))}
+    except Exception as e:
+        results["tests"]["get_projects"] = {"status": "❌ FAILED", "error": str(e)}
+
+    return results
 
 
 @router.get("/status")
 async def health_check():
     """Check if chat endpoints are healthy."""
     try:
-        # Quick LLM init check
-        llm = get_llm()
-        retriever = get_retriever()
-
         return {
             "status": "healthy",
-            "llm_provider": settings.llm_provider,
-            "llm_model": settings.ollama_model if settings.llm_provider == "ollama" else "configured",
-            "rag_ready": True,
+            "service": "Leadrat AI Chatbot",
+            "version": "2.0.0",
+            "features": ["lead_creation", "ollama_rag", "leadrat_api"],
+            "leadrat_api_url": "https://connect.leadrat.com"
         }
     except Exception as e:
         logger.error("health_check_failed", error=str(e))

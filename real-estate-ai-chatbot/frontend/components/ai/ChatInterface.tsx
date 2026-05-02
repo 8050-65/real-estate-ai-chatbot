@@ -251,7 +251,7 @@ async function searchPropertiesApi(query: string): Promise<any[]> {
   }
 }
 
-async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en', tenantIdOverride?: string, backendUrlOverride?: string): Promise<{ content: string; quickReplies: string[]; template?: string; data?: any[] }> {
+async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en', tenantIdOverride?: string, backendUrlOverride?: string, flowStateOverride?: any): Promise<{ content: string; quickReplies: string[]; template?: string; data?: any[]; flowState?: any }> {
   const tenantId = tenantIdOverride || (typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'dubait11') : 'dubait11');
 
   // Backend URL resolution with environment variable support
@@ -293,6 +293,7 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
         conversation_history: historyContext,
         language: language || 'en',
         tenant_id: tenantId,
+        flow_state: flowStateOverride || {},
       };
 
       // Use the backend URL directly (should already have full path)
@@ -324,6 +325,7 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
       const source = response?.source || 'Leadrat';
       const template = response?.template;
       const dataItems = response?.data || [];
+      const responseFlowState = response?.flow_state || {};
 
       console.log('[ChatAPI] Success:', { intent: detectedIntent, source, hasResponse: !!routerResponse, template, dataCount: dataItems.length });
 
@@ -354,7 +356,8 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
         content: routerResponse,
         quickReplies: quickReplies,
         template: template,
-        data: dataItems
+        data: dataItems,
+        flowState: responseFlowState
       };
 
     } catch (error: any) {
@@ -431,6 +434,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
     step: '',
     data: {},
   });
+  const [flowState, setFlowState] = useState<any>({});
   const [backendUrl, setBackendUrl] = useState<string>('');
   const [tenantId, setTenantId] = useState<string>('dubait11');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1941,7 +1945,11 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
 
         try {
           const searchTerm = extractSearchTerm(text_expanded);
-          const { content, quickReplies, template, data } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language, tenantId, backendUrl);
+          const { content, quickReplies, template, data, flowState: returnedFlowState } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language, tenantId, backendUrl, flowState);
+
+          if (returnedFlowState) {
+            setFlowState(returnedFlowState);
+          }
 
           setMessages((prev) =>
             prev.map((msg) =>
