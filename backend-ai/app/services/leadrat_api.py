@@ -7,7 +7,8 @@ import os
 import httpx
 import json
 import time
-from typing import Optional, Dict, Any
+import re
+from typing import Optional, Dict, Any, List
 
 # ============================================================================
 # Leadrat API Configuration
@@ -23,20 +24,19 @@ LEADRAT_TOKEN_MANUAL = os.getenv("LEADRAT_TOKEN", "")
 _cached_token = None
 _token_expires_at = 0
 
+# Data caching
+_property_cache = {"data": [], "timestamp": 0, "tenant": None}
+_project_cache = {"data": [], "timestamp": 0, "tenant": None}
+CACHE_EXPIRY = 600  # 10 minutes
+
 
 async def get_token() -> tuple[Optional[str], str]:
-    """Get valid token (auto-generated or manual fallback).
-
-    Returns:
-        (token, error_message) - token is None if both methods fail
-    """
+    """Get valid token (auto-generated or manual fallback)."""
     global _cached_token, _token_expires_at
 
-    # Check if cached token is still valid
     if _cached_token and time.time() < _token_expires_at:
         return _cached_token, ""
 
-    # Try auto-generation first
     if LEADRAT_API_KEY and LEADRAT_SECRET_KEY:
         try:
             async with httpx.AsyncClient(timeout=10) as client:
@@ -59,52 +59,39 @@ async def get_token() -> tuple[Optional[str], str]:
                         expires_in = data.get("data", {}).get("expiresIn", 3600)
                         if token:
                             _cached_token = token
-                            _token_expires_at = time.time() + expires_in - 60  # Refresh 60s before expiry
-                            print(f"[LeadRat API] ✓ Token auto-generated successfully")
+                            _token_expires_at = time.time() + expires_in - 60
+                            print(f"[LeadRat API] [OK] Token auto-generated successfully")
                             return token, ""
         except Exception as e:
-            print(f"[LeadRat API] ✗ Auto token generation failed: {str(e)}")
+            print(f"[LeadRat API] [ERROR] Auto token generation failed: {str(e)}")
 
-    # Fall back to manual token
     if LEADRAT_TOKEN_MANUAL and LEADRAT_TOKEN_MANUAL.strip():
-        print(f"[LeadRat API] ⚠ Using manual token (auto-generation unavailable)")
+        print(f"[LeadRat API] [WARN] Using manual token (auto-generation unavailable)")
         return LEADRAT_TOKEN_MANUAL, ""
 
-    # Both methods failed
-    error_msg = (
-        "⚠️ LeadRat authentication unavailable.\n"
-        "Configure either:\n"
-        "1. LEADRAT_API_KEY + LEADRAT_SECRET_KEY (for auto token generation)\n"
-        "2. LEADRAT_TOKEN (manual Cognito JWT)\n"
-        "See .env file for details."
-    )
+    error_msg = "LeadRat authentication unavailable. Check credentials."
     return None, error_msg
 
 
 async def validate_token() -> tuple[bool, str]:
-    """Validate that a token is available."""
     token, error = await get_token()
     return (token is not None), error
 
 
 async def get_headers(tenant_id: str = None) -> Optional[dict]:
-    """Get headers for Leadrat API requests with Bearer token."""
     token, error = await get_token()
     if not token:
-        print(f"[LeadRat API] ✗ {error}")
+        print(f"[LeadRat API] [ERROR] {error}")
         return None
 
     tenant = tenant_id or LEADRAT_TENANT_ID
     if tenant == "dubai11":
-        tenant = "dubait11" # Force correct tenant spelling
+        tenant = "dubait11"
         
-    auth_header = f"Bearer {token}"
-    print(f"[LeadRat API] Authorization starts with Bearer: {auth_header.startswith('Bearer ')}")
-    
     return {
         "Content-Type": "application/json; charset=utf-8",
         "Accept": "application/json",
-        "Authorization": auth_header,
+        "Authorization": f"Bearer {token}",
         "tenant": tenant,
         "Referer": f"https://{tenant}.leadrat.com/",
     }
@@ -112,290 +99,161 @@ async def get_headers(tenant_id: str = None) -> Optional[dict]:
 
 def log_api_call(endpoint: str, method: str, params: dict = None, status: int = None,
                  response_preview: str = None, data_count: int = None):
-    """Log Leadrat API call details."""
-    url = f"{LEADRAT_BASE_URL}{endpoint}"
-    print(f"\n[LeadRat API] {method} {url}")
-    print(f"[LeadRat API] Tenant: {LEADRAT_TENANT_ID}")
-    if params:
-        print(f"[LeadRat API] Params: {params}")
-    if status:
-        print(f"[LeadRat API] Status: {status}")
-    if response_preview:
-        print(f"[LeadRat API] Response: {response_preview[:200]}")
-    if data_count is not None:
-        print(f"[LeadRat API] Records returned: {data_count}")
+    print(f"[LeadRat API] {method} {endpoint} | Status: {status} | Items: {data_count}")
+
+
+def _parse_price(price_str: Any) -> int:
+    """Extract numeric budget from price string."""
+    if isinstance(price_str, (int, float)):
+        return int(price_str)
+    if not price_str or not isinstance(price_str, str):
+        return 0
+    
+    clean = price_str.lower().replace(",", "").replace(" ", "")
+    
+    # Handle Lac/Lakh
+    if "lac" in clean or "lakh" in clean:
+        val = re.findall(r"(\d+\.?\d*)", clean)
+        if val:
+            return int(float(val[0]) * 100000)
+    
+    # Handle Crore
+    if "cr" in clean or "crore" in clean:
+        val = re.findall(r"(\d+\.?\d*)", clean)
+        if val:
+            return int(float(val[0]) * 10000000)
+            
+    val = re.findall(r"(\d+)", clean)
+    return int(val[0]) if val else 0
+
+
+def _extract_bhk(text: str) -> Optional[int]:
+    """Extract BHK number from text."""
+    if not text: return None
+    match = re.search(r"(\d)\s*bhk", text.lower())
+    return int(match.group(1)) if match else None
 
 
 # ============================================================================
 # PROPERTY APIS
 # ============================================================================
 
-async def get_properties(filters: dict = None, tenant_id: str = None) -> dict:
-    """Get properties from Leadrat API.
-
-    Returns:
-        {
-            "data": [...properties...],
-            "total": count,
-            "error": error_message (if any)
-        }
-    """
+async def get_properties(filters: dict = None, tenant_id: str = None, force_refresh: bool = False) -> dict:
+    """Get properties with caching and normalization."""
+    global _property_cache
     tenant_id = tenant_id or LEADRAT_TENANT_ID
     filters = filters or {}
 
-    page_number = filters.get("page_number", 1)
-    page_size = filters.get("page_size", 10)
-    search = filters.get("search", "")
+    # Check cache
+    if not force_refresh and _property_cache["data"] and \
+       time.time() - _property_cache["timestamp"] < CACHE_EXPIRY and \
+       _property_cache["tenant"] == tenant_id:
+        print("[LeadRat API] Using cached properties")
+        return {"data": _property_cache["data"], "total": len(_property_cache["data"])}
 
-    # Check token availability
     is_valid, error_msg = await validate_token()
     if not is_valid:
-        print(f"[LeadRat API] ✗ {error_msg}")
         return {"data": [], "total": 0, "error": error_msg}
 
     try:
         headers = await get_headers(tenant_id=tenant_id)
-        if not headers:
-            error_msg = "Failed to get authentication headers"
-            print(f"[LeadRat API] ✗ {error_msg}")
-            return {"data": [], "total": 0, "error": error_msg}
-
-        params = {
-            "pageNumber": page_number,
-            "pageSize": page_size,
-        }
-        
-        if search:
-            params["PropertySearch"] = search
-
-        endpoint = "/api/v1/property"
-        log_api_call(endpoint, "GET", params)
+        if not headers: return {"data": [], "total": 0, "error": "Auth failed"}
 
         async with httpx.AsyncClient(timeout=30, verify=False) as client:
             resp = await client.get(
-                f"https://connect.leadrat.com{endpoint}",
+                "https://connect.leadrat.com/api/v1/property",
                 headers=headers,
-                params=params
+                params={"pageNumber": 1, "pageSize": 100}
             )
 
-            log_api_call(endpoint, "GET", status=resp.status_code)
-
-            # Handle authentication errors
-            if resp.status_code == 401:
-                error_msg = (
-                    "⚠️ LeadRat token expired or unauthorized (401).\n"
-                    "Please refresh your Cognito token and update LEADRAT_TOKEN in .env."
-                )
-                print(f"[LeadRat API] ✗ {error_msg}")
-                print(f"[LeadRat API] Response: {resp.text[:300]}")
-                return {"data": [], "total": 0, "error": error_msg}
-
-            if resp.status_code == 403:
-                error_msg = (
-                    "⚠️ LeadRat token forbidden (403).\n"
-                    "Your token doesn't have permission to access properties.\n"
-                    "Please verify your token and user permissions."
-                )
-                print(f"[LeadRat API] ✗ {error_msg}")
-                print(f"[LeadRat API] Response: {resp.text[:300]}")
-                return {"data": [], "total": 0, "error": error_msg}
-
-            if resp.status_code >= 500:
-                error_msg = (
-                    f"⚠️ LeadRat API server error ({resp.status_code}).\n"
-                    "Please try again later or contact support."
-                )
-                print(f"[LeadRat API] ✗ {error_msg}")
-                print(f"[LeadRat API] Response: {resp.text[:300]}")
-                return {"data": [], "total": 0, "error": error_msg}
-
             if resp.status_code != 200:
-                error_msg = (
-                    f"⚠️ LeadRat API error ({resp.status_code}).\n"
-                    f"{resp.text[:200]}"
-                )
-                print(f"[LeadRat API] ✗ {error_msg}")
-                return {"data": [], "total": 0, "error": error_msg}
+                return {"data": [], "total": 0, "error": f"API Error {resp.status_code}"}
 
             raw_data = resp.json()
-            raw_items = []
+            raw_items = raw_data.get("items", []) or raw_data.get("data", []) or []
             
-            if isinstance(raw_data, dict):
-                raw_items = raw_data.get("items", []) or raw_data.get("data", []) or []
-            elif isinstance(raw_data, list):
-                raw_items = raw_data
-
-            print(f"[LeadRat API] Response content length: {len(resp.content)}")
-            print(f"[LeadRat API] Raw items count: {len(raw_items)}")
-
             mapped_items = []
             for item in raw_items:
+                title = item.get("propertyTitle") or item.get("name") or "Property"
+                price_str = item.get("price") or item.get("formattedPrice", "0")
                 p_type = item.get("propertyType", {}).get("displayName", "N/A") if isinstance(item.get("propertyType"), dict) else item.get("propertyType", "N/A")
+                
                 mapped_items.append({
                     "id": item.get("id"),
-                    "title": item.get("propertyTitle") or item.get("name") or "Property",
+                    "title": title,
                     "location": item.get("location") or item.get("address", "N/A"),
                     "type": p_type,
                     "propertyType": p_type,
-                    "price": item.get("price") or item.get("formattedPrice", "On Request"),
-                    "status": "Active" if item.get("isActive") else "Inactive"
+                    "price": price_str,
+                    "budget": _parse_price(price_str),
+                    "bhk": _extract_bhk(title) or _extract_bhk(item.get("description", "")),
+                    "status": "Active" if item.get("isActive") else "Inactive",
+                    "description": item.get("description", ""),
+                    "source": "leadrat_api"
                 })
 
-            if mapped_items:
-                print(f"[LeadRat API] First record preview: {json.dumps(mapped_items[0])[:150]}...")
-
-            total = raw_data.get("totalCount", len(mapped_items)) if isinstance(raw_data, dict) else len(mapped_items)
-            print(f"[LeadRat API] ✓ Mapped data count: {len(mapped_items)}")
-            
-            return {
+            # Update cache
+            _property_cache = {
                 "data": mapped_items,
-                "total": total
+                "timestamp": time.time(),
+                "tenant": tenant_id
             }
+            
+            return {"data": mapped_items, "total": len(mapped_items)}
 
-    except httpx.TimeoutException:
-        error_msg = "⚠️ LeadRat API request timed out. Please try again."
-        print(f"[LeadRat API] ✗ {error_msg}")
-        return {"data": [], "total": 0, "error": error_msg}
     except Exception as e:
-        error_msg = f"⚠️ LeadRat API error: {str(e)}"
-        print(f"[LeadRat API] ✗ {error_msg}")
-        import traceback
-        traceback.print_exc()
-        return {"data": [], "total": 0, "error": error_msg}
+        return {"data": [], "total": 0, "error": str(e)}
 
 
 # ============================================================================
 # PROJECT APIS
 # ============================================================================
 
-async def get_projects(filters: dict = None, tenant_id: str = None) -> dict:
-    """Get projects from Leadrat API.
-
-    Returns:
-        {
-            "data": [...projects...],
-            "total": count,
-            "error": error_message (if any)
-        }
-    """
+async def get_projects(filters: dict = None, tenant_id: str = None, force_refresh: bool = False) -> dict:
+    """Get projects with caching and normalization."""
+    global _project_cache
     tenant_id = tenant_id or LEADRAT_TENANT_ID
-    filters = filters or {}
-
-    page_number = filters.get("page_number", 1)
-    page_size = filters.get("page_size", 10)
-    search = filters.get("search", "")
-
-    # Check token availability
-    is_valid, error_msg = await validate_token()
-    if not is_valid:
-        print(f"[LeadRat API] ✗ {error_msg}")
-        return {"data": [], "total": 0, "error": error_msg}
+    
+    if not force_refresh and _project_cache["data"] and \
+       time.time() - _project_cache["timestamp"] < CACHE_EXPIRY and \
+       _project_cache["tenant"] == tenant_id:
+        return {"data": _project_cache["data"], "total": len(_project_cache["data"])}
 
     try:
         headers = await get_headers(tenant_id=tenant_id)
-        if not headers:
-            error_msg = "Failed to get authentication headers"
-            print(f"[LeadRat API] ✗ {error_msg}")
-            return {"data": [], "total": 0, "error": error_msg}
-
-        params = {
-            "pageNumber": page_number,
-            "pageSize": page_size,
-        }
-        
-        if search:
-            params["Search"] = search
-
-        endpoint = "/api/v1/project"
-        log_api_call(endpoint, "GET", params)
-
         async with httpx.AsyncClient(timeout=30, verify=False) as client:
             resp = await client.get(
-                f"https://connect.leadrat.com{endpoint}",
+                "https://connect.leadrat.com/api/v1/project",
                 headers=headers,
-                params=params
+                params={"pageNumber": 1, "pageSize": 100}
             )
-
-            log_api_call(endpoint, "GET", status=resp.status_code)
-
-            # Handle authentication errors
-            if resp.status_code == 401:
-                error_msg = (
-                    "⚠️ LeadRat token expired or unauthorized (401).\n"
-                    "Please refresh your Cognito token and update LEADRAT_TOKEN in .env."
-                )
-                print(f"[LeadRat API] ✗ {error_msg}")
-                print(f"[LeadRat API] Response: {resp.text[:300]}")
-                return {"data": [], "total": 0, "error": error_msg}
-
-            if resp.status_code == 403:
-                error_msg = (
-                    "⚠️ LeadRat token forbidden (403).\n"
-                    "Your token doesn't have permission to access projects.\n"
-                    "Please verify your token and user permissions."
-                )
-                print(f"[LeadRat API] ✗ {error_msg}")
-                print(f"[LeadRat API] Response: {resp.text[:300]}")
-                return {"data": [], "total": 0, "error": error_msg}
-
-            if resp.status_code >= 500:
-                error_msg = (
-                    f"⚠️ LeadRat API server error ({resp.status_code}).\n"
-                    "Please try again later or contact support."
-                )
-                print(f"[LeadRat API] ✗ {error_msg}")
-                print(f"[LeadRat API] Response: {resp.text[:300]}")
-                return {"data": [], "total": 0, "error": error_msg}
-
+            
             if resp.status_code != 200:
-                error_msg = (
-                    f"⚠️ LeadRat API error ({resp.status_code}).\n"
-                    f"{resp.text[:200]}"
-                )
-                print(f"[LeadRat API] ✗ {error_msg}")
-                return {"data": [], "total": 0, "error": error_msg}
+                return {"data": [], "total": 0, "error": f"API Error {resp.status_code}"}
 
             raw_data = resp.json()
-            raw_items = []
+            raw_items = raw_data.get("items", []) or raw_data.get("data", []) or []
             
-            if isinstance(raw_data, dict):
-                raw_items = raw_data.get("items", []) or raw_data.get("data", []) or []
-            elif isinstance(raw_data, list):
-                raw_items = raw_data
-
-            print(f"[LeadRat API] Response content length: {len(resp.content)}")
-            print(f"[LeadRat API] Raw items count: {len(raw_items)}")
-
             mapped_items = []
             for item in raw_items:
                 mapped_items.append({
                     "id": item.get("id"),
                     "name": item.get("projectName") or item.get("name") or "Project",
-                    "type": item.get("projectType") or "N/A",
-                    "status": item.get("status") or "Active"
+                    "location": item.get("location", "N/A"),
+                    "projectType": item.get("projectType") or "N/A",
+                    "status": item.get("status") or "Active",
+                    "description": item.get("description", ""),
+                    "source": "leadrat_api"
                 })
 
-            if mapped_items:
-                print(f"[LeadRat API] First record preview: {json.dumps(mapped_items[0])[:150]}...")
-
-            total = raw_data.get("totalCount", len(mapped_items)) if isinstance(raw_data, dict) else len(mapped_items)
-            print(f"[LeadRat API] ✓ Mapped data count: {len(mapped_items)}")
-            
-            return {
+            _project_cache = {
                 "data": mapped_items,
-                "total": total
+                "timestamp": time.time(),
+                "tenant": tenant_id
             }
-
-    except httpx.TimeoutException:
-        error_msg = "⚠️ LeadRat API request timed out. Please try again."
-        print(f"[LeadRat API] ✗ {error_msg}")
-        return {"data": [], "total": 0, "error": error_msg}
+            return {"data": mapped_items, "total": len(mapped_items)}
     except Exception as e:
-        error_msg = f"⚠️ LeadRat API error: {str(e)}"
-        print(f"[LeadRat API] ✗ {error_msg}")
-        import traceback
-        traceback.print_exc()
-        return {"data": [], "total": 0, "error": error_msg}
+        return {"data": [], "total": 0, "error": str(e)}
 
 
 # ============================================================================
@@ -403,112 +261,102 @@ async def get_projects(filters: dict = None, tenant_id: str = None) -> dict:
 # ============================================================================
 
 async def create_lead(payload: dict, tenant_id: str = None) -> dict:
-    """Create a new lead in Leadrat."""
+    """Create a lead in Leadrat CRM.
+
+    Tries multiple field-name combinations since Leadrat's lead endpoint
+    is undocumented and returns 500 on missing required fields.
+    """
     tenant_id = tenant_id or LEADRAT_TENANT_ID
+    headers = await get_headers(tenant_id=tenant_id)
+    if not headers:
+        return {"error": "Auth failed"}
 
-    # Check token availability
-    is_valid, error_msg = await validate_token()
-    if not is_valid:
-        return {"error": error_msg}
+    name = payload.get("name", "").strip()
+    name_parts = name.split(" ", 1)
+    first_name = name_parts[0] if name_parts else name
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+    phone = payload.get("phone", "").replace("+", "").replace(" ", "").replace("-", "")
 
+    notes_text = (
+        f"Source: AI Chatbot\n"
+        f"Interested In: {payload.get('projectInterest', 'N/A')}\n"
+        f"Preference: {payload.get('appointmentType', 'Information')}\n"
+        f"Budget: {payload.get('budget', 'N/A')}"
+    )
+
+    # Try comprehensive payload first
+    leadrat_payload = {
+        "firstName": first_name,
+        "lastName": last_name or "Lead",
+        "name": name,
+        "contactNo": phone,
+        "phoneNumber": phone,
+        "mobileNumber": phone,
+        "email": payload.get("email", "") or f"{phone}@chatbot.lead",
+        "source": payload.get("source", "AI Chatbot"),
+        "notes": notes_text,
+        "description": notes_text,
+        "remarks": notes_text,
+    }
+
+    print(f"[LeadRat API] POST /api/v1/lead with payload: {leadrat_payload}")
     try:
-        headers = await get_headers(tenant_id=tenant_id)
-        if not headers:
-            return {"error": "Failed to get authentication headers"}
-
-        leadrat_payload = {
-            "name": payload.get("name", ""),
-            "contactNo": payload.get("phone", "").replace("+", ""),
-            "alternateContactNo": payload.get("alternate_phone", ""),
-            "email": payload.get("email", ""),
-            "notes": f"Source: {payload.get('source', 'chatbot')}\nProject: {payload.get('projectInterest', '')}\nBudget: {payload.get('budget', '')}"
-        }
-
         async with httpx.AsyncClient(timeout=15, verify=False) as client:
             resp = await client.post(
                 f"{LEADRAT_BASE_URL}/api/v1/lead",
                 json=leadrat_payload,
                 headers=headers
             )
+            print(f"[LeadRat API] Lead create status: {resp.status_code}")
+            print(f"[LeadRat API] Lead create response: {resp.text[:300]}")
 
-            if resp.status_code in [401, 403]:
-                return {"error": "LeadRat token expired or unauthorized"}
-
-            resp.raise_for_status()
-            data = resp.json()
-            print(f"[LeadRat API] ✓ Lead created: {data}")
-            return data
+            if resp.status_code in (200, 201):
+                return resp.json()
+            return {
+                "error": f"Leadrat API error {resp.status_code}",
+                "leadrat_response": resp.text[:200],
+                "lead_data_captured": leadrat_payload
+            }
     except Exception as e:
-        print(f"[LeadRat API] ✗ Create lead failed: {e}")
-        return {"error": str(e)}
+        print(f"[LeadRat API] Lead create exception: {e}")
+        return {"error": str(e), "lead_data_captured": leadrat_payload}
 
 
 async def get_leads(filters: dict = None, tenant_id: str = None) -> dict:
     """Get leads from Leadrat."""
     tenant_id = tenant_id or LEADRAT_TENANT_ID
     filters = filters or {}
-
-    # Check token availability
-    is_valid, error_msg = await validate_token()
-    if not is_valid:
-        return {"data": [], "error": error_msg}
+    headers = await get_headers(tenant_id=tenant_id)
+    if not headers: return {"data": [], "error": "Auth failed"}
 
     try:
-        headers = await get_headers(tenant_id=tenant_id)
-        if not headers:
-            return {"data": [], "error": "Failed to get authentication headers"}
-
-        page_number = filters.get("page_number", 1)
-        page_size = filters.get("page_size", 50)
-
         async with httpx.AsyncClient(timeout=15, verify=False) as client:
             resp = await client.get(
-                f"{LEADRAT_BASE_URL}/api/v1/lead/status",
-                params={
-                    "pageNumber": page_number,
-                    "pageSize": page_size
-                },
+                f"{LEADRAT_BASE_URL}/api/v1/lead",
+                params={"pageNumber": filters.get("page", 1), "pageSize": filters.get("size", 50)},
                 headers=headers
             )
-
-            if resp.status_code in [401, 403]:
-                return {"data": [], "error": "LeadRat token expired or unauthorized"}
-
             resp.raise_for_status()
             data = resp.json()
-            print(f"[LeadRat API] ✓ Got {len(data.get('data', []))} leads")
             return {"data": data.get("data", data if isinstance(data, list) else [])}
     except Exception as e:
-        print(f"[LeadRat API] ✗ Get leads failed: {e}")
         return {"data": [], "error": str(e)}
 
 
 async def update_lead(lead_id: str, payload: dict, tenant_id: str = None) -> dict:
     """Update a lead in Leadrat."""
     tenant_id = tenant_id or LEADRAT_TENANT_ID
-
-    # Check token availability
-    is_valid, error_msg = await validate_token()
-    if not is_valid:
-        return {"error": error_msg}
+    headers = await get_headers(tenant_id=tenant_id)
+    if not headers: return {"error": "Auth failed"}
 
     try:
-        headers = await get_headers(tenant_id=tenant_id)
-        if not headers:
-            return {"error": "Failed to get authentication headers"}
-
         async with httpx.AsyncClient(timeout=15, verify=False) as client:
             resp = await client.put(
-                f"{LEADRAT_BASE_URL}/api/v1/lead/status/{lead_id}",
+                f"{LEADRAT_BASE_URL}/api/v1/lead/{lead_id}",
                 json=payload,
                 headers=headers
             )
-
-            if resp.status_code in [401, 403]:
-                return {"error": "LeadRat token expired or unauthorized"}
-
             resp.raise_for_status()
             return resp.json()
     except Exception as e:
-        print(f"[LeadRat API] ✗ Update lead failed: {e}")
         return {"error": str(e)}

@@ -5,8 +5,10 @@ Supports lead creation flow, property/project search, and conversational queries
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import structlog
+import json
+import re
 from app.config import settings
 from app.services.ollama_service import extract_semantics, generate_response
 from app.services.rag_service import hybrid_search
@@ -32,6 +34,10 @@ class ChatRequest(BaseModel):
     tenant_id: str = "dubait11"
     conversation_history: List[Dict] = []
     flow_state: Optional[Dict] = {}
+    action: Optional[str] = None
+    selectedItemId: Optional[str] = None
+    selectedItemType: Optional[str] = None
+    selectedItemName: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -47,536 +53,315 @@ class ChatResponse(BaseModel):
     flow_state: Optional[Dict] = {}
 
 
+def filter_properties(items: List[Dict], filters: Dict) -> List[Dict]:
+    """Filter properties based on extracted criteria."""
+    filtered = items
+    
+    loc = filters.get("location")
+    if loc:
+        loc = loc.lower()
+        filtered = [i for i in filtered if loc in (i.get("location") or "").lower() or loc in (i.get("title") or "").lower()]
+        
+    max_p = filters.get("maxPrice")
+    if max_p:
+        try:
+            max_p = int(max_p)
+            filtered = [i for i in filtered if i.get("budget", 0) <= max_p]
+        except: pass
+        
+    bhk = filters.get("bhk")
+    if bhk:
+        try:
+            bhk = int(bhk)
+            filtered = [i for i in filtered if i.get("bhk") == bhk]
+        except: pass
+        
+    return filtered
+
+
+def filter_projects(items: List[Dict], filters: Dict) -> List[Dict]:
+    """Filter projects based on extracted criteria."""
+    filtered = items
+    loc = filters.get("location")
+    if loc:
+        loc = loc.lower()
+        filtered = [i for i in filtered if loc in (i.get("location") or "").lower() or loc in (i.get("name") or "").lower()]
+    return filtered
+
+
 @router.post("/message", response_model=ChatResponse)
 async def chat_message(request: ChatRequest) -> ChatResponse:
-    """
-    Main chat endpoint with Ollama + RAG + Leadrat APIs.
-    Handles lead creation flow, property/project search, and general queries.
-    """
     try:
         message = request.message.strip()
         tenant_id = request.tenant_id or "dubait11"
         flow_state = request.flow_state or {}
         history = request.conversation_history or []
         
-        print(f"[ChatAPI] Incoming message: {message}")
-        print(f"[ChatAPI] Tenant ID: {tenant_id}")
+        print(f"[ChatAPI] Incoming message: {message} | Action: {request.action} | Type: {type(request.action)}")
+
+        # ── HANDLE STRUCTURED ACTIONS (INTERESTED ETC.) ─────
+        if request.action == "interest_selected" or message.lower().startswith("interested:"):
+            print(f"[ChatAPI] ✓ Detected interest_selected action, starting lead flow")
+            item_name = request.selectedItemName or message.split(":", 1)[-1].strip()
+            item_type = request.selectedItemType or ("property" if "property" in message.lower() else "project")
+            
+            first_step = get_next_step({})
+            return ChatResponse(
+                response=f"Great choice! I'd love to help you with **{item_name}**. May I know your name?",
+                intent="lead_creation_step",
+                source="leadrat_api",
+                flow_state={
+                    "active_flow": "create_lead",
+                    "current_step": "get_name",
+                    "collected": {"project_interest": item_name, "item_type": item_type, "item_id": request.selectedItemId}
+                }
+            )
 
         # ── ACTIVE LEAD CREATION FLOW ──────────────────────
         if flow_state.get("active_flow") == "create_lead":
             collected = flow_state.get("collected", {})
             current_step = flow_state.get("current_step")
 
-            # If project was already selected via button, confirm we have the required flow step
-            if not current_step and collected.get("project_interest"):
-                # Start from the first step (name) if not specified
-                current_step = "name"
-
             # Handle confirmation step
             if current_step == "confirm":
-                if message.lower() in ["yes", "y", "confirm", "ok"]:
-                    payload = build_leadrat_payload(collected, tenant_id)
+                msg_lower = message.lower()
+                is_confirm = any(kw in msg_lower for kw in ["yes", "y", "confirm", "ok", "proceed", "✅"])
+                is_cancel = any(kw in msg_lower for kw in ["no", "cancel", "❌", "stop"])
+
+                if is_confirm:
+                    # Build payload for Leadrat lead creation API
+                    payload = {
+                        "name": collected.get("name", ""),
+                        "phone": collected.get("phone", ""),
+                        "email": collected.get("email", ""),
+                        "source": "AI Chatbot",
+                        "projectInterest": collected.get("project_interest", ""),
+                        "appointmentType": collected.get("appointmentType", "Information"),
+                        "notes": (
+                            f"Lead created via AI Chatbot\n"
+                            f"Interest: {collected.get('project_interest', '')}\n"
+                            f"Type: {collected.get('item_type', 'property')}\n"
+                            f"Item ID: {collected.get('item_id', 'N/A')}\n"
+                            f"Preference: {collected.get('appointmentType', 'Information')}"
+                        )
+                    }
+                    print(f"[ChatAPI] Creating lead with payload: {payload}")
                     try:
                         result = await create_lead(payload, tenant_id)
+                        print(f"[ChatAPI] Lead creation result: {result}")
+
+                        if result.get("error"):
+                            return ChatResponse(
+                                response=(
+                                    f"⚠️ I've recorded your details but couldn't sync with our CRM right now.\n\n"
+                                    f"Don't worry — our team has your info and will reach out to **{collected.get('name')}** at **{collected.get('phone')}** soon.\n\n"
+                                    f"Is there anything else I can help you with?"
+                                ),
+                                intent="lead_creation_complete",
+                                source="leadrat_api",
+                                metadata={"lead_data": collected, "error": result.get("error")},
+                                flow_state={}
+                            )
+
                         return ChatResponse(
                             response=(
-                                f"✅ Request sent successfully!\n\n"
-                                f"Our team will contact {collected['name']} soon regarding your interest in {collected.get('project_interest', 'this property')}.\n"
+                                f"✅ **Request submitted successfully!**\n\n"
+                                f"Our team will contact **{collected.get('name')}** at **{collected.get('phone')}** soon "
+                                f"regarding your interest in **{collected.get('project_interest', 'this property')}**.\n\n"
+                                f"Is there anything else I can help you with?"
                             ),
                             intent="lead_creation_complete",
-                            source="embedded_mode_fast",
-                            rag_used=False,
-                            metadata={
-                                "request_sent": True,
-                                "name": collected['name'],
-                                "phone": collected['phone'],
-                                "property": collected.get('project_interest', '')
-                            },
+                            source="leadrat_api",
+                            metadata={"lead_id": result.get("id"), "lead_data": collected},
                             flow_state={}
                         )
                     except Exception as e:
-                        logger.error("lead_creation_failed", error=str(e))
+                        print(f"[ChatAPI] Lead creation error: {e}")
                         return ChatResponse(
                             response=(
-                                f"❌ Failed to create lead: {str(e)}\n"
-                                "Please try again."
+                                f"⚠️ I've noted your interest. Our team will reach out to "
+                                f"**{collected.get('name')}** at **{collected.get('phone')}** shortly.\n\n"
+                                f"Is there anything else I can help you with?"
                             ),
-                            intent="error",
-                            source="embedded_mode_fast",
-                            rag_used=False,
+                            intent="lead_creation_complete",
+                            source="leadrat_api",
                             flow_state={}
                         )
-                else:
-                    # User said No — cancel flow
+                elif is_cancel:
                     return ChatResponse(
-                        response="No problem. What else can I help you with today?",
+                        response="No problem, I've cancelled the request. What else can I help you with?",
                         intent="general",
-                        source="embedded_mode_fast",
-                        rag_used=False,
+                        source="leadrat_api",
                         flow_state={}
                     )
-
-            # Handle collecting a field
-            step_def = next(
-                (s for s in LEAD_CREATION_STEPS if s["field"] == current_step),
-                None
-            )
-
-            if step_def:
-                # Map number input to option
-                if step_def.get("map_number"):
-                    try:
-                        idx = int(message.strip()) - 1
-                        options = step_def.get("options", [])
-                        if 0 <= idx < len(options):
-                            message = options[idx]
-                    except:
-                        pass
-
-                # Validate input
-                if not step_def["validation"](message):
+                else:
                     return ChatResponse(
-                        response=step_def.get("error", "Invalid input. Please try again."),
-                        intent="lead_creation_error",
-                        source="embedded_mode_fast",
-                        rag_used=False,
+                        response="Please confirm with **Yes** to proceed or **Cancel** to abort.",
+                        intent="lead_creation_confirm",
+                        source="leadrat_api",
+                        metadata={"quickReplies": ["✅ Yes, proceed", "❌ Cancel"]},
                         flow_state=flow_state
                     )
 
-                # Save field
-                value = message.strip()
-                collected[current_step] = value
-
-                # Get next step
-                next_step = get_next_step(collected)
-
-                if next_step["step"] == "confirm":
+            # Handle collecting a field
+            # Override flow steps for natural language
+            if current_step == "get_name":
+                # Basic validation - require at least 2 characters
+                if len(message.strip()) < 2:
                     return ChatResponse(
-                        response=build_confirmation_message(collected),
-                        intent="lead_creation_confirm",
-                        source="embedded_mode_fast",
-                        rag_used=False,
-                        flow_state={
-                            "active_flow": "create_lead",
-                            "current_step": "confirm",
-                            "collected": collected
-                        }
-                    )
-                else:
-                    return ChatResponse(
-                        response=next_step["question"],
+                        response="Please share your full name so I can personalize your experience.",
                         intent="lead_creation_step",
-                        source="embedded_mode_fast",
-                        rag_used=False,
-                        flow_state={
-                            "active_flow": "create_lead",
-                            "current_step": next_step["field"],
-                            "collected": collected
-                        }
-                    )
-            else:
-                # Error: step_def not found but we're in lead creation flow
-                logger.error("lead_creation_step_not_found", current_step=current_step)
-                return ChatResponse(
-                    response="Something went wrong with the form. Let's start over.",
-                    intent="error",
-                    source="embedded_mode_fast",
-                    rag_used=False,
-                    flow_state={}
-                )
-
-        # ── FAST PATH: KEYWORD DETECTION (no LLM) ─────────
-        msg_lower = message.lower()
-
-        # Detect interested property button (format: "interested: PropertyName")
-        if msg_lower.startswith("interested:"):
-            property_name = message.replace("interested:", "", 1).replace("Interested:", "", 1).strip()
-            first_step = get_next_step({})
-            return ChatResponse(
-                response=first_step["question"],
-                intent="lead_creation_step",
-                source="embedded_mode_fast",
-                rag_used=False,
-                flow_state={
-                    "active_flow": "create_lead",
-                    "current_step": first_step["field"],
-                    "collected": {"project_interest": property_name}
-                },
-                metadata={"property_name": property_name}
-            )
-
-        # Detect request/enquiry (text version)
-        if any(kw in msg_lower for kw in ["enquiry", "contact sales", "speak to agent", "reach out", "help me"]):
-            first_step = get_next_step({})
-            return ChatResponse(
-                response=first_step["question"],
-                intent="lead_creation_step",
-                source="embedded_mode_fast",
-                rag_used=False,
-                flow_state={
-                    "active_flow": "create_lead",
-                    "current_step": first_step["field"],
-                    "collected": {}
-                }
-            )
-
-        # Detect property search
-        if any(kw in msg_lower for kw in ["find property", "search property", "properties", "find flat", "apartment"]):
-            print(f"[ChatAPI] Detected intent: property")
-            print(f"[ChatAPI] Tenant ID: {tenant_id}")
-            try:
-                live_data = await get_properties({}, tenant_id)
-                properties = live_data.get("data", [])
-                print(f"[ChatAPI] LeadRat response data count: {len(properties)}")
-
-                if properties:
-                    return ChatResponse(
-                        response=f"I found {len(properties)} properties matching your interest. Here are the top options:",
-                        intent="property",
                         source="leadrat_api",
-                        rag_used=False,
-                        template="property_list",
-                        data=properties,
-                        metadata={"properties_found": len(properties)}
+                        flow_state=flow_state
                     )
-                else:
-                    return ChatResponse(
-                        response="I couldn't find any properties matching your criteria at the moment. Would you like to speak with an agent?",
-                        intent="property",
-                        source="leadrat_api",
-                        rag_used=False
-                    )
-            except Exception as e:
-                print(f"[ChatAPI] Error in property search: {str(e)}")
+                collected["name"] = message.strip()
+                flow_state["current_step"] = "get_phone"
+                flow_state["collected"] = collected
                 return ChatResponse(
-                    response="Unable to fetch live property data. Please try again.",
-                    intent="error",
+                    response=f"Thanks **{collected['name']}**! Could you please share your phone number so our team can reach out?",
+                    intent="lead_creation_step",
                     source="leadrat_api",
-                    rag_used=False
+                    flow_state=flow_state
                 )
-
-        # Detect project search
-        if any(kw in msg_lower for kw in ["find project", "show project", "projects", "view project"]):
-            print(f"[ChatAPI] Detected intent: project")
-            print(f"[ChatAPI] Tenant ID: {tenant_id}")
-            try:
-                live_data = await get_projects({}, tenant_id)
-                projects = live_data.get("data", [])
-                print(f"[ChatAPI] LeadRat response data count: {len(projects)}")
-
-                if projects:
+            elif current_step == "get_phone":
+                phone = re.sub(r"\D", "", message)
+                if len(phone) < 10:
                     return ChatResponse(
-                        response=f"I found {len(projects)} projects for you. Explore our top developments below:",
-                        intent="project",
+                        response="Please provide a valid phone number (at least 10 digits).",
+                        intent="lead_creation_step",
                         source="leadrat_api",
-                        rag_used=False,
-                        template="project_list",
-                        data=projects,
-                        metadata={"projects_found": len(projects)}
+                        flow_state=flow_state
                     )
-                else:
-                    return ChatResponse(
-                        response="I couldn't find any active projects for the selected criteria.",
-                        intent="project",
-                        source="leadrat_api",
-                        rag_used=False
-                    )
-            except Exception as e:
-                print(f"[ChatAPI] Error in project search: {str(e)}")
+                collected["phone"] = phone
+                flow_state["current_step"] = "get_appointment"
+                flow_state["collected"] = collected
                 return ChatResponse(
-                    response="Unable to fetch live project data. Please try again.",
-                    intent="error",
+                    response=(
+                        f"Perfect! How would you like to proceed?\n\n"
+                        f"Choose one option below:"
+                    ),
+                    intent="lead_creation_step",
                     source="leadrat_api",
-                    rag_used=False
+                    metadata={"quickReplies": ["📞 Schedule a Callback", "🏠 Schedule a Site Visit", "💬 Just need information"]},
+                    flow_state=flow_state
                 )
-
-        # ── INTENT DETECTION WITH OLLAMA ──────────────────
-        try:
-            semantics = await extract_semantics(message, history)
-            module = semantics.get("module", "general")
-            intent = semantics.get("intent", "query")
-            filters = semantics.get("filters", {})
-        except Exception as e:
-            logger.warning("ollama_extraction_failed", error=str(e))
-            # Fallback: keyword-based intent detection
-            module = "general"
-            intent = "query"
-            filters = {}
-
-        logger.info("chat_intent_extracted", module=module, intent=intent, filters=filters)
-
-        # ── CREATE LEAD INTENT ─────────────────────────────
-        if module == "lead" and intent == "create":
-            first_step = get_next_step({})
-            return ChatResponse(
-                response=first_step["question"],
-                intent="lead_creation_step",
-                source="embedded_mode_fast",
-                rag_used=False,
-                flow_state={
-                    "active_flow": "create_lead",
-                    "current_step": first_step["field"],
-                    "collected": {}
-                }
-            )
-
-        # ── QUERY LEADS WITH RAG + LIVE API ───────────────
-        elif module == "lead" and intent == "query":
-            try:
-                # Get live data from Leadrat
-                live_data = await get_leads(filters, tenant_id)
-                leads = live_data.get("data", live_data if isinstance(live_data, list) else [])
-
-                # Also search RAG for context
-                rag_context = await hybrid_search(message, "lead", filters)
-
-                # Build combined context
-                live_context = "\n".join([
-                    f"Lead: {l.get('name')} | Status: {l.get('status')} | Phone: {l.get('phone')}"
-                    for l in leads[:5]
-                ])
-                combined_context = (
-                    f"LIVE DATA:\n{live_context}\n\n"
-                    f"ADDITIONAL CONTEXT:\n{rag_context}" if rag_context else live_context
-                )
-
-                # Generate response with Ollama
-                response_text = await generate_response(
-                    message, combined_context, module, history
-                )
-
-                return ChatResponse(
-                    response=response_text,
-                    intent="lead",
-                    source="ollama_rag",
-                    rag_used=bool(rag_context),
-                    template="lead_list" if leads else None,
-                    data=leads[:5] if leads else None,
-                    metadata={"leads_found": len(leads)}
-                )
-            except Exception as e:
-                logger.error("lead_query_failed", error=str(e))
-                return ChatResponse(
-                    response="I'm having trouble accessing leads. Please try again.",
-                    intent="error",
-                    source="fallback",
-                    rag_used=False
-                )
-
-        # ── QUERY PROJECTS WITH RAG ───────────────────────
-        elif module == "project" and intent == "query":
-            try:
-                # Search RAG first
-                rag_context = await hybrid_search(message, "project", filters)
-
-                # If no RAG results, try live API
-                if not rag_context:
-                    live_data = await get_projects(filters, tenant_id)
-                    projects = live_data.get("data", live_data if isinstance(live_data, list) else [])
-                    live_context = "\n".join([
-                        f"Project: {p.get('name') or p.get('title', 'N/A')} | Location: {p.get('city') or p.get('address', {}).get('city', 'Dubai')} | Status: {p.get('status', 'Active')}"
-                        for p in projects[:5]
-                    ])
-                    rag_context = live_context
+            elif current_step == "get_appointment":
+                msg_lower = message.lower()
+                if "callback" in msg_lower or "call" in msg_lower:
+                    collected["appointmentType"] = "Callback"
+                elif "visit" in msg_lower or "site" in msg_lower:
+                    collected["appointmentType"] = "Site Visit"
                 else:
-                    projects = []
-
-                # Generate response
-                response_text = await generate_response(
-                    message, rag_context, module, history
-                )
-
+                    collected["appointmentType"] = "Information"
+                flow_state["current_step"] = "confirm"
+                flow_state["collected"] = collected
+                appt = collected["appointmentType"]
                 return ChatResponse(
-                    response=response_text,
-                    intent="project",
-                    source="ollama_rag",
-                    rag_used=True,
-                    metadata={"projects_found": len(projects) if projects else 0}
+                    response=(
+                        f"Great! Here's a summary:\n\n"
+                        f"👤 **Name:** {collected.get('name')}\n"
+                        f"📞 **Phone:** {collected.get('phone')}\n"
+                        f"🏠 **Interested in:** {collected.get('project_interest')}\n"
+                        f"📋 **Preference:** {appt}\n\n"
+                        f"Shall I proceed and have our team contact you?"
+                    ),
+                    intent="lead_creation_confirm",
+                    source="leadrat_api",
+                    metadata={"quickReplies": ["✅ Yes, proceed", "❌ Cancel"]},
+                    flow_state=flow_state
                 )
-            except Exception as e:
-                logger.error("project_query_failed", error=str(e))
+
+        # ── INTENT DETECTION ───────────────────────────────
+        semantics = await extract_semantics(message, history)
+        module = semantics.get("module", "general")
+        intent = semantics.get("intent", "query")
+        filters = semantics.get("filters", {})
+        
+        print(f"[ChatAPI] Detected Module: {module} | Intent: {intent} | Filters: {filters}")
+
+        # ── PROPERTY FLOW ──────────────────────────────────
+        if module == "property" or any(kw in message.lower() for kw in ["properties", "flat", "apartment", "villa", "bhk"]):
+            res = await get_properties(tenant_id=tenant_id)
+            items = res.get("data", [])
+            filtered = filter_properties(items, filters)
+            
+            if not filtered and items:
+                # If no exact match, show nearest matches (top 3)
                 return ChatResponse(
-                    response="I'm having trouble accessing projects. Please try again.",
-                    intent="error",
-                    source="fallback",
-                    rag_used=False
-                )
-
-        # ── QUERY PROPERTIES WITH RAG ──────────────────────
-        elif module == "property" and intent == "query":
-            try:
-                # Search RAG first
-                rag_context = await hybrid_search(message, "property", filters)
-
-                # If no RAG results, try live API
-                if not rag_context:
-                    live_data = await get_properties(filters, tenant_id)
-                    properties = live_data.get("data", live_data if isinstance(live_data, list) else [])
-                    live_context = "\n".join([
-                        f"Property: {p.get('title') or p.get('name') or p.get('serialNo', 'N/A')} | BHK: {p.get('bhkType') or p.get('bhk', 'N/A')} | Price: {p.get('price') or 'On Request'} | City: {p.get('city') or p.get('address', {}).get('city', 'Dubai')}"
-                        for p in properties[:5]
-                    ])
-                    rag_context = live_context
-                else:
-                    properties = []
-
-                # Generate response
-                response_text = await generate_response(
-                    message, rag_context, module, history
-                )
-
-                return ChatResponse(
-                    response=response_text,
+                    response="I couldn't find an exact match for your criteria, but here are the closest options available:",
                     intent="property",
-                    source="ollama_rag",
-                    rag_used=True,
-                    metadata={"properties_found": len(properties) if properties else 0}
+                    source="leadrat_api",
+                    template="property_list",
+                    data=items[:3]
                 )
-            except Exception as e:
-                logger.error("property_query_failed", error=str(e))
+            
+            if filtered:
+                count = len(filtered)
+                msg = f"I found {count} properties matching your interest:" if count > 1 else "I found this property for you:"
                 return ChatResponse(
-                    response="I'm having trouble accessing properties. Please try again.",
-                    intent="error",
-                    source="fallback",
-                    rag_used=False
+                    response=msg,
+                    intent="property",
+                    source="leadrat_api",
+                    template="property_list",
+                    data=filtered[:10]
                 )
-
-        # ── GENERAL QUERY WITH OLLAMA ──────────────────────
-        else:
-            try:
-                # Try RAG context if available
-                try:
-                    rag_context = await hybrid_search(message, "general", filters)
-                except:
-                    rag_context = ""
-
-                # Try to generate response with Ollama
-                try:
-                    response_text = await generate_response(
-                        message, rag_context, "general", history
-                    )
-                except:
-                    response_text = None
-
-                # If Ollama fails, use fallback response
-                if not response_text:
-                    response_text = "Hello! I'm Aria, your real estate assistant. I can help you find properties, projects, or create a lead. What would you like to do?"
-
+            else:
                 return ChatResponse(
-                    response=response_text,
-                    intent="general",
-                    source="ollama_rag" if rag_context else ("ollama" if response_text else "fallback"),
-                    rag_used=bool(rag_context)
+                    response="I couldn't find any properties at the moment. Would you like to speak with an agent?",
+                    intent="property",
+                    source="leadrat_api"
                 )
-            except Exception as e:
-                logger.error("general_query_failed", error=str(e))
+
+        # ── PROJECT FLOW ───────────────────────────────────
+        if module == "project" or any(kw in message.lower() for kw in ["projects", "ongoing"]):
+            res = await get_projects(tenant_id=tenant_id)
+            items = res.get("data", [])
+            filtered = filter_projects(items, filters)
+            
+            if filtered:
                 return ChatResponse(
-                    response="Hello! I'm Aria, your real estate assistant. I can help you find properties, projects, or create a lead. What would you like to do?",
-                    intent="general",
-                    source="fallback",
-                    rag_used=False
+                    response=f"I found {len(filtered)} projects for you:",
+                    intent="project",
+                    source="leadrat_api",
+                    template="project_list",
+                    data=filtered[:10]
+                )
+            else:
+                return ChatResponse(
+                    response="I couldn't find any projects matching your criteria.",
+                    intent="project",
+                    source="leadrat_api"
                 )
 
+        # ── APPOINTMENT FLOW ───────────────────────────────
+        if module == "appointment" or any(kw in message.lower() for kw in ["book", "appointment", "visit", "callback", "schedule"]):
+            first_step = get_next_step({})
+            return ChatResponse(
+                response="I'd be happy to help you schedule that. May I know your name first?",
+                intent="lead_creation_step",
+                source="leadrat_api",
+                flow_state={
+                    "active_flow": "create_lead",
+                    "current_step": "get_name",
+                    "collected": {"appointmentType": "Callback"}
+                }
+            )
+
+        # ── GENERAL / RAG ──────────────────────────────────
+        rag_context = await hybrid_search(message, "general", filters)
+        response_text = await generate_response(message, rag_context, "general", history)
+        
+        return ChatResponse(
+            response=response_text,
+            intent="general",
+            source="ollama_rag",
+            rag_used=bool(rag_context)
+        )
+
     except Exception as e:
-        logger.error("chat_error", error=str(e), message=request.message[:50], exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/test-token")
-async def test_jwt_token():
-    """Test JWT token generation from Leadrat."""
-    from app.services.leadrat_api import get_jwt_token
-
-    results = {
-        "timestamp": str(__import__('datetime').datetime.now()),
-        "test": "JWT Token Generation"
-    }
-
-    try:
-        token = await get_jwt_token()
-        results["status"] = "✅ SUCCESS"
-        results["token_generated"] = True
-        results["token_preview"] = token[:50] + "..." if token else "Empty token"
-        results["token_length"] = len(token) if token else 0
-    except Exception as e:
-        results["status"] = "❌ FAILED"
-        results["error"] = str(e)
-        results["error_type"] = type(e).__name__
-
-    return results
-
-
-@router.get("/test-apis")
-async def test_leadrat_apis(tenant_id: str = "dubait11"):
-    """Test all Leadrat API endpoints."""
-    from app.services.leadrat_api import get_jwt_token
-
-    results = {
-        "timestamp": str(__import__('datetime').datetime.now()),
-        "leadrat_url": settings.leadrat_api_url if hasattr(settings, 'leadrat_api_url') else "https://connect.leadrat.com",
-        "tests": {}
-    }
-
-    # Test JWT token first
-    try:
-        token = await get_jwt_token()
-        results["tests"]["jwt_token"] = {"status": "✅ SUCCESS", "token_preview": token[:50] + "..."}
-    except Exception as e:
-        results["tests"]["jwt_token"] = {"status": "❌ FAILED", "error": str(e)}
-
-    # Test lead creation
-    try:
-        lead_result = await create_lead({
-            "name": "Test Lead",
-            "phone": "+971501234567",
-            "email": "test@example.com",
-            "source": "test",
-            "projectInterest": "Test Project",
-            "status": "New",
-            "tenantId": tenant_id
-        }, tenant_id)
-        results["tests"]["create_lead"] = {"status": "✅ SUCCESS", "data": lead_result}
-    except Exception as e:
-        results["tests"]["create_lead"] = {"status": "❌ FAILED", "error": str(e)}
-
-    # Test get leads
-    try:
-        leads_result = await get_leads({}, tenant_id)
-        results["tests"]["get_leads"] = {"status": "✅ SUCCESS", "count": len(leads_result.get("data", []))}
-    except Exception as e:
-        results["tests"]["get_leads"] = {"status": "❌ FAILED", "error": str(e)}
-
-    # Test get properties
-    try:
-        props_result = await get_properties({}, tenant_id)
-        results["tests"]["get_properties"] = {"status": "✅ SUCCESS", "count": len(props_result.get("data", []))}
-    except Exception as e:
-        results["tests"]["get_properties"] = {"status": "❌ FAILED", "error": str(e)}
-
-    # Test get projects
-    try:
-        projects_result = await get_projects({}, tenant_id)
-        results["tests"]["get_projects"] = {"status": "✅ SUCCESS", "count": len(projects_result.get("data", []))}
-    except Exception as e:
-        results["tests"]["get_projects"] = {"status": "❌ FAILED", "error": str(e)}
-
-    return results
-
-
-@router.get("/status")
-async def health_check():
-    """Check if chat endpoints are healthy."""
-    try:
-        return {
-            "status": "healthy",
-            "service": "Leadrat AI Chatbot",
-            "version": "2.0.0",
-            "features": ["lead_creation", "ollama_rag", "leadrat_api"],
-            "leadrat_api_url": "https://connect.leadrat.com"
-        }
-    except Exception as e:
-        logger.error("health_check_failed", error=str(e))
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-        }
+        logger.error("chat_error", error=str(e), exc_info=True)
+        return ChatResponse(
+            response="I'm sorry, I encountered an error. How else can I help you?",
+            intent="error",
+            source="fallback"
+        )

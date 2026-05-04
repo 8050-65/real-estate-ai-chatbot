@@ -341,16 +341,13 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
 
       let quickReplies = getQuickReplies(detectedIntent);
 
-      if ((detectedIntent === 'property' || template === 'property_list') && dataItems.length > 0) {
-        const propertyNames = dataItems.slice(0, 3).map((p: any) => p.name || p.title || 'Property');
-        const interestedButtons = propertyNames.map((p: string) => `Interested: ${p}`);
-        quickReplies = interestedButtons.concat(['Show more', 'Filter results']);
-      }
-
-      if ((detectedIntent === 'project' || template === 'project_list') && dataItems.length > 0) {
-        const projectNames = dataItems.slice(0, 3).map((p: any) => p.name || 'Project');
-        const interestedButtons = projectNames.map((p: string) => `Interested: ${p}`);
-        quickReplies = interestedButtons.concat(['Show more', 'View details']);
+      // Backend can override quickReplies via metadata
+      if (response?.metadata?.quickReplies && Array.isArray(response.metadata.quickReplies)) {
+        quickReplies = response.metadata.quickReplies;
+      } else if ((detectedIntent === 'property' || template === 'property_list') && dataItems.length > 0) {
+        quickReplies = ['Filter results', 'Show more'];
+      } else if ((detectedIntent === 'project' || template === 'project_list') && dataItems.length > 0) {
+        quickReplies = ['Filter results', 'Show more'];
       }
 
       return {
@@ -488,13 +485,12 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
     const welcomeMessage: Message = {
       id: 'welcome',
       role: 'assistant',
-      content: `${getTranslation(language, 'welcome_title')} 🏠\n\n${getTranslation(language, 'welcome_desc')}\n\n${getTranslation(language, 'ask_ai')}?`,
+      content: `Hello! I'm Aria, your real estate assistant. 🏠\n\nI can help you find your dream home, explore new projects, or schedule a visit. What would you like to do today?`,
       timestamp: new Date(),
       quickReplies: [
-        'Find Properties',
-        'View Projects',
-        'Book Site Visit',
-        'Request Callback',
+        '🏠 Properties',
+        '🏗️ Projects',
+        '📅 Appointments',
       ],
     };
     setMessages([welcomeMessage]);
@@ -2096,10 +2092,119 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
   }
 
   function handleQuickReply(reply: string) {
-    // Use the mapped message from QUICK_REPLY_PARAMS, or fallback to the reply text
+    // Handle filter expansion locally - inject filter chips inline
+    if (reply === 'Filter results' || reply === 'Filter properties') {
+      const filterChips = [
+        '💰 Under 50 Lakhs',
+        '💰 50L - 1 Cr',
+        '💰 1 Cr - 2 Cr',
+        '💰 Above 2 Cr',
+        '🏠 1 BHK',
+        '🏠 2 BHK',
+        '🏠 3 BHK',
+        '🏠 Villa',
+        '📍 Dubai Marina',
+        '📍 Downtown',
+      ];
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `filter-${Date.now()}`,
+          role: 'assistant',
+          content: 'Choose a filter to refine your search:',
+          quickReplies: filterChips,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
+    if (reply === 'Show more' || reply === 'View more' || reply === 'Load more') {
+      handleSend('Show more results');
+      return;
+    }
+
+    // Map filter chip labels to clean search queries
+    const filterMap: Record<string, string> = {
+      '💰 Under 50 Lakhs': 'show properties under 50 lakhs',
+      '💰 50L - 1 Cr': 'show properties between 50 lakhs and 1 crore',
+      '💰 1 Cr - 2 Cr': 'show properties between 1 crore and 2 crore',
+      '💰 Above 2 Cr': 'show properties above 2 crore',
+      '🏠 1 BHK': 'show 1 BHK properties',
+      '🏠 2 BHK': 'show 2 BHK properties',
+      '🏠 3 BHK': 'show 3 BHK properties',
+      '🏠 Villa': 'show villa properties',
+      '📍 Dubai Marina': 'show properties in Dubai Marina',
+      '📍 Downtown': 'show properties in Downtown',
+    };
+
+    if (filterMap[reply]) {
+      handleSend(filterMap[reply]);
+      return;
+    }
+
     const params = QUICK_REPLY_PARAMS[reply];
     const messageToSend = params?.message || reply;
     handleSend(messageToSend);
+  }
+
+  async function handleStructuredAction(action: string, item: any) {
+    const loadingId = Date.now().toString();
+    const itemName = item.name || item.title || 'this item';
+    
+    // Optimistically show user's action
+    setMessages(prev => [...prev, {
+      id: `user-${loadingId}`,
+      role: 'user',
+      content: `Interested in ${itemName}`,
+      timestamp: new Date()
+    }]);
+
+    setIsLoading(true);
+    setMessages(prev => [...prev, {
+      id: `bot-${loadingId}`,
+      role: 'assistant',
+      content: '',
+      isLoading: true,
+      timestamp: new Date()
+    }]);
+
+    try {
+      const payload = {
+        message: `Interested in ${itemName}`,
+        action: action,
+        selectedItemId: item.id,
+        selectedItemType: item.propertyType ? 'property' : 'project',
+        selectedItemName: itemName,
+        tenant_id: tenantId,
+        flow_state: flowState
+      };
+
+      const res = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const response = await res.json();
+      const content = response?.response || response?.data?.response || '';
+      
+      if (response.flow_state) setFlowState(response.flow_state);
+
+      setMessages(prev => prev.map(m => 
+        m.id === `bot-${loadingId}` 
+          ? { ...m, content, quickReplies: response.quickReplies || [], isLoading: false }
+          : m
+      ));
+    } catch (error) {
+      setMessages(prev => prev.map(m => 
+        m.id === `bot-${loadingId}` 
+          ? { ...m, content: "I'm sorry, I couldn't process that request. Please try again.", isLoading: false }
+          : m
+      ));
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -2287,12 +2392,13 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
         )}
 
         {messages.map((msg) => (
-          <div key={msg.id}>
+          <div key={msg.id} style={{ width: '100%' }}>
             <div
               style={{
                 display: 'flex',
                 justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
                 marginBottom: msg.quickReplies ? '8px' : '0',
+                width: '100%',
               }}
             >
               {msg.role === 'assistant' && (
@@ -2313,120 +2419,186 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
                 </div>
               )}
 
-              <div
-                style={{
-                  maxWidth: '70%',
-                  backgroundColor: embeddedMode
-                    ? (msg.role === 'user' ? '#e9d5ff' : '#dbeafe')
-                    : (msg.role === 'user'
-                      ? 'rgba(195, 100, 255, 0.15)'
-                      : 'rgba(220, 40, 12%, 0.5)'),
-                  border: `1px solid ${embeddedMode
-                    ? (msg.role === 'user' ? '#c084fc' : '#7dd3fc')
-                    : (msg.role === 'user'
-                      ? 'hsl(270 60% 55% / 0.4)'
-                      : 'hsl(195 85% 55% / 0.3)')}`,
-                  backdropFilter: embeddedMode ? 'none' : 'blur(10px)',
-                  borderRadius: '1rem',
-                  padding: '12px 16px',
-                  color: embeddedMode ? '#1f2937' : 'hsl(40 30% 95%)',
-                  fontSize: '13px',
-                  lineHeight: '1.5',
-                  wordBreak: 'break-word',
-                  whiteSpace: 'pre-wrap',
-                  boxShadow: embeddedMode
-                    ? (msg.role === 'user' ? '0 2px 8px rgba(168, 85, 247, 0.1)' : '0 2px 8px rgba(59, 130, 246, 0.1)')
-                    : (msg.role === 'user'
-                      ? 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 15px hsl(270 60% 55% / 0.15)'
-                      : 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 20px hsl(195 85% 55% / 0.2)'),
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                {msg.isLoading ? (
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {[0, 1, 2].map((i) => (
-                        <div
-                          key={i}
-                          style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            background: 'hsl(195 85% 55%)',
-                            boxShadow: '0 0 10px hsl(195 85% 55%)',
-                            animation: `typing-bounce 1.4s infinite`,
-                            animationDelay: `${i * 0.2}s`,
-                          }}
-                        />
-                      ))}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                flex: (msg.data && msg.data.length > 0) ? 1 : 'initial',
+                width: (msg.data && msg.data.length > 0) ? 'auto' : 'auto',
+                maxWidth: (msg.data && msg.data.length > 0) ? 'calc(100% - 44px)' : '75%',
+                minWidth: 0,
+                alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
+              }}>
+                <div
+                  style={{
+                    backgroundColor: embeddedMode
+                      ? (msg.role === 'user' ? '#e9d5ff' : '#dbeafe')
+                      : (msg.role === 'user'
+                        ? 'rgba(195, 100, 255, 0.15)'
+                        : 'rgba(220, 40, 12%, 0.5)'),
+                    border: `1px solid ${embeddedMode
+                      ? (msg.role === 'user' ? '#c084fc' : '#7dd3fc')
+                      : (msg.role === 'user'
+                        ? 'hsl(270 60% 55% / 0.4)'
+                        : 'hsl(195 85% 55% / 0.3)')}`,
+                    backdropFilter: embeddedMode ? 'none' : 'blur(10px)',
+                    borderRadius: '1rem',
+                    padding: '12px 16px',
+                    color: embeddedMode ? '#1f2937' : 'hsl(40 30% 95%)',
+                    fontSize: '13px',
+                    lineHeight: '1.5',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap',
+                    boxShadow: embeddedMode
+                      ? (msg.role === 'user' ? '0 2px 8px rgba(168, 85, 247, 0.1)' : '0 2px 8px rgba(59, 130, 246, 0.1)')
+                      : (msg.role === 'user'
+                        ? 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 15px hsl(270 60% 55% / 0.15)'
+                        : 'inset 0 1px 2px rgba(255, 255, 255, 0.1), 0 0 20px hsl(195 85% 55% / 0.2)'),
+                    transition: 'all 0.3s ease',
+                    width: 'fit-content',
+                    maxWidth: '100%'
+                  }}
+                >
+                  {msg.isLoading ? (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              background: 'hsl(195 85% 55%)',
+                              boxShadow: '0 0 10px hsl(195 85% 55%)',
+                              animation: `typing-bounce 1.4s infinite`,
+                              animationDelay: `${i * 0.2}s`,
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <span style={{ color: 'hsl(195 85% 55%)', fontSize: '12px' }}>{getTranslation(language, 'thinking')}</span>
                     </div>
-                    <span style={{ color: 'hsl(195 85% 55%)', fontSize: '12px' }}>{getTranslation(language, 'thinking')}</span>
+                  ) : (
+                    msg.content
+                  )}
+                </div>
+
+                {/* Data Items Rendering */}
+                {msg.role === 'assistant' && !msg.isLoading && msg.data && msg.data.length > 0 && (
+                  <div style={{
+                    marginTop: '12px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+                    gap: '14px',
+                    width: '100%',
+                    maxWidth: '100%',
+                  }}>
+                    {msg.data.map((item: any, idx: number) => (
+                      <div
+                        key={idx}
+                        style={{
+                          backgroundColor: embeddedMode ? '#ecf0f1' : 'rgba(6, 182, 212, 0.05)',
+                          border: embeddedMode ? '1px solid #cbd5e0' : '1px solid rgba(6, 182, 212, 0.2)',
+                          borderRadius: '1rem',
+                          padding: '16px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          height: '100%',
+                          justifyContent: 'space-between',
+                          backdropFilter: 'blur(5px)',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (embeddedMode) {
+                            e.currentTarget.style.backgroundColor = '#e2e8f0';
+                          } else {
+                            e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.4)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (embeddedMode) {
+                            e.currentTarget.style.backgroundColor = '#ecf0f1';
+                          } else {
+                            e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.05)';
+                            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                          }
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: '700', color: embeddedMode ? '#1f2937' : 'hsl(195 85% 55%)', marginBottom: '8px', fontSize: '15px' }}>
+                            {item.name || item.title || 'Item'}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                            {item.price && (
+                              <div style={{ fontSize: '12px', color: embeddedMode ? '#059669' : 'hsl(40 100% 60%)', background: 'rgba(251, 191, 36, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                                💰 {item.price}
+                              </div>
+                            )}
+                            {item.propertyType && (
+                              <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(270 60% 70%)', background: 'rgba(168, 85, 247, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                                🏠 {item.propertyType}
+                              </div>
+                            )}
+                          </div>
+                          {item.location && (
+                            <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 75%)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              📍 {item.location}
+                            </div>
+                          )}
+                          {item.status && (
+                            <div style={{ fontSize: '11px', color: 'hsl(142 70% 45%)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
+                              {item.status}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleStructuredAction('interest_selected', item); }}
+                            style={{
+                              flex: 1,
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: 'linear-gradient(135deg, hsl(195 85% 55%), hsl(270 60% 55%))',
+                              color: '#fff',
+                              border: 'none',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'transform 0.2s ease'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            Interested
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleStructuredAction('view_details', item); }}
+                            style={{
+                              flex: 1,
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: 'transparent',
+                              color: embeddedMode ? '#4b5563' : 'hsl(195 85% 55%)',
+                              border: '1px solid hsl(195 85% 55% / 0.4)',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Details
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  msg.content
                 )}
               </div>
-
-              {/* Data Items Rendering */}
-              {msg.role === 'assistant' && !msg.isLoading && msg.data && msg.data.length > 0 && (
-                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '100%' }}>
-                  {msg.data.map((item: any, idx: number) => (
-                    <div
-                      key={idx}
-                      style={{
-                        backgroundColor: embeddedMode ? '#ecf0f1' : 'rgba(6, 182, 212, 0.1)',
-                        border: embeddedMode ? '1px solid #cbd5e0' : '1px solid rgba(6, 182, 212, 0.3)',
-                        borderRadius: '0.75rem',
-                        padding: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (embeddedMode) {
-                          e.currentTarget.style.backgroundColor = '#e2e8f0';
-                          e.currentTarget.style.borderColor = '#94a3b8';
-                        } else {
-                          e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.15)';
-                          e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (embeddedMode) {
-                          e.currentTarget.style.backgroundColor = '#ecf0f1';
-                          e.currentTarget.style.borderColor = '#cbd5e0';
-                        } else {
-                          e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
-                          e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
-                        }
-                      }}
-                    >
-                      <div style={{ fontWeight: '600', color: embeddedMode ? '#1f2937' : 'hsl(195 85% 55%)', marginBottom: '4px' }}>
-                        {item.name || item.title || 'Item'}
-                      </div>
-                      {item.price && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#059669' : 'hsl(40 100% 60%)', marginBottom: '4px' }}>
-                          💰 {item.price}
-                        </div>
-                      )}
-                      {item.location && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
-                          📍 {item.location}
-                        </div>
-                      )}
-                      {item.propertyType && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
-                          🏠 {item.propertyType}
-                        </div>
-                      )}
-                      {item.status && (
-                        <div style={{ fontSize: '12px', color: 'hsl(40 100% 50%)', marginBottom: '4px' }}>
-                          ✓ {item.status}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
 
               {msg.role === 'user' && (
                 <div
