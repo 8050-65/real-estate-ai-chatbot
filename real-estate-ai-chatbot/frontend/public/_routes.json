@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/chatbot-embed.js",
+    "/chatbot-demo.html",
+    "/embed-example.html",
+    "/chat-ui.html",
+    "/TEST.html",
+    "/index.html",
+    "/*.css",
+    "/*.ico",
+    "/*.jpg",
+    "/*.jpeg",
+    "/*.png",
+    "/*.gif",
+    "/*.svg",
+    "/*.webp",
+    "/*.woff",
+    "/*.woff2",
+    "/*.json"
+  ]
+}
