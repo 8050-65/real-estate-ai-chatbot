@@ -19,7 +19,8 @@
 
   // Configuration
   const config = {
-    chatbotUrl: document.currentScript?.getAttribute('data-chatbot-url') || 'https://real-estate-ai-chatbot-frontend.pages.dev',
+    chatbotUrl: document.currentScript?.getAttribute('data-chatbot-url') || 'https://real-estate-ai-chatbot.pages.dev',
+    apiUrl: document.currentScript?.getAttribute('data-api-url') || 'https://real-estate-api-dev.onrender.com/api/v1/chat/message',
     position: document.currentScript?.getAttribute('data-position') || 'bottom-right',
     theme: document.currentScript?.getAttribute('data-theme') || 'dark',
     title: 'Aria - Real Estate Assistant',
