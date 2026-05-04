@@ -559,7 +559,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
         if (isNone || pref === 'None') {
           setConvState(prev => ({
             ...prev, step: 'confirm',
-            data: { ...prev.data, appointmentType: 'None' }
+            data: { ...prev.data, appointmentType: undefined }
           }));
           appendBotMessage(
             `Great. Just to confirm, I'll have our team contact you at **${data.leadPhone}**.\n\nShall I proceed?`,
