@@ -17,7 +17,7 @@
 (function() {
   'use strict';
 
-  // Configuration
+  // Configuration - Read from script attributes
   const config = {
     chatbotUrl: document.currentScript?.getAttribute('data-chatbot-url') || 'https://real-estate-ai-chatbot.pages.dev',
     apiUrl: document.currentScript?.getAttribute('data-api-url') || 'https://real-estate-api-dev.onrender.com/api/v1/chat/message',
@@ -25,6 +25,14 @@
     theme: document.currentScript?.getAttribute('data-theme') || 'dark',
     title: 'Aria - Real Estate Assistant',
     subtitle: 'Ask about properties, payment plans, RERA & more',
+  };
+
+  // Expose config to window for testing/debugging
+  window.LeadratChatConfig = {
+    chatbotUrl: config.chatbotUrl,
+    apiUrl: config.apiUrl,
+    position: config.position,
+    theme: config.theme
   };
 
   // Prevent multiple initializations
@@ -91,7 +99,7 @@
   // Create styles
   function createStyles() {
     const style = document.createElement('style');
-    style.textContent = \`
+    style.textContent = `
       * {
         --leadrat-primary: #667eea;
         --leadrat-primary-dark: #764ba2;
@@ -106,7 +114,7 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         position: fixed;
         z-index: 9999;
-        \${config.position === 'bottom-right' ? 'bottom: 20px; right: 20px;' : ''}
+        ${config.position === 'bottom-right' ? 'bottom: 20px; right: 20px;' : ''}
         \${config.position === 'bottom-left' ? 'bottom: 20px; left: 20px;' : ''}
         \${config.position === 'top-right' ? 'top: 20px; right: 20px;' : ''}
         \${config.position === 'top-left' ? 'top: 20px; left: 20px;' : ''}
