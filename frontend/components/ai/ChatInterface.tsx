@@ -256,9 +256,9 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
   const tenantId = tenantIdOverride || (typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'dubait11') : 'dubait11');
 
   // Backend URL resolution with environment variable support
-  let backendUrl = backendUrlOverride;
+  let backendUrl: string | undefined = backendUrlOverride;
   if (!backendUrl && typeof window !== 'undefined') {
-    backendUrl = localStorage.getItem('backendUrl');
+    backendUrl = localStorage.getItem('backendUrl') || undefined;
   }
   if (!backendUrl) {
     backendUrl = process.env.NEXT_PUBLIC_CHAT_API_URL;
