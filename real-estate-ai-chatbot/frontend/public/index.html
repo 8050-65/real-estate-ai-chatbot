@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leadrat AI Chatbot - Widget Integration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .success-box {
+            background: #dcfce7;
+            border-left: 4px solid #22c55e;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            color: #15803d;
+        }
+
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .code-block {
+            background: #1a1a1a;
+            color: #10b981;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 15px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: transform 0.2s;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        ul {
+            margin-left: 20px;
+            color: #555;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Leadrat AI Chatbot Widget</h1>
+        <p class="subtitle">Production-ready embed script for real estate websites</p>
+
+        <div class="success-box">
+            ✅ <strong>Live & Production Ready</strong> - Deploy instantly on any website
+        </div>
+
+        <div class="section">
+            <h2>⚡ Quick Start</h2>
+            <p><strong>Add this single line to your HTML (before closing &lt;/body&gt;):</strong></p>
+            <div class="code-block"><code>&lt;script async src="https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js"
+  data-chatbot-url="https://real-estate-ai-chatbot.pages.dev"
+  data-api-url="https://real-estate-api-dev.onrender.com/api/v1/chat/message"&gt;
+&lt;/script&gt;</code></div>
+            <p>That's it! The chatbot appears automatically.</p>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Configuration Options</h2>
+            <p>Customize the widget with these data attributes:</p>
+            <ul>
+                <li><strong>data-chatbot-url:</strong> Frontend widget URL (default: https://real-estate-ai-chatbot.pages.dev)</li>
+                <li><strong>data-api-url:</strong> Backend API endpoint (default: https://real-estate-api-dev.onrender.com/api/v1/chat/message)</li>
+                <li><strong>data-position:</strong> bottom-right | bottom-left | top-right | top-left (default: bottom-right)</li>
+                <li><strong>data-theme:</strong> dark | light (default: dark)</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>✨ Features</h2>
+            <ul>
+                <li>AI-powered real estate assistant</li>
+                <li>Answer property questions instantly</li>
+                <li>Schedule site visits and callbacks</li>
+                <li>Mobile responsive design</li>
+                <li>Dark & light theme support</li>
+                <li>Powered by Ollama LLM + RAG</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🧪 Programmatic Control</h2>
+            <p>Control the chatbot from JavaScript:</p>
+            <div class="code-block"><code>window.leadratChatbot.open()
+window.leadratChatbot.close()
+window.leadratChatbot.toggle()</code></div>
+        </div>
+
+        <div class="section">
+            <h2>📝 Full Documentation</h2>
+            <p>For detailed integration guides and examples, visit:</p>
+            <a href="/embed-example.html" class="btn">📖 View Full Documentation</a>
+        </div>
+
+        <div class="success-box" style="margin-top: 40px;">
+            <strong>✅ Production URLs:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px; list-style: none;">
+                <li>✓ Frontend: https://real-estate-ai-chatbot.pages.dev</li>
+                <li>✓ API: https://real-estate-api-dev.onrender.com/api/v1/chat/message</li>
+                <li>✓ Embed Script: https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 14px;">
+            <p>Leadrat Real Estate AI • Powered by Ollama + RAG • Built with LangChain & ChromaDB</p>
+            <p>© 2026 Leadrat. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
