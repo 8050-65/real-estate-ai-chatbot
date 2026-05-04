@@ -4,6 +4,7 @@ account_id = "13f32362fed3b124424e06dcdfa91d8"
 workers_dev = false
 route = ""
 zone_id = ""
+pages_build_output_dir = "frontend/public"
 
 [env.production]
 name = "real-estate-ai-chatbot"

@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "echo 'Static files in frontend/public ready for deployment'",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
