@@ -1,0 +1,130 @@
+================================================================================
+🤖 LEADRAT AI CHATBOT - QUICK REFERENCE CARD
+================================================================================
+
+⚡ QUICK START (Just Copy & Paste)
+─────────────────────────────────────────────────────────────────────────────
+
+Add this ONE line before </body> tag:
+
+<script async src="https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js"></script>
+
+That's it! Purple button appears in bottom-right corner.
+
+
+📋 FULL SETUP (With Custom Branding)
+─────────────────────────────────────────────────────────────────────────────
+
+<script>
+window.LeadratChatConfig = {
+  chatbotUrl: 'https://real-estate-ai-chatbot.pages.dev',
+  apiUrl: 'https://real-estate-api-dev.onrender.com/api/v1/chat/message',
+  tenantId: 'dubai11',
+  botName: 'Aria',
+  botSubtitle: 'Real Estate AI',
+  primaryColor: '#6C63FF'
+};
+</script>
+<script async src="https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js"></script>
+
+
+🧪 TEST URLS
+─────────────────────────────────────────────────────────────────────────────
+
+Home:          https://real-estate-ai-chatbot.pages.dev
+Demo:          https://real-estate-ai-chatbot.pages.dev/chatbot-demo.html
+Test:          https://real-estate-ai-chatbot.pages.dev/TEST
+Docs:          https://real-estate-ai-chatbot.pages.dev/embed-example.html
+
+
+🔌 API ENDPOINTS
+─────────────────────────────────────────────────────────────────────────────
+
+Frontend:  https://real-estate-ai-chatbot.pages.dev
+API:       https://real-estate-api-dev.onrender.com/api/v1/chat/message
+Script:    https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js
+
+
+🎮 JAVASCRIPT CONTROL
+─────────────────────────────────────────────────────────────────────────────
+
+window.leadratChatbot.open()      // Open chatbot
+window.leadratChatbot.close()     // Close chatbot
+window.leadratChatbot.toggle()    // Toggle open/close
+
+
+⚙️ POSITION & THEME
+─────────────────────────────────────────────────────────────────────────────
+
+<script async src="https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js"
+  data-position="bottom-right"
+  data-theme="dark">
+</script>
+
+Positions: bottom-right, bottom-left, top-right, top-left
+Themes: dark, light
+
+
+✅ VERIFICATION CHECKLIST
+─────────────────────────────────────────────────────────────────────────────
+
+□ Script added before </body>
+□ Cache cleared (Ctrl+Shift+Delete)
+□ Hard refresh (Ctrl+Shift+R)
+□ Purple button visible in corner
+□ Button opens chatbot
+□ Can type messages
+□ No console errors (F12)
+
+
+🐛 QUICK TROUBLESHOOTING
+─────────────────────────────────────────────────────────────────────────────
+
+Button not showing?
+  → Clear cache (Ctrl+Shift+Delete)
+  → Hard refresh (Ctrl+Shift+R)
+  → Check F12 Console for errors
+
+Chatbot not opening?
+  → Try: window.leadratChatbot.open() in console
+  → Check Network tab if script loaded
+
+API errors?
+  → Verify API URL is exactly:
+    https://real-estate-api-dev.onrender.com/api/v1/chat/message
+
+
+📱 COMPATIBILITY
+─────────────────────────────────────────────────────────────────────────────
+
+✅ Desktop (Chrome, Firefox, Safari, Edge)
+✅ Mobile (iOS, Android)
+✅ Tablets
+✅ All modern browsers
+
+
+🔐 SECURITY
+─────────────────────────────────────────────────────────────────────────────
+
+✅ HTTPS Only
+✅ Cloudflare CDN
+✅ Secure API backend
+✅ No sensitive data stored
+
+
+📚 FULL DOCUMENTATION
+─────────────────────────────────────────────────────────────────────────────
+
+Read complete setup guide:
+frontend/public/SETUP_GUIDE.md
+
+
+📧 SHARE THIS WITH YOUR TEAM
+─────────────────────────────────────────────────────────────────────────────
+
+Copy the QUICK START section above and paste in your project!
+
+
+================================================================================
+Version: 1.0 | Status: ✅ Production Ready | May 2026
+================================================================================
