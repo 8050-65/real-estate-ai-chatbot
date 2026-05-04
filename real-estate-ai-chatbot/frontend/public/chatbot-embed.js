@@ -7,7 +7,7 @@
  * <script>
  * window.LeadratChatConfig = {
  *   apiUrl: "https://real-estate-api-dev.onrender.com/api/v1/chat/message",
- *   tenantId: "dubait11",
+ *   tenantId: "dubai11",
  *   botName: "Aria",
  *   botSubtitle: "Real Estate AI",
  *   primaryColor: "#6C63FF"
@@ -17,7 +17,7 @@
  *
  * ALTERNATIVE: Use data attributes
  * <script async src="https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js"
- *   data-tenant-id="dubait11"
+ *   data-tenant-id="dubai11"
  *   data-api-url="https://real-estate-api-dev.onrender.com/api/v1/chat/message"
  *   data-position="bottom-right"
  *   data-theme="dark">
@@ -46,7 +46,7 @@
     apiUrl: windowConfig.apiUrl || scriptEl?.getAttribute('data-api-url') || defaultApiUrl,
 
     // Tenant ID - Support multiple fallbacks for multitenancy
-    tenantId: windowConfig.tenantId || scriptEl?.getAttribute('data-tenant-id') || getUrlParam('tenantId') || 'dubait11',
+    tenantId: windowConfig.tenantId || scriptEl?.getAttribute('data-tenant-id') || getUrlParam('tenantId') || 'dubai11',
 
     // Custom branding
     botName: windowConfig.botName || 'Aria',
