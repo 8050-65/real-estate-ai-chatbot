@@ -4,12 +4,13 @@
  * Add to any website:
  * <script>
  *   window.LeadratChatConfig = {
- *     apiUrl: "https://your-api.com/api/v1/chat",
- *     botName: "AI Assistant",
+ *     apiUrl: "https://real-estate-api-dev.onrender.com/api/v1/chat/message",
+ *     botName: "Aria",
+ *     tenantId: "dubai11",
  *     primaryColor: "#6C63FF"
  *   };
  * </script>
- * <script src="https://cdn.leadrat.com/leadrat-chat.js" async></script>
+ * <script src="https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js" async></script>
  */
 
 interface LeadratChatConfig {
@@ -33,7 +34,7 @@ class LeadratChat {
     this.config.botSubtitle = this.config.botSubtitle || "Powered by Leadrat";
     this.config.primaryColor = this.config.primaryColor || "#6C63FF";
     this.config.position = this.config.position || "bottom-right";
-    this.config.tenantId = this.config.tenantId || "dubait11";
+    this.config.tenantId = this.config.tenantId || "dubai11";
 
     if (!this.config.apiUrl) {
       console.error("LeadratChat: apiUrl is required in window.LeadratChatConfig");

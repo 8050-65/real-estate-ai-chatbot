@@ -73,11 +73,12 @@ class Settings(BaseSettings):
     # ========================================================================
     # Leadrat CRM Integration
     # ========================================================================
-    leadrat_base_url: str = "https://connect.leadrat.com/api/v1"
+    leadrat_base_url: str = "https://prd-lrb-webapi.leadrat.com"
     leadrat_auth_url: str = "https://connect.leadrat.com/api/v1/authentication/token"
-    leadrat_tenant: str = ""
+    leadrat_tenant: str = "dubait11"
     leadrat_api_key: str = ""
     leadrat_secret_key: str = ""
+    leadrat_token: str = ""
     leadrat_token_cache_ttl: int = 3600
     leadrat_request_timeout: int = 30
 
@@ -160,6 +161,8 @@ class Settings(BaseSettings):
         env_file = str(Path(__file__).parent.parent / ".env")
         env_file_encoding = "utf-8"
         case_sensitive = False
+        # Ignore extra environment variables
+        extra = "ignore"
 
 
 # Global singleton settings instance

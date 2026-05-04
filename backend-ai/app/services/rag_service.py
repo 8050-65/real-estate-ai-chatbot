@@ -6,14 +6,30 @@ Stores and searches lead, property, and project data.
 import chromadb
 import os
 
-# Initialize ChromaDB client
+# Initialize ChromaDB client lazily
 CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
-chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+_chroma_client = None
+
+
+def _get_chroma_client():
+    """Lazily initialize ChromaDB client on first use."""
+    global _chroma_client
+    if _chroma_client is None:
+        try:
+            _chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+        except Exception as e:
+            print(f"Warning: ChromaDB initialization failed: {e}")
+            print("RAG functionality will be disabled. Chat will work with direct API calls only.")
+            _chroma_client = None
+    return _chroma_client
 
 
 def get_collection(name: str):
     """Get or create a ChromaDB collection."""
-    return chroma_client.get_or_create_collection(
+    client = _get_chroma_client()
+    if client is None:
+        return None
+    return client.get_or_create_collection(
         name=name,
         metadata={"hnsw:space": "cosine"}
     )
@@ -28,9 +44,14 @@ async def hybrid_search(
     """
     Search ChromaDB using vector similarity + metadata filters.
     Returns formatted context string for LLM.
+    If ChromaDB is unavailable, returns empty string (direct API calls will be used).
     """
     filters = filters or {}
     collection = get_collection(module)
+
+    if collection is None:
+        # ChromaDB not available, return empty context
+        return ""
 
     # Map filter keys to ChromaDB metadata field names
     filter_field_map = {
@@ -124,17 +145,29 @@ async def upsert_record(
     Called after Leadrat API sync or updates.
     """
     collection = get_collection(module)
-    collection.upsert(
-        ids=[f"{module}_{record_id}"],
-        documents=[text_chunk],
-        metadatas=[metadata]
-    )
+    if collection is None:
+        # ChromaDB not available, skip
+        return
+
+    try:
+        collection.upsert(
+            ids=[f"{module}_{record_id}"],
+            documents=[text_chunk],
+            metadatas=[metadata]
+        )
+    except Exception as e:
+        print(f"Failed to upsert record in {module}: {e}")
 
 
 async def clear_collection(module: str):
     """Clear all documents from a collection."""
+    client = _get_chroma_client()
+    if client is None:
+        # ChromaDB not available, skip
+        return
+
     try:
-        chroma_client.delete_collection(name=module)
+        client.delete_collection(name=module)
         print(f"Cleared collection: {module}")
     except Exception as e:
         print(f"Failed to clear collection {module}: {e}")

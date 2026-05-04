@@ -46,24 +46,28 @@ export default function DashboardLayout({
   return (
     <SessionProvider>
       <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#111827' }}>
-        {/* Sidebar */}
-        <div style={{ width: '240px', flexShrink: 0 }}>
-          <Sidebar />
-        </div>
+        {/* Sidebar - Hide in demo mode on AI page */}
+        {(!demoMode || pathname !== '/ai-assistant') && (
+          <div style={{ width: '240px', flexShrink: 0 }}>
+            <Sidebar />
+          </div>
+        )}
 
         {/* Main Content */}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          {/* Top Navigation */}
-          <div style={{ flexShrink: 0 }}>
-            <TopNav />
-          </div>
+          {/* Top Navigation - Hide in demo mode on AI page */}
+          {(!demoMode || pathname !== '/ai-assistant') && (
+            <div style={{ flexShrink: 0 }}>
+              <TopNav />
+            </div>
+          )}
 
           {/* Main Content Area */}
           <main style={{
             flex: 1,
             overflow: 'auto',
             backgroundColor: '#0f172a',
-            padding: '24px',
+            padding: pathname === '/ai-assistant' && demoMode ? '0' : '24px',
             color: '#ffffff'
           }}>
             {children}

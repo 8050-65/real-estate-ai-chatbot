@@ -27,26 +27,24 @@ async def extract_semantics(user_message: str, history: list = None) -> dict:
 Extract intent from the user message and return ONLY a raw JSON object.
 No explanation. No markdown. No backticks. Just the JSON.
 
+Special rules for filters:
+- "budget": If user says "80 lac" or "80 lakh", set "maxPrice" to 8000000.
+- "budget": If user says "1 crore", set "maxPrice" to 10000000.
+- "bhk": Extract numeric value (e.g., "2BHK" -> 2).
+- "location": Extract specific area/city.
+
 Schema:
 {{
-  "module": "lead" | "property" | "project" | "general",
-  "intent": "query" | "create" | "update" | "delete" | "book" | "general",
+  "module": "lead" | "property" | "project" | "appointment" | "general",
+  "intent": "query" | "create" | "book" | "general",
   "entity_id": null,
   "filters": {{
-    "name": null,
-    "phone": null,
-    "status": null,
-    "source": null,
-    "assignee": null,
     "location": null,
     "propertyType": null,
     "bhk": null,
-    "budget": null,
     "minPrice": null,
     "maxPrice": null,
-    "amenities": null,
-    "projectName": null,
-    "possession": null
+    "projectName": null
   }}
 }}
 

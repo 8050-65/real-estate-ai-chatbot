@@ -188,15 +188,27 @@ def _coerce_to_string(value: Any) -> str:
 
 def _generate_filter_chips(items: List[Dict], kind: str = "property") -> List[Dict]:
     """Generate filter chip options from the actual returned items."""
+    if not items:
+        return []
+
     chips: List[Dict] = []
 
     # ── Location chips (deduplicated, up to 6) ──────────────────────────────
-    locations = []
+    locations = set()
     for item in items:
-        loc = (item.get("location") or "").split(",")[0].strip()
-        if loc and loc != "N/A" and loc not in locations:
-            locations.append(loc)
-    for loc in locations[:6]:
+        loc_raw = item.get("location") or ""
+        if isinstance(loc_raw, dict):
+            # Handle nested location object
+            loc = loc_raw.get("locality") or loc_raw.get("city") or str(loc_raw)
+        else:
+            # Handle string location, extract first part before comma
+            loc = str(loc_raw).split(",")[0].strip() if loc_raw else ""
+
+        loc = loc.strip()
+        if loc and loc.lower() != "n/a":
+            locations.add(loc)
+
+    for loc in sorted(list(locations))[:6]:
         chips.append({"type": "location", "value": loc, "label": f"📍 {loc}"})
 
     # ── BHK chips (property only) ────────────────────────────────────────────
@@ -339,13 +351,12 @@ async def get_properties(filters: dict = None, tenant_id: str = None, force_refr
                     "source": "leadrat_api"
                 })
 
-            # Update cache
-            _property_cache = {
-                "data": mapped_items,
-                "timestamp": time.time(),
-                "tenant": tenant_id
-            }
-            
+            # Update global cache (must update dict, not reassign, to affect global)
+            _property_cache["data"] = mapped_items
+            _property_cache["timestamp"] = time.time()
+            _property_cache["tenant"] = tenant_id
+            print(f"[LeadRat API] Cached {len(mapped_items)} properties for tenant {tenant_id}")
+
             return {"data": mapped_items, "total": len(mapped_items)}
 
     except Exception as e:
@@ -420,11 +431,12 @@ async def get_projects(filters: dict = None, tenant_id: str = None, force_refres
                     "source": "leadrat_api"
                 })
 
-            _project_cache = {
-                "data": mapped_items,
-                "timestamp": time.time(),
-                "tenant": tenant_id
-            }
+            # Update global cache (must update dict, not reassign)
+            _project_cache["data"] = mapped_items
+            _project_cache["timestamp"] = time.time()
+            _project_cache["tenant"] = tenant_id
+            print(f"[LeadRat API] Cached {len(mapped_items)} projects for tenant {tenant_id}")
+
             return {"data": mapped_items, "total": len(mapped_items)}
     except Exception as e:
         return {"data": [], "total": 0, "error": str(e)}

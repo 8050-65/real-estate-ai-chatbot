@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
         leadrat_base_url=settings.leadrat_base_url,
         ollama_base_url=settings.ollama_base_url if settings.llm_provider == 'ollama' else 'N/A (using cloud LLM)',
         spring_boot_url=settings.spring_boot_url if hasattr(settings, 'spring_boot_url') else 'Not configured',
-        cors_allowed_origins=settings.cors_allowed_origins,
+        cors_allowed_origins=settings.allowed_origins,
     )
 
     logger.info(
@@ -473,6 +473,26 @@ async def chat_endpoint(request: ChatRequest):
             error=str(e) if settings.debug else None,
         )
 
+
+# ============================================================================
+# Debug Endpoints
+# ============================================================================
+@app.get("/debug/cache", tags=["Debug"])
+async def debug_cache():
+    from app.services.leadrat_api import _property_cache, _project_cache
+    return {
+        "property_cache": {
+            "has_data": bool(_property_cache.get('data')),
+            "data_length": len(_property_cache.get('data', [])),
+            "tenant": _property_cache.get('tenant'),
+            "timestamp": _property_cache.get('timestamp'),
+        },
+        "project_cache": {
+            "has_data": bool(_project_cache.get('data')),
+            "data_length": len(_project_cache.get('data', [])),
+            "tenant": _project_cache.get('tenant'),
+        }
+    }
 
 # ============================================================================
 # Health Check Endpoints

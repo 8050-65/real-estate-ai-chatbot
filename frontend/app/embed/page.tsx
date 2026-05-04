@@ -1,6 +1,6 @@
 'use client'
 
-import EmbedChatWidget from '@/components/ai/EmbedChatWidget'
+import ChatInterface from '@/components/ai/ChatInterface'
 
 export default function EmbedPage() {
   return (
@@ -13,7 +13,7 @@ export default function EmbedPage() {
       display: 'flex',
       flexDirection: 'column',
     }}>
-      <EmbedChatWidget isFloating={false} />
+      <ChatInterface isFloating={false} embeddedMode={true} />
     </div>
   )
 }
