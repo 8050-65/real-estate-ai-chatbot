@@ -2092,6 +2092,12 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
   }
 
   function handleQuickReply(reply: string) {
+    // Handle go back action
+    if (reply === '← Go Back' || reply === '← Go Back to Properties' || reply.includes('Go Back')) {
+      handleGoBack();
+      return;
+    }
+
     // Handle filter expansion locally - inject filter chips inline
     if (reply === 'Filter results' || reply === 'Filter properties') {
       const filterChips = [
@@ -2120,7 +2126,8 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
     }
 
     if (reply === 'Show more' || reply === 'View more' || reply === 'Load more') {
-      handleSend('Show more results');
+      // Dispatch show_more structured action to backend
+      handleShowMore();
       return;
     }
 
@@ -2148,10 +2155,118 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
     handleSend(messageToSend);
   }
 
+  async function handleGoBack() {
+    const loadingId = Date.now().toString();
+
+    setIsLoading(true);
+    setMessages(prev => [...prev, {
+      id: `bot-${loadingId}`,
+      role: 'assistant',
+      content: '',
+      isLoading: true,
+      timestamp: new Date()
+    }]);
+
+    try {
+      const payload = {
+        message: 'Go back',
+        action: 'go_back',
+        tenant_id: tenantId,
+        flow_state: flowState
+      };
+
+      const res = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const response = await res.json();
+      const content = response?.response || 'Returning to property selection...';
+
+      if (response.flow_state) setFlowState(response.flow_state);
+
+      const dataItems = response?.data || [];
+      const template = response?.template;
+      let quickReplies = response?.metadata?.quickReplies || getQuickReplies('property');
+      if (response?.metadata?.has_more) {
+        quickReplies.push('Show more');
+      }
+
+      setMessages(prev => prev.map(m =>
+        m.id === `bot-${loadingId}`
+          ? { ...m, content, data: dataItems, template, quickReplies, isLoading: false }
+          : m
+      ));
+    } catch (error) {
+      setMessages(prev => prev.map(m =>
+        m.id === `bot-${loadingId}`
+          ? { ...m, content: "I'm sorry, I couldn't go back. Please try again.", isLoading: false }
+          : m
+      ));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleShowMore() {
+    const loadingId = Date.now().toString();
+
+    setIsLoading(true);
+    setMessages(prev => [...prev, {
+      id: `bot-${loadingId}`,
+      role: 'assistant',
+      content: '',
+      isLoading: true,
+      timestamp: new Date()
+    }]);
+
+    try {
+      const payload = {
+        message: 'Show more',
+        action: 'show_more',
+        tenant_id: tenantId,
+        flow_state: flowState
+      };
+
+      const res = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const response = await res.json();
+      const content = response?.response || 'No more items to show';
+
+      if (response.flow_state) setFlowState(response.flow_state);
+
+      const dataItems = response?.data || [];
+      const template = response?.template;
+      let quickReplies = response?.metadata?.quickReplies || getQuickReplies('property');
+      if (response?.metadata?.has_more) {
+        quickReplies.push('Show more');
+      }
+
+      setMessages(prev => prev.map(m =>
+        m.id === `bot-${loadingId}`
+          ? { ...m, content, data: dataItems, template, quickReplies, isLoading: false }
+          : m
+      ));
+    } catch (error) {
+      setMessages(prev => prev.map(m =>
+        m.id === `bot-${loadingId}`
+          ? { ...m, content: "I'm sorry, I couldn't load more results. Please try again.", isLoading: false }
+          : m
+      ));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function handleStructuredAction(action: string, item: any) {
     const loadingId = Date.now().toString();
     const itemName = item.name || item.title || 'this item';
-    
+
     // Optimistically show user's action
     setMessages(prev => [...prev, {
       id: `user-${loadingId}`,
@@ -2185,20 +2300,20 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
       const response = await res.json();
       const content = response?.response || response?.data?.response || '';
-      
+
       if (response.flow_state) setFlowState(response.flow_state);
 
-      setMessages(prev => prev.map(m => 
-        m.id === `bot-${loadingId}` 
+      setMessages(prev => prev.map(m =>
+        m.id === `bot-${loadingId}`
           ? { ...m, content, quickReplies: response.quickReplies || [], isLoading: false }
           : m
       ));
     } catch (error) {
-      setMessages(prev => prev.map(m => 
-        m.id === `bot-${loadingId}` 
+      setMessages(prev => prev.map(m =>
+        m.id === `bot-${loadingId}`
           ? { ...m, content: "I'm sorry, I couldn't process that request. Please try again.", isLoading: false }
           : m
       ));
@@ -2257,45 +2372,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div
-              style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                background: '#22c55e',
-                boxShadow: '0 0 8px #22c55e',
-              }}
-            />
-            <span style={{ fontSize: '11px', color: 'hsl(195 85% 55%)', fontWeight: '500' }}>Online</span>
-          </div>
-          <div
-            style={{
-              padding: '4px 10px',
-              borderRadius: '999px',
-              background: 'hsl(195 85% 55% / 0.1)',
-              border: '1px solid hsl(195 85% 55% / 0.3)',
-              fontSize: '10px',
-              color: 'hsl(195 85% 55%)',
-              fontWeight: '600',
-            }}
-          >
-            Leadrat Connected
-          </div>
-          <div
-            style={{
-              padding: '4px 10px',
-              borderRadius: '999px',
-              background: 'hsl(270 60% 55% / 0.1)',
-              border: '1px solid hsl(270 60% 55% / 0.3)',
-              fontSize: '10px',
-              color: 'hsl(270 60% 55%)',
-              fontWeight: '600',
-            }}
-            title={`Chat Language: ${language}`}
-          >
-            🌐 {language.toUpperCase()}
-          </div>
+          {/* Status indicators hidden for chatbot-only mode */}
         </div>
       </div>
 
