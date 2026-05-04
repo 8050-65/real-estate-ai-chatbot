@@ -6,19 +6,19 @@
  *
  * <script>
  * window.LeadratChatConfig = {
- *   apiUrl: "https://real-estate-rag-dev.onrender.com",
+ *   apiUrl: "https://real-estate-api-dev.onrender.com/api/v1/chat/message",
  *   tenantId: "dubait11",
  *   botName: "Aria",
  *   botSubtitle: "Real Estate AI",
  *   primaryColor: "#6C63FF"
  * };
  * </script>
- * <script async src="https://leadrat-chat-widget.pages.dev/chatbot-embed.js"></script>
+ * <script async src="https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js"></script>
  *
  * ALTERNATIVE: Use data attributes
- * <script async src="https://leadrat-chat-widget.pages.dev/chatbot-embed.js"
+ * <script async src="https://real-estate-ai-chatbot.pages.dev/chatbot-embed.js"
  *   data-tenant-id="dubait11"
- *   data-api-url="https://real-estate-rag-dev.onrender.com"
+ *   data-api-url="https://real-estate-api-dev.onrender.com/api/v1/chat/message"
  *   data-position="bottom-right"
  *   data-theme="dark">
  * </script>
@@ -35,8 +35,8 @@
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   // Default URLs based on environment - IMPORTANT: apiUrl must include full /api/v1/chat/message path
-  const defaultChatbotUrl = isLocalhost ? 'http://localhost:3000' : 'https://leadrat-chat-widget.pages.dev';
-  const defaultApiUrl = isLocalhost ? 'http://localhost:8000/api/v1/chat/message' : 'https://real-estate-rag-dev.onrender.com/api/v1/chat/message';
+  const defaultChatbotUrl = isLocalhost ? 'http://localhost:3000' : 'https://real-estate-ai-chatbot.pages.dev';
+  const defaultApiUrl = isLocalhost ? 'http://localhost:8000/api/v1/chat/message' : 'https://real-estate-api-dev.onrender.com/api/v1/chat/message';
 
   const config = {
     // Frontend URL (where the chatbot UI is hosted)
