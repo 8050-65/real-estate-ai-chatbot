@@ -75,17 +75,19 @@ services:
       context: ./backend-ai
       dockerfile: Dockerfile
     container_name: realestate_backend_ai
+    env_file:
+      - ./.env
     environment:
       DATABASE_URL: postgresql+asyncpg://${DB_USER:-rootuser}:${DB_PASSWORD:-123Pa$$word!}@postgres:5432/${DB_NAME:-crm_cbt_db_dev}
       REDIS_URL: redis://redis:6379
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
       SPRING_BOOT_URL: http://backend-java:8080
-      LEADRAT_BASE_URL: ${LEADRAT_BASE_URL:-https://connect.leadrat.info/api/v1}
-      LEADRAT_AUTH_URL: ${LEADRAT_AUTH_URL:-https://connect.leadrat.com/api/v1/authentication/token}
-      LEADRAT_TENANT: ${LEADRAT_TENANT:-black}
+      LEADRAT_BASE_URL: ${LEADRAT_BASE_URL:-https://prd-lrb-webapi.leadrat.com}
+      LEADRAT_TENANT: ${LEADRAT_TENANT:-dubait11}
       LEADRAT_API_KEY: ${LEADRAT_API_KEY}
       LEADRAT_SECRET_KEY: ${LEADRAT_SECRET_KEY}
+      LEADRAT_TOKEN: ${LEADRAT_TOKEN}
       ENGAGETO_TOKEN: ${ENGAGETO_TOKEN}
       ENGAGETO_PHONE_ID: ${ENGAGETO_PHONE_ID}
       ENGAGETO_WEBHOOK_SECRET: ${ENGAGETO_WEBHOOK_SECRET}
@@ -128,11 +130,9 @@ services:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      LEADRAT_BASE_URL: ${LEADRAT_BASE_URL:-https://connect.leadrat.info/api/v1}
-      LEADRAT_AUTH_URL: ${LEADRAT_AUTH_URL:-https://connect.leadrat.com/api/v1/authentication/token}
+      LEADRAT_BASE_URL: ${LEADRAT_BASE_URL:-https://prd-lrb-webapi.leadrat.com}
       LEADRAT_TENANT: ${LEADRAT_TENANT:-dubait11}
-      LEADRAT_API_KEY: ${LEADRAT_API_KEY}
-      LEADRAT_SECRET_KEY: ${LEADRAT_SECRET_KEY}
+      LEADRAT_BEARER_TOKEN: ${LEADRAT_BEARER_TOKEN}
       FASTAPI_URL: http://backend-ai:8000
       JWT_SECRET_KEY: default_jwt_secret_key_minimum_32_characters_secure_key_abc123xyz789
       JWT_EXPIRATION: 86400000
