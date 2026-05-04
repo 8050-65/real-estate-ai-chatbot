@@ -66,6 +66,7 @@ const INTENT_PATTERNS = {
   callback_booking: ['callback', 'call back', 'call me', 'call later', 'schedule callback', 'book callback'],
   meeting_booking: ['meeting', 'meet', 'schedule meeting', 'book meeting', 'online call', 'video call'],
   human_handoff_request: ['talk to', 'speak to', 'contact rm', 'rm', 'human', 'manager', 'agent', 'need help', 'support', 'speak with someone'],
+  property_interest: ['interested:', 'interested in', 'tell me more about', 'more info on'],
 };
 
 function detectIntent(message: string): string {
@@ -122,12 +123,12 @@ function extractSearchTerm(message: string): string {
 
 function getQuickReplies(intent: string): string[] {
   const replies: Record<string, string[]> = {
-    lead: ['Filter by status', 'Assign lead', 'Schedule follow-up'],
-    property: ['Filter by BHK', 'Show price range', 'View on map', 'Schedule visit'],
+    lead: ['Find Properties', 'View Projects', 'Book Site Visit'],
+    property: ['Filter by BHK', 'Show price range', 'View on map', 'Book Site Visit'],
     project: ['Show units', 'View amenities', 'Check RERA', 'Contact developer'],
-    visit: ['Schedule visit', 'View calendar', 'Send reminder', 'Cancel appointment'],
-    status: ['Site visit done', 'Meeting done', 'Callback done'],
-    analytics: ['Daily report', 'Weekly summary', 'Monthly metrics', 'Export report'],
+    visit: ['Schedule visit', 'View calendar', 'Book site visit'],
+    status: ['Show properties', 'Show projects', 'Schedule visit'],
+    analytics: ['Find Properties', 'View Projects'],
     general: ['Find property', 'View projects', 'Schedule visit']
   };
   return replies[intent] || replies.general;
@@ -447,6 +448,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlTenant = params.get('tenantId') || localStorage.getItem('tenantId') || process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || 'dubait11';
+      const cleanTenant = urlTenant === 'dubai11' ? 'dubait11' : urlTenant;
 
       // Detect environment and use appropriate URLs
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -462,9 +464,9 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
         || process.env.NEXT_PUBLIC_CHAT_API_URL
         || defaultBackend;
 
-      setTenantId(urlTenant || 'dubait11');
+      setTenantId(cleanTenant);
       setBackendUrl(urlBackend || defaultBackend);
-      localStorage.setItem('tenantId', urlTenant || 'dubait11');
+      localStorage.setItem('tenantId', cleanTenant);
       localStorage.setItem('backendUrl', urlBackend || defaultBackend);
 
       console.log('[ChatInterface] Initialized:', {
@@ -526,7 +528,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
           data: { ...prev.data, leadName: text }
         }));
         appendBotMessage(
-          `Thanks **${text}**! 📞 ${getTranslation(language, 'phone_number_prompt')}`,
+          `Thanks **${text}**! 😊 Could you share your phone number so our team can contact you with more details?`,
           ['❌ Cancel']
         );
         break;
@@ -534,27 +536,111 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
       case 'get_phone': {
         const phone = text.replace(/\D/g, '');
         if (phone.length < 10) {
-          appendBotMessage(getTranslation(language, 'valid_phone_required'), ['❌ Cancel']);
+          appendBotMessage("Please provide a valid phone number so we can reach out.", ['❌ Cancel']);
           return;
         }
         setConvState(prev => ({
-          ...prev, step: 'confirm',
+          ...prev, step: 'get_preference',
           data: { ...prev.data, leadPhone: phone }
         }));
         appendBotMessage(
-          `${getTranslation(language, 'confirm_lead_details')}\n\n` +
+          `Got it. Would you like a **callback** or would you prefer to schedule a **site visit**?`,
+          ['📞 Request Callback', '🏢 Book Site Visit', '❌ Cancel']
+        );
+        break;
+      }
+
+      case 'get_preference':
+        if (text.includes('Cancel')) {
+          setConvState({ flow: 'none', step: '', data: {} });
+          appendBotMessage('No problem! How else can I help?', ['Find Properties', 'View Projects']);
+          return;
+        }
+
+        const isNone = text.includes('Not now') || text.includes('Skip');
+        const pref = text.includes('Callback') ? 'Callback' : (text.includes('Visit') ? 'Visit' : 'None');
+
+        if (isNone || pref === 'None') {
+          setConvState(prev => ({
+            ...prev, step: 'confirm',
+            data: { ...prev.data, appointmentType: 'None' }
+          }));
+          appendBotMessage(
+            `Great. Just to confirm, I'll have our team contact you at **${data.leadPhone}**.\n\nShall I proceed?`,
+            ['✅ Yes, please', '❌ Cancel']
+          );
+        } else {
+          setConvState(prev => ({
+            ...prev, step: 'select_date',
+            data: { ...prev.data, appointmentType: pref }
+          }));
+          appendBotMessage(
+            `Perfect! When would you like the **${pref}**?`,
+            ['📅 Today', '📅 Tomorrow', '🗓️ Pick date', '❌ Cancel']
+          );
+        }
+        break;
+
+      case 'select_date': {
+        let scheduledDate = '';
+        const today = new Date();
+        if (text.includes('Today')) scheduledDate = today.toISOString().split('T')[0];
+        else if (text.includes('Tomorrow')) {
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          scheduledDate = tomorrow.toISOString().split('T')[0];
+        } else if (text.match(/\d{4}-\d{2}-\d{2}/)) {
+          scheduledDate = text.match(/\d{4}-\d{2}-\d{2}/)![0];
+        } else if (!text.includes('Cancel')) {
+          appendBotMessage('Please select a date or enter in YYYY-MM-DD format.', ['📅 Today', '📅 Tomorrow', '🗓️ Pick date']);
+          return;
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'select_time',
+          data: { ...prev.data, scheduledDate }
+        }));
+        appendBotMessage(
+          `Date: ${scheduledDate}\n\nWhat time works best for you?`,
+          ['🕙 10:00 AM', '🕛 12:00 PM', '🕒 3:00 PM', '🕔 5:00 PM', '❌ Cancel']
+        );
+        break;
+      }
+
+      case 'select_time': {
+        let scheduledTime = '';
+        if (text.includes('10:00')) scheduledTime = '10:00';
+        else if (text.includes('12:00')) scheduledTime = '12:00';
+        else if (text.includes('15:00') || text.includes('3:00')) scheduledTime = '15:00';
+        else if (text.includes('17:00') || text.includes('5:00')) scheduledTime = '17:00';
+        else if (text.match(/\d{1,2}:\d{2}/)) {
+          scheduledTime = text.match(/\d{1,2}:\d{2}/)![0];
+        } else if (!text.includes('Cancel')) {
+          appendBotMessage('Please select a time or enter in HH:MM format.', ['🕙 10:00 AM', '🕛 12:00 PM', '🕒 3:00 PM', '🕔 5:00 PM']);
+          return;
+        }
+
+        setConvState(prev => ({
+          ...prev,
+          step: 'confirm',
+          data: { ...prev.data, scheduledTime }
+        }));
+
+        appendBotMessage(
+          `Excellent. To summarize:\n\n` +
           `👤 **Name:** ${data.leadName}\n` +
-          `📞 **Phone:** ${phone}\n` +
-          `🏠 **Property/Project:** ${data.selectedPropertyName ?? data.selectedProjectName}\n\n` +
-          `${getTranslation(language, 'confirm_create_lead')}`,
-          ['✅ Confirm & Create Lead', '❌ Cancel']
+          `📞 **Phone:** ${data.leadPhone}\n` +
+          `📅 **${data.appointmentType}:** ${data.scheduledDate} at ${scheduledTime}\n\n` +
+          `Shall I send this to our team?`,
+          ['✅ Yes, proceed', '❌ Cancel']
         );
         break;
       }
 
       case 'confirm':
-        if (text === '✅ Confirm & Create Lead') {
-          appendBotMessage(getTranslation(language, 'creating_lead'), []);
+        if (text.includes('Yes') || text === '✅ Yes, proceed' || text === '✅ Yes, please') {
+          appendBotMessage("Great! I'm sending your request to our team now...", []);
           try {
             const response = await api.post('/leads', {
               name: data.leadName,
@@ -564,23 +650,41 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
               source: 'AI Assistant'
             });
             const lead = response.data?.data;
-            // Store the created lead details for quick appointment scheduling
-            setConvState({
-              flow: 'none',
-              step: '',
-              data: {
-                leadId: lead?.id,
-                leadName: data.leadName,
-                leadPhone: data.leadPhone
-              }
-            });
             logLeadCreate(data.leadName || 'Unknown', data.leadPhone || 'N/A');
+
+            // If an appointment was requested, create it now
+            if (data.appointmentType && data.appointmentType !== 'None' && lead?.id) {
+              try {
+                let statusId = data.appointmentType === 'Callback' ? PARENT_STATUS_IDS.callback : CHILD_STATUS_IDS.site_visit_first_visit;
+                let meetingOrSiteVisit = data.appointmentType === 'Callback' ? 0 : 2;
+                const scheduledDateTime = `${data.scheduledDate}T${data.scheduledTime}:00Z`;
+
+                await api.put(`/leads/${lead.id}/status`, {
+                  id: lead.id,
+                  leadStatusId: statusId,
+                  notes: `Auto-scheduled via AI Chatbot for ${data.selectedProjectName ?? data.selectedPropertyName}`,
+                  IsNotesUpdated: true,
+                  projectsList: [],
+                  projectIds: null,
+                  scheduledDate: scheduledDateTime,
+                  meetingOrSiteVisit: meetingOrSiteVisit,
+                  assignTo: lead.assignTo || '45abfce5-2746-42e6-bf66-ac7e00e75085',
+                  secondaryUserId: '00000000-0000-0000-0000-000000000000'
+                });
+                logScheduling(data.leadName || 'Unknown', data.appointmentType, data.scheduledDate || '', data.scheduledTime || '');
+              } catch (schedError) {
+                console.error('[ChatInterface] Appointment creation failed:', schedError);
+                // We don't fail the whole flow if only scheduling fails, as lead is already created
+              }
+            }
+
+            setConvState({ flow: 'none', step: '', data: {} });
             appendBotMessage(
-              `✅ **${getTranslation(language, 'lead_created_success')}**\n\n` +
-              `👤 ${data.leadName} has been added to Leadrat CRM.\n` +
-              `📞 Phone: ${data.leadPhone}\n` +
-              `🏠 Interest: ${data.selectedPropertyName ?? data.selectedProjectName}`,
-              ['Schedule Site Visit', 'View All Leads', 'Create Another Lead']
+              `✅ **Success!**\n\nThanks **${data.leadName}**, I've shared your details with our team regarding **${data.selectedProjectName ?? data.selectedPropertyName}**.\n\n` +
+              (data.appointmentType !== 'None'
+                ? `They'll be prepared for your **${data.appointmentType}** on **${data.scheduledDate}** at **${data.scheduledTime}**.`
+                : `They'll reach out to you shortly at **${data.leadPhone}**.`),
+              ['View More Properties', 'Show Projects']
             );
           } catch (error: any) {
             const status = error.response?.status;
@@ -1911,6 +2015,18 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
           );
         }
         return;
+
+
+      case 'property_interest': {
+        const propertyName = text.replace(/interested:|\binterested in\b/i, '').trim();
+        setConvState({
+          flow: 'create_lead',
+          step: 'get_name',
+          data: { selectedProjectName: propertyName }
+        });
+        appendBotMessage(`Great choice! I'd love to help you with **${propertyName}**. May I know your name?`, ['❌ Cancel']);
+        return;
+      }
 
 
       // === ESCALATION ===

@@ -265,7 +265,7 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
   if (!backendUrl) {
     // Fallback to auto-detect
     const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    backendUrl = isLocalhost ? 'http://localhost:8000/api/v1/chat/message' : 'https://real-estate-rag-dev.onrender.com/api/v1/chat/message';
+    backendUrl = isLocalhost ? 'http://localhost:8000/api/v1/chat/message' : 'https://real-estate-api-dev.onrender.com/api/v1/chat/message';
   }
 
   const maxRetries = 2;
@@ -341,14 +341,14 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
       let quickReplies = getQuickReplies(detectedIntent);
 
       if ((detectedIntent === 'property' || template === 'property_list') && dataItems.length > 0) {
-        const propertyNames = dataItems.slice(0, 3).map((p: any) => p.name || p.title || 'Property');
-        const interestedButtons = propertyNames.map((p: string) => `Interested: ${p}`);
+        const propertyNames = dataItems.slice(0, 3).map((p: any) => p.projectName || p.name || p.title || 'Property');
+        const interestedButtons = propertyNames.map((p: string) => `✅ Interested: ${p}`);
         quickReplies = interestedButtons.concat(['Show more', 'Filter results']);
       }
 
       if ((detectedIntent === 'project' || template === 'project_list') && dataItems.length > 0) {
-        const projectNames = dataItems.slice(0, 3).map((p: any) => p.name || 'Project');
-        const interestedButtons = projectNames.map((p: string) => `Interested: ${p}`);
+        const projectNames = dataItems.slice(0, 3).map((p: any) => p.name || p.projectName || 'Project');
+        const interestedButtons = projectNames.map((p: string) => `✅ Interested: ${p}`);
         quickReplies = interestedButtons.concat(['Show more', 'View details']);
       }
 
@@ -454,7 +454,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
       // Default backend URL (FULL PATH including /api/v1/chat/message)
       const defaultBackend = isLocalhost
         ? 'http://localhost:8000/api/v1/chat/message'
-        : 'https://real-estate-rag-dev.onrender.com/api/v1/chat/message';
+        : 'https://real-estate-api-dev.onrender.com/api/v1/chat/message';
 
       // Priority: URL param > localStorage > env variable > auto-detect
       const urlBackend = params.get('apiUrl')
@@ -2285,16 +2285,26 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
                       }}
                     >
                       <div style={{ fontWeight: '600', color: embeddedMode ? '#1f2937' : 'hsl(195 85% 55%)', marginBottom: '4px' }}>
-                        {item.name || item.title || 'Item'}
+                        {item.projectName || item.name || item.title || 'Property'}
                       </div>
-                      {item.price && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#059669' : 'hsl(40 100% 60%)', marginBottom: '4px' }}>
-                          💰 {item.price}
+                      {item.unitNumber && (
+                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
+                          🏢 Unit {item.unitNumber}
                         </div>
                       )}
-                      {item.location && (
+                      {item.bhk && (
                         <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
-                          📍 {item.location}
+                          🛏️ {item.bhk} BHK
+                        </div>
+                      )}
+                      {item.price && (
+                        <div style={{ fontSize: '12px', color: embeddedMode ? '#059669' : 'hsl(40 100% 60%)', marginBottom: '4px' }}>
+                          💰 AED {item.price}
+                        </div>
+                      )}
+                      {item.city && (
+                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
+                          📍 {item.city}
                         </div>
                       )}
                       {item.propertyType && (

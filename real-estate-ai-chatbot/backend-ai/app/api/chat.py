@@ -58,6 +58,9 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
         tenant_id = request.tenant_id or "dubait11"
         flow_state = request.flow_state or {}
         history = request.conversation_history or []
+        
+        print(f"[ChatAPI] Incoming message: {message}")
+        print(f"[ChatAPI] Tenant ID: {tenant_id}")
 
         # ── ACTIVE LEAD CREATION FLOW ──────────────────────
         if flow_state.get("active_flow") == "create_lead":
@@ -77,15 +80,14 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
                         result = await create_lead(payload, tenant_id)
                         return ChatResponse(
                             response=(
-                                f"✅ Lead created successfully!\n\n"
-                                f"👤 {collected['name']} has been added to Leadrat CRM.\n"
-                                f"Lead ID: {result.get('id','N/A')}"
+                                f"✅ Request sent successfully!\n\n"
+                                f"Our team will contact {collected['name']} soon regarding your interest in {collected.get('project_interest', 'this property')}.\n"
                             ),
                             intent="lead_creation_complete",
                             source="embedded_mode_fast",
                             rag_used=False,
                             metadata={
-                                "lead_created": True,
+                                "request_sent": True,
                                 "name": collected['name'],
                                 "phone": collected['phone'],
                                 "property": collected.get('project_interest', '')
@@ -107,7 +109,7 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
                 else:
                     # User said No — cancel flow
                     return ChatResponse(
-                        response="Lead creation cancelled. What else can I help you with?",
+                        response="No problem. What else can I help you with today?",
                         intent="general",
                         source="embedded_mode_fast",
                         rag_used=False,
@@ -203,8 +205,8 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
                 metadata={"property_name": property_name}
             )
 
-        # Detect lead creation (text version)
-        if "create" in msg_lower and "lead" in msg_lower:
+        # Detect request/enquiry (text version)
+        if any(kw in msg_lower for kw in ["enquiry", "contact sales", "speak to agent", "reach out", "help me"]):
             first_step = get_next_step({})
             return ChatResponse(
                 response=first_step["question"],
@@ -220,65 +222,71 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
 
         # Detect property search
         if any(kw in msg_lower for kw in ["find property", "search property", "properties", "find flat", "apartment"]):
+            print(f"[ChatAPI] Detected intent: property")
+            print(f"[ChatAPI] Tenant ID: {tenant_id}")
             try:
                 live_data = await get_properties({}, tenant_id)
-                properties = live_data.get("data", live_data if isinstance(live_data, list) else [])
+                properties = live_data.get("data", [])
+                print(f"[ChatAPI] LeadRat response data count: {len(properties)}")
 
                 if properties:
                     return ChatResponse(
-                        response=f"Found {len(properties)} properties for you. Here are the top options:",
+                        response=f"I found {len(properties)} properties matching your interest. Here are the top options:",
                         intent="property",
-                        source="embedded_mode_fast",
+                        source="leadrat_api",
                         rag_used=False,
                         template="property_list",
-                        data=properties[:5],
+                        data=properties,
                         metadata={"properties_found": len(properties)}
                     )
                 else:
                     return ChatResponse(
-                        response="No properties available right now. Please check back later.",
+                        response="I couldn't find any properties matching your criteria at the moment. Would you like to speak with an agent?",
                         intent="property",
-                        source="embedded_mode_fast",
+                        source="leadrat_api",
                         rag_used=False
                     )
             except Exception as e:
-                logger.warning("fast_property_search_failed", error=str(e))
+                print(f"[ChatAPI] Error in property search: {str(e)}")
                 return ChatResponse(
-                    response="I'm having trouble accessing properties. Please try again.",
+                    response="Unable to fetch live property data. Please try again.",
                     intent="error",
-                    source="embedded_mode_fast",
+                    source="leadrat_api",
                     rag_used=False
                 )
 
         # Detect project search
         if any(kw in msg_lower for kw in ["find project", "show project", "projects", "view project"]):
+            print(f"[ChatAPI] Detected intent: project")
+            print(f"[ChatAPI] Tenant ID: {tenant_id}")
             try:
                 live_data = await get_projects({}, tenant_id)
-                projects = live_data.get("data", live_data if isinstance(live_data, list) else [])
+                projects = live_data.get("data", [])
+                print(f"[ChatAPI] LeadRat response data count: {len(projects)}")
 
                 if projects:
                     return ChatResponse(
-                        response=f"Found {len(projects)} projects for you. Here are the top options:",
+                        response=f"I found {len(projects)} projects for you. Explore our top developments below:",
                         intent="project",
-                        source="embedded_mode_fast",
+                        source="leadrat_api",
                         rag_used=False,
                         template="project_list",
-                        data=projects[:5],
+                        data=projects,
                         metadata={"projects_found": len(projects)}
                     )
                 else:
                     return ChatResponse(
-                        response="No projects available right now. Please check back later.",
+                        response="I couldn't find any active projects for the selected criteria.",
                         intent="project",
-                        source="embedded_mode_fast",
+                        source="leadrat_api",
                         rag_used=False
                     )
             except Exception as e:
-                logger.warning("fast_project_search_failed", error=str(e))
+                print(f"[ChatAPI] Error in project search: {str(e)}")
                 return ChatResponse(
-                    response="I'm having trouble accessing projects. Please try again.",
+                    response="Unable to fetch live project data. Please try again.",
                     intent="error",
-                    source="embedded_mode_fast",
+                    source="leadrat_api",
                     rag_used=False
                 )
 
@@ -366,7 +374,7 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
                     live_data = await get_projects(filters, tenant_id)
                     projects = live_data.get("data", live_data if isinstance(live_data, list) else [])
                     live_context = "\n".join([
-                        f"Project: {p.get('name')} | Location: {p.get('city')} | Possession: {p.get('possession')}"
+                        f"Project: {p.get('name') or p.get('title', 'N/A')} | Location: {p.get('city') or p.get('address', {}).get('city', 'Dubai')} | Status: {p.get('status', 'Active')}"
                         for p in projects[:5]
                     ])
                     rag_context = live_context
@@ -405,7 +413,7 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
                     live_data = await get_properties(filters, tenant_id)
                     properties = live_data.get("data", live_data if isinstance(live_data, list) else [])
                     live_context = "\n".join([
-                        f"Property: {p.get('unitNumber')} | BHK: {p.get('bhk')} | Price: {p.get('price')} | City: {p.get('city')}"
+                        f"Property: {p.get('title') or p.get('name') or p.get('serialNo', 'N/A')} | BHK: {p.get('bhkType') or p.get('bhk', 'N/A')} | Price: {p.get('price') or 'On Request'} | City: {p.get('city') or p.get('address', {}).get('city', 'Dubai')}"
                         for p in properties[:5]
                     ])
                     rag_context = live_context
