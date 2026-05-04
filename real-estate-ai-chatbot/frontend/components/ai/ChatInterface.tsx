@@ -8,12 +8,21 @@ import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { useLanguage } from '@/hooks/useLanguage';
 import { getTranslation } from '@/lib/translations';
 
+interface ChipMeta {
+  action?: 'interest_selected' | 'apply_filter' | 'view_details' | 'show_more';
+  item?: any;
+  itemType?: 'property' | 'project';
+  filter?: { type: string; value: any; label: string };
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
   quickReplies?: string[];
+  chipMeta?: (ChipMeta | null)[];
+  filterChips?: any[];
   isLoading?: boolean;
   data?: any[];
   template?: string;
@@ -251,7 +260,7 @@ async function searchPropertiesApi(query: string): Promise<any[]> {
   }
 }
 
-async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en', tenantIdOverride?: string, backendUrlOverride?: string, flowStateOverride?: any): Promise<{ content: string; quickReplies: string[]; template?: string; data?: any[]; flowState?: any }> {
+async function callLeadratAPI(intent: string, searchTerm: string, originalMessage: string, conversationHistory: Message[] = [], language: string = 'en', tenantIdOverride?: string, backendUrlOverride?: string, flowStateOverride?: any): Promise<{ content: string; quickReplies: string[]; chipMeta?: (ChipMeta | null)[]; template?: string; data?: any[]; flowState?: any; filterChips?: any[] }> {
   const tenantId = tenantIdOverride || (typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'dubait11') : 'dubait11');
 
   // Backend URL resolution with environment variable support
@@ -326,6 +335,7 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
       const template = response?.template;
       const dataItems = response?.data || [];
       const responseFlowState = response?.flow_state || {};
+      const responseFilterChips: any[] = response?.filter_chips || [];
 
       console.log('[ChatAPI] Success:', { intent: detectedIntent, source, hasResponse: !!routerResponse, template, dataCount: dataItems.length });
 
@@ -339,25 +349,45 @@ async function callLeadratAPI(intent: string, searchTerm: string, originalMessag
       }
 
       let quickReplies = getQuickReplies(detectedIntent);
+      let chipMeta: (ChipMeta | null)[] = quickReplies.map(() => null);
+
+      const resolveItemName = (p: any): string =>
+        p.title || p.name || p.projectName || p.propertyTitle || p.unitName || p.unitNumber || p.displayName || (p.id ? `Item #${p.id}` : 'Item');
 
       if ((detectedIntent === 'property' || template === 'property_list') && dataItems.length > 0) {
-        const propertyNames = dataItems.slice(0, 3).map((p: any) => p.projectName || p.name || p.title || 'Property');
-        const interestedButtons = propertyNames.map((p: string) => `✅ Interested: ${p}`);
-        quickReplies = interestedButtons.concat(['Show more', 'Filter results']);
+        const items = dataItems.slice(0, 3);
+        quickReplies = items.map((p: any) => `✅ Interested: ${resolveItemName(p)}`)
+          .concat(['Show more', 'Filter results']);
+        chipMeta = items.map((p: any) => ({
+          action: 'interest_selected' as const,
+          item: p,
+          itemType: 'property' as const,
+        }));
+        chipMeta.push({ action: 'show_more' });
+        chipMeta.push(null); // 'Filter results' is plain
       }
 
       if ((detectedIntent === 'project' || template === 'project_list') && dataItems.length > 0) {
-        const projectNames = dataItems.slice(0, 3).map((p: any) => p.name || p.projectName || 'Project');
-        const interestedButtons = projectNames.map((p: string) => `✅ Interested: ${p}`);
-        quickReplies = interestedButtons.concat(['Show more', 'View details']);
+        const items = dataItems.slice(0, 3);
+        quickReplies = items.map((p: any) => `✅ Interested: ${resolveItemName(p)}`)
+          .concat(['Show more', 'View details']);
+        chipMeta = items.map((p: any) => ({
+          action: 'interest_selected' as const,
+          item: p,
+          itemType: 'project' as const,
+        }));
+        chipMeta.push({ action: 'show_more' });
+        chipMeta.push(null);
       }
 
       return {
         content: routerResponse,
         quickReplies: quickReplies,
+        chipMeta: chipMeta,
         template: template,
         data: dataItems,
-        flowState: responseFlowState
+        flowState: responseFlowState,
+        filterChips: responseFilterChips
       };
 
     } catch (error: any) {
@@ -1945,7 +1975,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
 
         try {
           const searchTerm = extractSearchTerm(text_expanded);
-          const { content, quickReplies, template, data, flowState: returnedFlowState } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language, tenantId, backendUrl, flowState);
+          const { content, quickReplies, chipMeta, template, data, flowState: returnedFlowState, filterChips } = await callLeadratAPI(intent, searchTerm, text_expanded, messages, language, tenantId, backendUrl, flowState);
 
           if (returnedFlowState) {
             setFlowState(returnedFlowState);
@@ -1953,7 +1983,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
 
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === loadingId ? { ...msg, content, quickReplies, isLoading: false, data: data, template: template } : msg
+              msg.id === loadingId ? { ...msg, content, quickReplies, chipMeta, filterChips, isLoading: false, data: data, template: template } : msg
             )
           );
         } catch {
@@ -1984,6 +2014,139 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
     const params = QUICK_REPLY_PARAMS[reply];
     const messageToSend = params?.message || reply;
     handleSend(messageToSend);
+  }
+
+  // Dispatches a structured chip click (Interested, apply_filter, etc.) directly to backend
+  // with full action + selectedItem* context, bypassing plain-text intent classification.
+  async function sendStructuredAction(meta: ChipMeta, displayLabel: string) {
+    if (!meta?.action) {
+      handleSend(displayLabel);
+      return;
+    }
+
+    // Show user's click as a normal user message in the transcript
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: displayLabel,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    const loadingId = (Date.now() + 1).toString();
+    setMessages((prev) => [
+      ...prev,
+      { id: loadingId, role: 'assistant', content: '', timestamp: new Date(), isLoading: true },
+    ]);
+    setIsLoading(true);
+
+    // Resolve backend URL the same way callLeadratAPI does
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const resolvedBackend = backendUrl
+      || (typeof window !== 'undefined' ? localStorage.getItem('backendUrl') : null)
+      || process.env.NEXT_PUBLIC_CHAT_API_URL
+      || (isLocalhost ? 'http://localhost:8000/api/v1/chat/message' : 'https://real-estate-api-dev.onrender.com/api/v1/chat/message');
+
+    const item = meta.item || {};
+    const itemName = item.name || item.projectName || item.title || displayLabel.replace(/^[^\w]*Interested:\s*/i, '').trim();
+    const itemId = item.id || item.propertyId || item.projectId || '';
+
+    // Merge accumulated filters for apply_filter so chips stack (e.g. location + BHK + budget)
+    const priorFilters: Record<string, any> = (flowState as any)?.filters || {};
+    const newFilter = meta.filter ? { [meta.filter.type]: meta.filter.value } : {};
+    const mergedFilters = meta.action === 'apply_filter' ? { ...priorFilters, ...newFilter } : priorFilters;
+
+    // Backend ChatRequest schema: { message, tenant_id, action, selectedItem*, filter, flow_state, ... }
+    const payload: any = {
+      message: meta.action === 'interest_selected'
+        ? `I am interested in this ${meta.itemType || 'item'}: ${itemName}`
+        : displayLabel,
+      tenant_id: tenantId,
+      language: language || 'en',
+      action: meta.action,
+      selectedItemId: itemId,
+      selectedItemType: meta.itemType,
+      selectedItemName: itemName,
+      selectedItem: item,
+      conversation_history: messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-3)
+        .map(m => ({ role: m.role, content: m.content.substring(0, 200) })),
+      flow_state: meta.action === 'interest_selected'
+        ? {
+            currentFlow: 'lead_collection',
+            step: 'ask_name',
+            selectedItemType: meta.itemType,
+            selectedItemId: itemId,
+            selectedItemName: itemName,
+            selectedItem: item,
+          }
+        : meta.action === 'apply_filter'
+        ? { ...(flowState || {}), filters: mergedFilters, kind: (flowState as any)?.kind || 'property' }
+        : (flowState || {}),
+    };
+
+    if (meta.filter) {
+      // Pass the new chip filter; backend merges with flow_state.filters
+      payload.filter = { type: meta.filter.type, value: meta.filter.value, label: meta.filter.label };
+    }
+
+    console.log('[sendStructuredAction] POST', resolvedBackend, payload);
+
+    try {
+      const r = await fetch(resolvedBackend, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const response = await r.json();
+
+      const content = response?.response || response?.content || 'Got it.';
+      const returnedFlowState = response?.flow_state;
+      const dataItems = response?.data || [];
+      const template = response?.template;
+      const returnedFilterChips: any[] = response?.filter_chips || [];
+
+      if (returnedFlowState) setFlowState(returnedFlowState);
+
+      // For property/project list responses, build chipMeta for Interested chips
+      const resolveItemName = (p: any): string =>
+        p.title || p.name || p.projectName || p.propertyTitle || p.unitName || p.unitNumber || p.displayName || (p.id ? `Item #${p.id}` : 'Item');
+      let quickReplies: string[] | undefined = response?.quickReplies;
+      let chipMeta: (ChipMeta | null)[] | undefined;
+      if (dataItems.length > 0 && (template === 'property_list' || template === 'project_list')) {
+        const kind = template === 'project_list' ? 'project' : 'property';
+        const top3 = dataItems.slice(0, 3);
+        quickReplies = top3.map((p: any) => `✅ Interested: ${resolveItemName(p)}`).concat(['Show more']);
+        const built: (ChipMeta | null)[] = top3.map((p: any) => ({
+          action: 'interest_selected' as const,
+          item: p,
+          itemType: kind as 'property' | 'project',
+        }));
+        built.push({ action: 'show_more' });
+        chipMeta = built;
+      }
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === loadingId
+            ? { ...m, content, isLoading: false, data: dataItems, template, quickReplies, chipMeta, filterChips: returnedFilterChips }
+            : m
+        )
+      );
+    } catch (err) {
+      console.error('[sendStructuredAction] failed', err);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === loadingId
+            ? { ...m, content: 'Something went wrong processing that. Please try again.', isLoading: false }
+            : m
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -2175,6 +2338,8 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
             <div
               style={{
                 display: 'flex',
+                flexDirection: 'row',
+                flexWrap: msg.role === 'assistant' && msg.data && msg.data.length > 0 ? 'wrap' : 'nowrap',
                 justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
                 marginBottom: msg.quickReplies ? '8px' : '0',
               }}
@@ -2199,7 +2364,12 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
 
               <div
                 style={{
-                  maxWidth: '70%',
+                  // For data-bearing assistant messages with flex-wrap, content stays on first line
+                  // and grid wraps to second line. Content max 70% so grid gets its own 100% line.
+                  maxWidth: msg.role === 'assistant' && msg.data && msg.data.length > 0 ? '70%' : '70%',
+                  width: msg.role === 'assistant' && msg.data && msg.data.length > 0 ? 'auto' : 'auto',
+                  flex: msg.role === 'assistant' && msg.data && msg.data.length > 0 ? '0 0 auto' : undefined,
+                  minWidth: 0, // allow grid children to shrink below intrinsic width
                   backgroundColor: embeddedMode
                     ? (msg.role === 'user' ? '#e9d5ff' : '#dbeafe')
                     : (msg.role === 'user'
@@ -2212,7 +2382,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
                       : 'hsl(195 85% 55% / 0.3)')}`,
                   backdropFilter: embeddedMode ? 'none' : 'blur(10px)',
                   borderRadius: '1rem',
-                  padding: '12px 16px',
+                  padding: msg.role === 'assistant' && msg.data && msg.data.length > 0 ? '10px 12px' : '12px 16px',
                   color: embeddedMode ? '#1f2937' : 'hsl(40 30% 95%)',
                   fontSize: '13px',
                   lineHeight: '1.5',
@@ -2251,74 +2421,145 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
                 )}
               </div>
 
-              {/* Data Items Rendering */}
+              {/* Data Items Rendering — responsive grid that collapses empty tracks (auto-fit). */}
               {msg.role === 'assistant' && !msg.isLoading && msg.data && msg.data.length > 0 && (
-                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '100%' }}>
-                  {msg.data.map((item: any, idx: number) => (
-                    <div
-                      key={idx}
-                      style={{
-                        backgroundColor: embeddedMode ? '#ecf0f1' : 'rgba(6, 182, 212, 0.1)',
-                        border: embeddedMode ? '1px solid #cbd5e0' : '1px solid rgba(6, 182, 212, 0.3)',
-                        borderRadius: '0.75rem',
-                        padding: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (embeddedMode) {
-                          e.currentTarget.style.backgroundColor = '#e2e8f0';
-                          e.currentTarget.style.borderColor = '#94a3b8';
-                        } else {
-                          e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.15)';
-                          e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                <div
+                  style={{
+                    marginTop: msg.content && msg.content.trim().length > 0 ? '12px' : '0',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                    gap: '12px',
+                    width: '100%',
+                    alignItems: 'stretch',
+                    justifyItems: 'stretch',
+                  }}
+                >
+                  {msg.data.map((item: any, idx: number) => {
+                    // Defensive coercion — LeadRat sometimes returns nested objects (e.g. location
+                    // is {subLocality, locality, city, ...}). Rendering an object directly crashes
+                    // React with "Objects are not valid as a React child". This helper guarantees
+                    // we always pass a string to JSX.
+                    const toDisplay = (v: any): string => {
+                      if (v == null) return '';
+                      if (typeof v === 'string') return v;
+                      if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+                      if (Array.isArray(v)) return v.map(toDisplay).filter(Boolean).join(', ');
+                      if (typeof v === 'object') {
+                        // Try common display keys, then synthesize from address-style parts.
+                        for (const k of ['displayName', 'name', 'title', 'value', 'label', 'location']) {
+                          if (typeof v[k] === 'string' && v[k].trim()) return v[k];
                         }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (embeddedMode) {
-                          e.currentTarget.style.backgroundColor = '#ecf0f1';
-                          e.currentTarget.style.borderColor = '#cbd5e0';
-                        } else {
-                          e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
-                          e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
-                        }
-                      }}
-                    >
-                      <div style={{ fontWeight: '600', color: embeddedMode ? '#1f2937' : 'hsl(195 85% 55%)', marginBottom: '4px' }}>
-                        {item.projectName || item.name || item.title || 'Property'}
+                        const parts = ['towerName', 'subCommunity', 'community', 'subLocality', 'locality', 'district', 'city', 'state', 'country']
+                          .map(k => typeof v[k] === 'string' ? v[k].trim() : '')
+                          .filter(Boolean);
+                        return parts.join(', ');
+                      }
+                      return '';
+                    };
+
+                    // Resilient field mapping — backend shape differs between property and project.
+                    const name =
+                      toDisplay(item.title) ||
+                      toDisplay(item.name) ||
+                      toDisplay(item.projectName) ||
+                      toDisplay(item.propertyTitle) ||
+                      toDisplay(item.unitName) ||
+                      toDisplay(item.unitNumber) ||
+                      toDisplay(item.displayName) ||
+                      (item.id ? `Item #${item.id}` : 'Untitled');
+                    const location = toDisplay(item.location) || toDisplay(item.address) || toDisplay(item.city) || toDisplay(item.area);
+                    const itemTypeLabel =
+                      toDisplay(item.propertyType) ||
+                      toDisplay(item.type) ||
+                      toDisplay(item.projectType) ||
+                      toDisplay(item.category);
+                    const priceDisplay =
+                      toDisplay(item.price) ||
+                      toDisplay(item.formattedPrice) ||
+                      (typeof item.budget === 'number' && item.budget > 0 ? item.budget.toLocaleString() : '');
+                    const bhk = toDisplay(item.bhk) || toDisplay(item.bedrooms);
+                    const status = toDisplay(item.status);
+                    const descRaw = toDisplay(item.description);
+                    const desc = descRaw.length > 0 ? descRaw : null;
+
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          backgroundColor: embeddedMode ? '#ecf0f1' : 'rgba(6, 182, 212, 0.1)',
+                          border: embeddedMode ? '1px solid #cbd5e0' : '1px solid rgba(6, 182, 212, 0.3)',
+                          borderRadius: '0.75rem',
+                          padding: '14px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          minWidth: 0,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (embeddedMode) {
+                            e.currentTarget.style.backgroundColor = '#e2e8f0';
+                            e.currentTarget.style.borderColor = '#94a3b8';
+                          } else {
+                            e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.15)';
+                            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (embeddedMode) {
+                            e.currentTarget.style.backgroundColor = '#ecf0f1';
+                            e.currentTarget.style.borderColor = '#cbd5e0';
+                          } else {
+                            e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
+                          }
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            color: embeddedMode ? '#1f2937' : 'hsl(195 85% 55%)',
+                            wordBreak: 'break-word',
+                          }}
+                          title={name}
+                        >
+                          {name}
+                        </div>
+                        {location && (
+                          <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)' }}>
+                            📍 {location}
+                          </div>
+                        )}
+                        {bhk && (
+                          <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)' }}>
+                            🛏️ {bhk} BHK
+                          </div>
+                        )}
+                        {itemTypeLabel && (
+                          <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)' }}>
+                            🏠 {itemTypeLabel}
+                          </div>
+                        )}
+                        {priceDisplay && (
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: embeddedMode ? '#059669' : 'hsl(40 100% 60%)' }}>
+                            💰 {priceDisplay}
+                          </div>
+                        )}
+                        {status && (
+                          <div style={{ fontSize: '11px', color: 'hsl(40 100% 50%)' }}>
+                            ✓ {status}
+                          </div>
+                        )}
+                        {desc && !location && !itemTypeLabel && (
+                          <div style={{ fontSize: '12px', color: embeddedMode ? '#6b7280' : 'hsl(220 10% 60%)' }}>
+                            {desc.length > 80 ? desc.substring(0, 80) + '…' : desc}
+                          </div>
+                        )}
                       </div>
-                      {item.unitNumber && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
-                          🏢 Unit {item.unitNumber}
-                        </div>
-                      )}
-                      {item.bhk && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
-                          🛏️ {item.bhk} BHK
-                        </div>
-                      )}
-                      {item.price && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#059669' : 'hsl(40 100% 60%)', marginBottom: '4px' }}>
-                          💰 AED {item.price}
-                        </div>
-                      )}
-                      {item.city && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
-                          📍 {item.city}
-                        </div>
-                      )}
-                      {item.propertyType && (
-                        <div style={{ fontSize: '12px', color: embeddedMode ? '#4b5563' : 'hsl(220 10% 65%)', marginBottom: '4px' }}>
-                          🏠 {item.propertyType}
-                        </div>
-                      )}
-                      {item.status && (
-                        <div style={{ fontSize: '12px', color: 'hsl(40 100% 50%)', marginBottom: '4px' }}>
-                          ✓ {item.status}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -2342,13 +2583,53 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
               )}
             </div>
 
+            {/* Filter Chips — location/budget/BHK/status from actual data */}
+            {msg.role === 'assistant' && msg.filterChips && msg.filterChips.length > 0 && !msg.isLoading && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginLeft: '44px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '11px', color: 'hsl(195 85% 65% / 0.7)', alignSelf: 'center', marginRight: '4px' }}>Filter:</span>
+                {msg.filterChips.map((chip: any, idx: number) => (
+                  <button
+                    key={`${msg.id}-fchip-${idx}`}
+                    onClick={() => sendStructuredAction(
+                      { action: 'apply_filter', filter: { type: chip.type, value: chip.value, label: chip.label } },
+                      chip.label
+                    )}
+                    disabled={isLoading}
+                    style={{
+                      fontSize: '11px',
+                      padding: '5px 10px',
+                      borderRadius: '999px',
+                      border: '1px solid hsl(195 85% 55% / 0.3)',
+                      color: 'hsl(195 85% 70%)',
+                      backgroundColor: 'rgba(100, 200, 255, 0.06)',
+                      cursor: isLoading ? 'not-allowed' : 'pointer',
+                      opacity: isLoading ? 0.5 : 1,
+                      transition: 'all 0.2s ease',
+                      fontWeight: '400',
+                    }}
+                    onMouseEnter={(e) => { if (!isLoading) { e.currentTarget.style.backgroundColor = 'rgba(100,200,255,0.15)'; e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.6)'; } }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(100, 200, 255, 0.06)'; e.currentTarget.style.borderColor = 'hsl(195 85% 55% / 0.3)'; }}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Quick Replies */}
             {msg.role === 'assistant' && msg.quickReplies && !msg.isLoading && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginLeft: '44px' }}>
                 {msg.quickReplies.map((reply, idx) => (
                   <button
                     key={`${msg.id}-reply-${idx}`}
-                    onClick={() => handleQuickReply(reply)}
+                    onClick={() => {
+                      const meta = msg.chipMeta?.[idx];
+                      if (meta && meta.action) {
+                        sendStructuredAction(meta, reply);
+                      } else {
+                        handleQuickReply(reply);
+                      }
+                    }}
                     disabled={isLoading}
                     style={{
                       fontSize: '12px',

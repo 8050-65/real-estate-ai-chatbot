@@ -134,6 +134,118 @@ def _extract_bhk(text: str) -> Optional[int]:
     return int(match.group(1)) if match else None
 
 
+def _flatten_location(value: Any) -> str:
+    """Coerce a LeadRat location field into a single display string.
+
+    LeadRat returns location as either a plain string OR a nested object like:
+      {id, placeId, subLocality, locality, district, city, state, country, ...,
+       location, community, subCommunity, towerName}
+    Rendering the object directly in JSX crashes React. This builds a comma-joined
+    string from the most specific available parts, falling back to the raw value.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        # Some tenants put the formatted address in a nested 'location' key.
+        nested = value.get("location")
+        if isinstance(nested, str) and nested.strip():
+            return nested.strip()
+        # Otherwise, build "subLocality, locality, city, state, country" skipping blanks.
+        parts = []
+        for key in ("towerName", "subCommunity", "community", "subLocality", "locality", "district", "city", "state", "country"):
+            v = value.get(key)
+            if isinstance(v, str) and v.strip() and v.strip() not in parts:
+                parts.append(v.strip())
+        if parts:
+            return ", ".join(parts)
+        return ""
+    # Lists or other types — best effort
+    try:
+        return str(value)
+    except Exception:
+        return ""
+
+
+def _coerce_to_string(value: Any) -> str:
+    """Defensive coercion — use for any field that might come back as an object/dict."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    if isinstance(value, dict):
+        # Try common display keys
+        for key in ("displayName", "name", "title", "value", "label"):
+            v = value.get(key)
+            if isinstance(v, str) and v.strip():
+                return v
+        return ""
+    return str(value) if value else ""
+
+
+def _generate_filter_chips(items: List[Dict], kind: str = "property") -> List[Dict]:
+    """Generate filter chip options from the actual returned items."""
+    chips: List[Dict] = []
+
+    # ── Location chips (deduplicated, up to 6) ──────────────────────────────
+    locations = []
+    for item in items:
+        loc = (item.get("location") or "").split(",")[0].strip()
+        if loc and loc != "N/A" and loc not in locations:
+            locations.append(loc)
+    for loc in locations[:6]:
+        chips.append({"type": "location", "value": loc, "label": f"📍 {loc}"})
+
+    # ── BHK chips (property only) ────────────────────────────────────────────
+    if kind == "property":
+        bhk_values = sorted({item["bhk"] for item in items if item.get("bhk")})
+        for b in bhk_values[:4]:
+            chips.append({"type": "bhk", "value": b, "label": f"🛏️ {b} BHK"})
+
+    # ── Budget chips derived from actual data ────────────────────────────────
+    budgets = [item.get("budget", 0) for item in items if item.get("budget", 0) > 0]
+    if budgets:
+        max_b = max(budgets)
+        # Build meaningful range tiers
+        tiers = []
+        if max_b > 10_000_000:   # >1Cr
+            tiers = [
+                (5_000_000,  "Under 50 Lakh"),
+                (10_000_000, "Under 1 Cr"),
+                (30_000_000, "Under 3 Cr"),
+                (50_000_000, "Under 5 Cr"),
+            ]
+        elif max_b > 1_000_000:  # >10L
+            tiers = [
+                (1_000_000,  "Under 10 Lakh"),
+                (3_000_000,  "Under 30 Lakh"),
+                (5_000_000,  "Under 50 Lakh"),
+                (10_000_000, "Under 1 Cr"),
+            ]
+        for val, label in tiers:
+            if any(b <= val for b in budgets):
+                chips.append({"type": "maxPrice", "value": val, "label": f"💰 {label}"})
+
+    # ── Status chips ─────────────────────────────────────────────────────────
+    statuses = {(item.get("status") or "").strip() for item in items if item.get("status")}
+    statuses.discard("")
+    for s in list(statuses)[:3]:
+        chips.append({"type": "status", "value": s, "label": f"✓ {s}"})
+
+    # ── Property type chips ───────────────────────────────────────────────────
+    type_key = "propertyType" if kind == "property" else "projectType"
+    types = {(item.get(type_key) or "").strip() for item in items if item.get(type_key)}
+    types.discard("")
+    types.discard("N/A")
+    for t in list(types)[:3]:
+        chips.append({"type": "propertyType", "value": t, "label": f"🏷️ {t}"})
+
+    return chips
+
+
 # ============================================================================
 # PROPERTY APIS
 # ============================================================================
@@ -171,24 +283,59 @@ async def get_properties(filters: dict = None, tenant_id: str = None, force_refr
 
             raw_data = resp.json()
             raw_items = raw_data.get("items", []) or raw_data.get("data", []) or []
-            
+
+            # One-time debug: log the keys + sample values of the first raw item so we can see
+            # what LeadRat actually sends back for this tenant. Helps diagnose missing-field bugs.
+            if raw_items:
+                first = raw_items[0]
+                print(f"[LeadRat API] Property raw item keys: {list(first.keys())}")
+                print(f"[LeadRat API] Property raw item sample: {json.dumps(first, default=str)[:600]}")
+
             mapped_items = []
             for item in raw_items:
-                title = item.get("propertyTitle") or item.get("name") or "Property"
-                price_str = item.get("price") or item.get("formattedPrice", "0")
-                p_type = item.get("propertyType", {}).get("displayName", "N/A") if isinstance(item.get("propertyType"), dict) else item.get("propertyType", "N/A")
-                
+                # Title — try a wide fallback chain since LeadRat field names vary across tenants.
+                title = _coerce_to_string(
+                    item.get("propertyTitle")
+                    or item.get("title")
+                    or item.get("name")
+                    or item.get("unitName")
+                    or item.get("unitNumber")
+                    or item.get("displayName")
+                    or item.get("projectName")
+                ) or (f"Property #{item.get('id')}" if item.get("id") else "Untitled Property")
+
+                price_str = _coerce_to_string(
+                    item.get("price") or item.get("formattedPrice") or item.get("totalPrice")
+                ) or "0"
+
+                # propertyType can be string or {displayName, name}
+                p_type = _coerce_to_string(item.get("propertyType")) or _coerce_to_string(item.get("type")) or "N/A"
+
+                # location can be string OR a deeply nested object — must flatten before sending to frontend
+                location = (
+                    _flatten_location(item.get("location"))
+                    or _flatten_location(item.get("address"))
+                    or _coerce_to_string(item.get("city"))
+                    or _coerce_to_string(item.get("area"))
+                    or "N/A"
+                )
+
+                # Status can also be an object on some tenants
+                status_raw = item.get("status")
+                status_str = _coerce_to_string(status_raw) if status_raw is not None else None
+
                 mapped_items.append({
                     "id": item.get("id"),
                     "title": title,
-                    "location": item.get("location") or item.get("address", "N/A"),
+                    "name": title,  # alias so frontend never falls through to "Property"
+                    "location": location,
                     "type": p_type,
                     "propertyType": p_type,
                     "price": price_str,
                     "budget": _parse_price(price_str),
-                    "bhk": _extract_bhk(title) or _extract_bhk(item.get("description", "")),
-                    "status": "Active" if item.get("isActive") else "Inactive",
-                    "description": item.get("description", ""),
+                    "bhk": _extract_bhk(title) or _extract_bhk(_coerce_to_string(item.get("description", ""))),
+                    "status": status_str or ("Active" if item.get("isActive") else "Inactive"),
+                    "description": _coerce_to_string(item.get("description", "")),
                     "source": "leadrat_api"
                 })
 
@@ -233,16 +380,43 @@ async def get_projects(filters: dict = None, tenant_id: str = None, force_refres
 
             raw_data = resp.json()
             raw_items = raw_data.get("items", []) or raw_data.get("data", []) or []
-            
+
+            if raw_items:
+                first = raw_items[0]
+                print(f"[LeadRat API] Project raw item keys: {list(first.keys())}")
+                print(f"[LeadRat API] Project raw item sample: {json.dumps(first, default=str)[:600]}")
+
             mapped_items = []
             for item in raw_items:
+                name = _coerce_to_string(
+                    item.get("projectName")
+                    or item.get("name")
+                    or item.get("title")
+                    or item.get("displayName")
+                ) or (f"Project #{item.get('id')}" if item.get("id") else "Untitled Project")
+
+                p_type = _coerce_to_string(item.get("projectType")) or "N/A"
+
+                location = (
+                    _flatten_location(item.get("location"))
+                    or _flatten_location(item.get("address"))
+                    or _coerce_to_string(item.get("city"))
+                    or _coerce_to_string(item.get("area"))
+                    or "N/A"
+                )
+
+                status_raw = item.get("status")
+                status_str = _coerce_to_string(status_raw) if status_raw is not None else None
+
                 mapped_items.append({
                     "id": item.get("id"),
-                    "name": item.get("projectName") or item.get("name") or "Project",
-                    "location": item.get("location", "N/A"),
-                    "projectType": item.get("projectType") or "N/A",
-                    "status": item.get("status") or "Active",
-                    "description": item.get("description", ""),
+                    "name": name,
+                    "title": name,  # alias for frontend resilience
+                    "location": location,
+                    "projectType": p_type,
+                    "type": p_type,
+                    "status": status_str or "Active",
+                    "description": _coerce_to_string(item.get("description", "")),
                     "source": "leadrat_api"
                 })
 
@@ -299,11 +473,15 @@ async def create_lead(payload: dict, tenant_id: str = None) -> dict:
         "remarks": notes_text,
     }
 
-    print(f"[LeadRat API] POST /api/v1/lead with payload: {leadrat_payload}")
+    # Use the same hardcoded host as get_properties/get_projects (which work).
+    # Avoid LEADRAT_BASE_URL env-var indirection — it points to the wrong host in some envs
+    # (.env has prd-lrb-webapi.leadrat.com which 404s for /api/v1/lead).
+    lead_url = "https://connect.leadrat.com/api/v1/lead"
+    print(f"[LeadRat API] POST {lead_url} with payload: {leadrat_payload}")
     try:
         async with httpx.AsyncClient(timeout=15, verify=False) as client:
             resp = await client.post(
-                f"{LEADRAT_BASE_URL}/api/v1/lead",
+                lead_url,
                 json=leadrat_payload,
                 headers=headers
             )

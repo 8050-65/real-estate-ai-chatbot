@@ -14,7 +14,8 @@ from app.services.ollama_service import extract_semantics, generate_response
 from app.services.rag_service import hybrid_search
 from app.services.leadrat_api import (
     create_lead, update_lead, get_leads,
-    get_projects, get_properties
+    get_projects, get_properties,
+    _generate_filter_chips, _property_cache, _project_cache
 )
 from app.flows.lead_creation_flow import (
     get_next_step,
@@ -38,6 +39,9 @@ class ChatRequest(BaseModel):
     selectedItemId: Optional[str] = None
     selectedItemType: Optional[str] = None
     selectedItemName: Optional[str] = None
+    selectedItem: Optional[Dict] = None
+    language: Optional[str] = "en"
+    filter: Optional[Dict] = None
 
 
 class ChatResponse(BaseModel):
@@ -51,31 +55,78 @@ class ChatResponse(BaseModel):
     data: Optional[List[Dict]] = None
     metadata: Dict = {}
     flow_state: Optional[Dict] = {}
+    filter_chips: Optional[List[Dict]] = None
+
+
+def _parse_text_filters(message: str) -> Dict:
+    """Extract filter criteria from natural language message."""
+    f: Dict = {}
+    msg = message.lower()
+
+    # Location: "near X", "in X", "around X", "at X"
+    loc_match = re.search(r'\b(?:near|in|around|at)\s+([a-z][a-z\s]{1,30}?)(?:\s+(?:under|below|above|with|\d)|$)', msg)
+    if loc_match:
+        f["location"] = loc_match.group(1).strip()
+
+    # Budget: "under/below N lakh/lac/cr/crore"
+    budget_match = re.search(r'\b(?:under|below|max|upto|up to)\s+(\d+\.?\d*)\s*(lakh|lac|cr|crore)', msg)
+    if budget_match:
+        val = float(budget_match.group(1))
+        unit = budget_match.group(2)
+        if "cr" in unit:
+            f["maxPrice"] = int(val * 10_000_000)
+        else:
+            f["maxPrice"] = int(val * 100_000)
+
+    # BHK: "2BHK", "3 bhk", "2 bedroom"
+    bhk_match = re.search(r'(\d)\s*(?:bhk|bedroom)', msg)
+    if bhk_match:
+        f["bhk"] = int(bhk_match.group(1))
+
+    # Status
+    if "active" in msg:
+        f["status"] = "Active"
+    elif "inactive" in msg:
+        f["status"] = "Inactive"
+
+    # Property type
+    for t in ("residential", "commercial", "villa", "apartment", "plot", "flat"):
+        if t in msg:
+            f["propertyType"] = t.capitalize()
+            break
+
+    return f
 
 
 def filter_properties(items: List[Dict], filters: Dict) -> List[Dict]:
     """Filter properties based on extracted criteria."""
     filtered = items
-    
+
     loc = filters.get("location")
     if loc:
         loc = loc.lower()
         filtered = [i for i in filtered if loc in (i.get("location") or "").lower() or loc in (i.get("title") or "").lower()]
-        
+
     max_p = filters.get("maxPrice")
     if max_p:
         try:
-            max_p = int(max_p)
-            filtered = [i for i in filtered if i.get("budget", 0) <= max_p]
+            filtered = [i for i in filtered if i.get("budget", 0) <= int(max_p)]
         except: pass
-        
+
     bhk = filters.get("bhk")
     if bhk:
         try:
-            bhk = int(bhk)
-            filtered = [i for i in filtered if i.get("bhk") == bhk]
+            filtered = [i for i in filtered if i.get("bhk") == int(bhk)]
         except: pass
-        
+
+    status = filters.get("status")
+    if status:
+        filtered = [i for i in filtered if (i.get("status") or "").lower() == status.lower()]
+
+    p_type = filters.get("propertyType")
+    if p_type:
+        filtered = [i for i in filtered if p_type.lower() in (i.get("propertyType") or i.get("type") or "").lower()]
+
     return filtered
 
 
@@ -86,6 +137,12 @@ def filter_projects(items: List[Dict], filters: Dict) -> List[Dict]:
     if loc:
         loc = loc.lower()
         filtered = [i for i in filtered if loc in (i.get("location") or "").lower() or loc in (i.get("name") or "").lower()]
+    status = filters.get("status")
+    if status:
+        filtered = [i for i in filtered if (i.get("status") or "").lower() == status.lower()]
+    p_type = filters.get("propertyType")
+    if p_type:
+        filtered = [i for i in filtered if p_type.lower() in (i.get("projectType") or i.get("type") or "").lower()]
     return filtered
 
 
@@ -96,24 +153,113 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
         tenant_id = request.tenant_id or "dubait11"
         flow_state = request.flow_state or {}
         history = request.conversation_history or []
-        
+
+        print(f"[ChatAPI-START] Processing: {message[:30]} | Code version with filter_chips")
         print(f"[ChatAPI] Incoming message: {message} | Action: {request.action} | Type: {type(request.action)}")
 
+        # ── APPLY FILTER ACTION (no Ollama, re-filter cached data) ──────────
+        if request.action == "apply_filter":
+            # Merge prior filters from flow_state with the new chip filter
+            prior_filters: Dict = (flow_state.get("filters") or {}).copy()
+            new_filter: Dict = request.filter or {}
+            merged: Dict = {**prior_filters, **new_filter}
+
+            # Determine kind from flow_state or cached data availability
+            kind = flow_state.get("kind", "property")
+            if kind == "project" or (not _property_cache["data"] and _project_cache["data"]):
+                kind = "project"
+
+            if kind == "project":
+                all_items = _project_cache["data"] or []
+                filtered = filter_projects(all_items, merged)
+                chips = _generate_filter_chips(all_items, "project")
+                template = "project_list"
+                intent = "project"
+            else:
+                all_items = _property_cache["data"] or []
+                filtered = filter_properties(all_items, merged)
+                chips = _generate_filter_chips(all_items, "property")
+                template = "property_list"
+                intent = "property"
+
+            if not filtered:
+                return ChatResponse(
+                    response="No results match this filter. Try a different combination.",
+                    intent=intent,
+                    source="filter",
+                    filter_chips=chips,
+                    flow_state={**flow_state, "filters": merged, "kind": kind}
+                )
+
+            label = new_filter.get("label", "your filter")
+            return ChatResponse(
+                response=f"Showing {len(filtered)} result(s) for **{label}**:",
+                intent=intent,
+                source="filter",
+                template=template,
+                data=filtered[:10],
+                filter_chips=chips,
+                flow_state={**flow_state, "filters": merged, "kind": kind}
+            )
+
         # ── HANDLE STRUCTURED ACTIONS (INTERESTED ETC.) ─────
-        if request.action == "interest_selected" or message.lower().startswith("interested:"):
+        # Strip leading non-word chars (emoji like ✅, whitespace) before pattern check so chips
+        # such as "✅ Interested: Aamor" still trigger the lead flow even if the structured `action`
+        # field is missing from the payload.
+        normalized_msg = re.sub(r'^[^\w]+', '', message).lower()
+        if (
+            request.action == "interest_selected"
+            or normalized_msg.startswith("interested:")
+            or normalized_msg.startswith("i am interested")
+        ):
             print(f"[ChatAPI] ✓ Detected interest_selected action, starting lead flow")
             item_name = request.selectedItemName or message.split(":", 1)[-1].strip()
             item_type = request.selectedItemType or ("property" if "property" in message.lower() else "project")
-            
+
+            # Build a short, human-friendly summary of the selected item to confirm context
+            # before asking for personal info. Uses selectedItem (full object) when frontend passes it.
+            item = request.selectedItem or {}
+            summary_lines = [f"✨ Great choice! Here's what you've picked:", f"🏠 **{item_name}**"]
+            location = item.get("location") or item.get("address") or item.get("city")
+            if location and location != "N/A":
+                summary_lines.append(f"📍 {location}")
+            type_label = item.get("propertyType") or item.get("projectType") or item.get("type")
+            if type_label and type_label != "N/A":
+                summary_lines.append(f"🏷️ {type_label}")
+            price = item.get("price") or item.get("formattedPrice")
+            if price and str(price) not in ("0", "N/A"):
+                summary_lines.append(f"💰 {price}")
+            if item.get("bhk"):
+                summary_lines.append(f"🛏️ {item['bhk']} BHK")
+            if item.get("status"):
+                summary_lines.append(f"✓ Status: {item['status']}")
+
+            summary_lines.append("")
+            summary_lines.append("To connect you with our team, may I know your **name**?")
+            response_text = "\n".join(summary_lines)
+
             first_step = get_next_step({})
             return ChatResponse(
-                response=f"Great choice! I'd love to help you with **{item_name}**. May I know your name?",
+                response=response_text,
                 intent="lead_creation_step",
                 source="leadrat_api",
                 flow_state={
                     "active_flow": "create_lead",
                     "current_step": "get_name",
-                    "collected": {"project_interest": item_name, "item_type": item_type, "item_id": request.selectedItemId}
+                    "collected": {
+                        "project_interest": item_name,
+                        "item_type": item_type,
+                        "item_id": request.selectedItemId,
+                        "item_snapshot": {
+                            "name": item_name,
+                            "location": location,
+                            "type": type_label,
+                            "price": price,
+                            "bhk": item.get("bhk"),
+                            "status": item.get("status"),
+                            "id": request.selectedItemId,
+                        },
+                    }
                 }
             )
 
@@ -276,34 +422,44 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
         module = semantics.get("module", "general")
         intent = semantics.get("intent", "query")
         filters = semantics.get("filters", {})
-        
+
+        # Merge any text-derived filters (free-form "2BHK near Jigani under 50 lakh")
+        text_filters = _parse_text_filters(message)
+        filters = {**text_filters, **filters}  # semantics wins on conflict
+
         print(f"[ChatAPI] Detected Module: {module} | Intent: {intent} | Filters: {filters}")
 
         # ── PROPERTY FLOW ──────────────────────────────────
         if module == "property" or any(kw in message.lower() for kw in ["properties", "flat", "apartment", "villa", "bhk"]):
             res = await get_properties(tenant_id=tenant_id)
             items = res.get("data", [])
+            chips = _generate_filter_chips(items, "property")
             filtered = filter_properties(items, filters)
-            
+
             if not filtered and items:
-                # If no exact match, show nearest matches (top 3)
                 return ChatResponse(
                     response="I couldn't find an exact match for your criteria, but here are the closest options available:",
                     intent="property",
                     source="leadrat_api",
                     template="property_list",
-                    data=items[:3]
+                    data=items[:3],
+                    filter_chips=chips,
+                    flow_state={"kind": "property"}
                 )
-            
+
             if filtered:
                 count = len(filtered)
                 msg = f"I found {count} properties matching your interest:" if count > 1 else "I found this property for you:"
+                debug_info = f"<<<EDITED_BACKEND_CODE_LOADED: {len(chips)} chips>>>"
+                import sys; print(f"[PROPERTY-PATH-EXECUTED] {len(chips)} chips", file=sys.stderr, flush=True)
                 return ChatResponse(
-                    response=msg,
+                    response=msg + " " + debug_info,
                     intent="property",
                     source="leadrat_api",
                     template="property_list",
-                    data=filtered[:10]
+                    data=filtered[:10],
+                    filter_chips=chips,
+                    flow_state={"kind": "property"}
                 )
             else:
                 return ChatResponse(
@@ -316,21 +472,26 @@ async def chat_message(request: ChatRequest) -> ChatResponse:
         if module == "project" or any(kw in message.lower() for kw in ["projects", "ongoing"]):
             res = await get_projects(tenant_id=tenant_id)
             items = res.get("data", [])
+            chips = _generate_filter_chips(items, "project")
             filtered = filter_projects(items, filters)
-            
+
             if filtered:
                 return ChatResponse(
                     response=f"I found {len(filtered)} projects for you:",
                     intent="project",
                     source="leadrat_api",
                     template="project_list",
-                    data=filtered[:10]
+                    data=filtered[:10],
+                    filter_chips=chips,
+                    flow_state={"kind": "project"}
                 )
             else:
                 return ChatResponse(
                     response="I couldn't find any projects matching your criteria.",
                     intent="project",
-                    source="leadrat_api"
+                    source="leadrat_api",
+                    filter_chips=chips,
+                    flow_state={"kind": "project"}
                 )
 
         # ── APPOINTMENT FLOW ───────────────────────────────
