@@ -14,9 +14,5 @@ command = "npm run build"
 cwd = "./"
 watch_paths = ["frontend/public/**/*.js", "frontend/public/**/*.html"]
 
-[[build.upload]]
-format = "service-worker"
-main = "./frontend/public"
-
 [build.upload]
 dir = "frontend/public"
