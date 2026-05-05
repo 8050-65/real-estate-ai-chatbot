@@ -649,7 +649,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
             logLeadCreate(data.leadName || 'Unknown', data.leadPhone || 'N/A');
 
             // If an appointment was requested, create it now
-            if (data.appointmentType && data.appointmentType !== 'None' && lead?.id) {
+            if (data.appointmentType && lead?.id) {
               try {
                 let statusId = data.appointmentType === 'Callback' ? PARENT_STATUS_IDS.callback : CHILD_STATUS_IDS.site_visit_first_visit;
                 let meetingOrSiteVisit = data.appointmentType === 'Callback' ? 0 : 2;
@@ -677,7 +677,7 @@ export default function ChatInterface({ isFloating = true, fullPage = false, emb
             setConvState({ flow: 'none', step: '', data: {} });
             appendBotMessage(
               `✅ **Success!**\n\nThanks **${data.leadName}**, I've shared your details with our team regarding **${data.selectedProjectName ?? data.selectedPropertyName}**.\n\n` +
-              (data.appointmentType !== 'None'
+              (data.appointmentType
                 ? `They'll be prepared for your **${data.appointmentType}** on **${data.scheduledDate}** at **${data.scheduledTime}**.`
                 : `They'll reach out to you shortly at **${data.leadPhone}**.`),
               ['View More Properties', 'Show Projects']
